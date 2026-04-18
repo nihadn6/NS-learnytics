@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}My Classes - NS Learnytics{% endblock %}
+{% block content %}
+<div class="header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2 style="margin: 0;">My Classes</h2>
+    <button class="btn" onclick="document.getElementById('createClassModal').style.display='block'">+ Create
+        Class</button>
+</div>
+
+<div class="grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    {% for class in classes %}
+    <div class="card">
+        <h3 style="margin-top:0;">{{ class.subject }}</h3>
+        <p style="margin:5px 0;"><strong>Schedule:</strong> {{ class.schedule }}</p>
+        <p style="margin:5px 0;"><strong>Fee:</strong> LKR {{ class.fee }}</p>
+        <p style="margin:5px 0;"><strong>Join Code:</strong> <span
+                style="background:#eee; padding:2px 5px; border-radius:3px;">{{ class.join_code }}</span></p>
+
+        <div style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px;">
+                <a href="{{ url_for('enrollment.view_students', class_id=class.id) }}" class="btn"
+                    style="text-decoration:none; text-align:center; flex:1; background:#10b981;">Students</a>
+                <a href="{{ url_for('performance.add_marks') }}?class_id={{ class.id }}" class="btn"
+                    style="text-decoration:none; text-align:center; flex:1; background:#f59e0b;">Record Marks</a>
+                <form action="{{ url_for('classes.delete_class', class_id=class.id) }}" method="POST"
+                    style="margin:0; flex:1;" onsubmit="return confirm('Are you sure you want to delete this class?');">
+                    <button type="submit" class="btn" style="background:#ef4444; width:100%;">Delete</button>
+                </form>
+            </div>
+            <button onclick="finalizeAttendance('{{ class.id }}', this)" class="btn"
+                style="background:#8b5cf6;">Finalize Today's Attendance</button>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="grid-column: 1 / -1; text-align:center; padding: 40px;">
+        <p>You haven't created any classes yet. Click "+ Create Class" to get started.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function finalizeAttendance(classId, btn) {
+        if (!confirm("Are you sure you want to finalize attendance for today? This will mark all students who haven't scanned in as Absent.")) return;
+
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        fetch('{{ url_for("attendance.finalize_attendance") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ class_id: classId })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    btn.style.background = "#10b981";
+                    btn.innerText = "Finalized ✅";
+                } else {
+                    alert("Error: " + data.error);
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            })
+            .catch(err => {
+                alert("Network error occurred.");
+                btn.disabled = false;
+                btn.innerText = originalText;
+            });
+    }
+</script>
+
+<!-- Modal for Create Class -->
+<div id="createClassModal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+    <div class="card" style="max-width:400px; margin: 100px auto; position:relative;">
+        <span
+            style="position:absolute; right:15px; top:10px; cursor:pointer; font-size:24px; font-weight:bold; color:#777;"
+            onclick="document.getElementById('createClassModal').style.display='none'">&times;</span>
+        <h3 style="margin-top:0;">Create New Class</h3>
+        <form action="{{ url_for('classes.create_class') }}" method="POST"
+            style="display:flex; flex-direction:column; gap:15px;">
+            <div>
+                <label style="display:block; margin-bottom:5px;">Subject</label>
+                <input type="text" name="subject" required
+                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px;">Schedule (e.g., Sat 9 AM)</label>
+                <input type="text" name="schedule" required
+                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px;">Monthly Fee</label>
+                <input type="number" step="0.01" name="fee" required
+                    style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+            </div>
+            <button type="submit" class="btn">Create Class</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

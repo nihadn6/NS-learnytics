@@ -1,0 +1,5 @@
+Flask
+pymysql
+Faker
+qrcode
+Pillow

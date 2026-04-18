@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Income Report - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="margin-top: 20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2 style="margin:0;">Tutoring Fee Income Report</h2>
+        <div
+            style="background:#10b981; color:white; padding:10px 20px; border-radius:8px; font-weight:700; font-size:1.2rem;">
+            Total: LKR {{ "{:,.2f}".format(total_income) }}
+        </div>
+    </div>
+    <p style="color:#64748b; margin-bottom:30px;">Track revenue generated from student tuition fees for your classes.
+    </p>
+
+    <!-- Filter Section -->
+    <form action="{{ url_for('finance.income_report') }}" method="GET"
+        style="background:#f8fafc; padding:20px; border-radius:8px; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; margin-bottom:40px; border:1px solid #e2e8f0;">
+        {% if teachers %}
+        <div style="flex:1; min-width:200px;">
+            <label style="display:block; margin-bottom:5px; font-weight:600;">Teacher</label>
+            <select name="teacher_id" style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+                <option value="">-- Select Teacher --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}" {% if selected_teacher==t.id %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div style="flex:1; min-width:150px;">
+            <label style="display:block; margin-bottom:5px; font-weight:600;">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}"
+                style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+        </div>
+
+        <div style="flex:1; min-width:150px;">
+            <label style="display:block; margin-bottom:5px; font-weight:600;">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}"
+                style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+        </div>
+
+        <button type="submit" class="btn" style="padding:10px 25px; background:#10b981;">Update Report</button>
+    </form>
+
+    <div
+        style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:30px; margin-bottom:40px;">
+        <!-- Subject Summary -->
+        <div class="card" style="border:1px solid #e2e8f0; box-shadow:none;">
+            <h3 style="margin-top:0; color:#0f172a; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">By Subject
+            </h3>
+            <table style="width:100%; border-collapse:collapse;">
+                {% for s in class_summaries %}
+                <tr style="border-bottom:1px solid #f8fafc;">
+                    <td style="padding:10px 0; font-weight:500;">{{ s.subject }}</td>
+                    <td style="padding:10px 0; text-align:right; color:#10b981; font-weight:600;">LKR {{
+                        "{:,.2f}".format(s.total) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" style="padding:20px; text-align:center; color:#64748b;">No data found.</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="card" style="border:1px solid #e2e8f0; box-shadow:none; background:#ecfdf5;">
+            <h3 style="margin-top:0; color:#065f46;">Quick Stats</h3>
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <div>
+                    <div style="font-size:0.85rem; color:#065f46; text-transform:uppercase; font-weight:700;">
+                        Collections count</div>
+                    <div style="font-size:1.5rem; font-weight:700; color:#047857;">{{ payments|length }} Payments</div>
+                </div>
+                <div>
+                    <div style="font-size:0.85rem; color:#065f46; text-transform:uppercase; font-weight:700;">Avg. Per
+                        student</div>
+                    <div style="font-size:1.5rem; font-weight:700; color:#047857;">
+                        LKR {{ "{:,.2f}".format(total_income / (payments|length or 1)) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Transactions -->
+    <h3 style="margin-bottom:20px;">Detailed Transaction History</h3>
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:800px;">
+            <thead style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+                <tr>
+                    <th style="padding:15px; text-align:left;">Date</th>
+                    <th style="padding:15px; text-align:left;">Student</th>
+                    <th style="padding:15px; text-align:left;">Subject</th>
+                    <th style="padding:15px; text-align:left;">Period</th>
+                    <th style="padding:15px; text-align:right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:12px 15px; color:#64748b;">{{ p.payment_date }}</td>
+                    <td style="padding:12px 15px; font-weight:500;">{{ p.student_name }}</td>
+                    <td style="padding:12px 15px;">{{ p.subject }}</td>
+                    <td style="padding:12px 15px;"><span
+                            style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.8rem;">{{
+                            p.period }}</span></td>
+                    <td style="padding:12px 15px; text-align:right; font-weight:600; color:#10b981;">LKR {{
+                        "{:,.2f}".format(p.amount) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="padding:40px; text-align:center; color:#64748b;">No tutoring fees recorded in
+                        this period.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

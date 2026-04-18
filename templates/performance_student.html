@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}My Performance - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="margin-top: 20px;">
+    <h2>My Marks</h2>
+    {% if marks %}
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <tr style="border-bottom:2px solid #eee; text-align:left;">
+                <th style="padding:10px;">Date</th>
+                <th style="padding:10px;">Subject</th>
+                <th style="padding:10px;">Assessment</th>
+                <th style="padding:10px;">Score</th>
+                <th style="padding:10px;">Percentage</th>
+            </tr>
+            {% for m in marks %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:10px;">{{ m.date_recorded }}</td>
+                <td style="padding:10px; font-weight:500;">{{ m.subject }}</td>
+                <td style="padding:10px;">{{ m.test_name }}</td>
+                <td style="padding:10px;">{{ m.marks_obtained }} / {{ m.max_marks }}</td>
+                <td
+                    style="padding:10px; font-weight:bold; color: {% if (m.marks_obtained / m.max_marks) >= 0.75 %}#10b981{% elif (m.marks_obtained / m.max_marks) >= 0.5 %}#f59e0b{% else %}#ef4444{% endif %};">
+                    {{ "%.1f"|format((m.marks_obtained / m.max_marks) * 100) }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% else %}
+    <p>No marks recorded yet. Your teacher will add them here.</p>
+    {% endif %}
+</div>
+{% endblock %}

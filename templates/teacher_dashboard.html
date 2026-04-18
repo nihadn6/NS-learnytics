@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}Teacher Dashboard - NS Learnytics{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        text-align: center;
+        flex: 1;
+        min-width: 150px;
+    }
+
+    .stat-box h3 {
+        margin: 0;
+        color: #64748b;
+        font-size: 14px;
+        text-transform: uppercase;
+    }
+
+    .stat-box .value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #0f172a;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+    <h2 style="margin:0;">Teacher Dashboard</h2>
+</div>
+
+<!-- Categorized Action Grid -->
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-bottom: 30px;">
+
+    <!-- Section 1: Classroom Operations -->
+    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #3b82f6;">
+        <h3 style="margin-top:0; color:#3b82f6;">Classroom Operations</h3>
+        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Manage your instructional schedule and track
+            student attendance history.</p>
+        <div style="display:flex; gap:10px;">
+            <a href="{{ url_for('classes.view_classes') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#3b82f6;">Manage Classes</a>
+            <a href="{{ url_for('attendance.attendance_report') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#8b5cf6;">Attendance</a>
+        </div>
+    </div>
+
+    <!-- Section 2: Academic Records -->
+    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #f59e0b;">
+        <h3 style="margin-top:0; color:#f59e0b;">Academic Records</h3>
+        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Input examination results and review
+            comprehensive student performance reports.</p>
+        <div style="display:flex; gap:10px;">
+            <a href="{{ url_for('performance.add_marks') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#f59e0b;">Record Marks</a>
+            <a href="{{ url_for('performance.performance_report') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#0ea5e9;">View Reports</a>
+        </div>
+    </div>
+
+    <!-- Section 3: Financial Management -->
+    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #10b981;">
+        <h3 style="margin-top:0; color:#10b981;">Financial Management</h3>
+        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Record physical tuition fee payments and monitor
+            your monthly income trends.</p>
+        <div style="display:flex; gap:10px;">
+            <a href="{{ url_for('finance.manual_payment') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#10b981;">Collect Fee</a>
+            <a href="{{ url_for('finance.income_report') }}" class="btn"
+                style="flex:1; text-decoration:none; background:#059669;">Revenue Doc</a>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Key Metrics -->
+<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:30px;">
+    <div class="stat-box">
+        <h3>Total Students</h3>
+        <div class="value">{{ total_students }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Active Classes</h3>
+        <div class="value">{{ total_classes }}</div>
+    </div>
+    <div class="stat-box">
+        <h3>Net Income (This Month)</h3>
+        <div class="value" style="color: #10b981;">LKR {{ "{:,.2f}".format(net_income) }}</div>
+    </div>
+</div>
+
+<!-- Insights & At-Risk -->
+<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:30px;">
+    <div class="card" style="flex:2; min-width:300px;">
+        <h3>AI Insights Generator 🤖</h3>
+        <ul style="background:#fef3c7; padding:15px 30px; border-radius:4px; color:#92400e;">
+            {% for i in insights %}
+            <li style="margin-bottom:10px;">{{ i }}</li>
+            {% else %}
+            <li>Everything looks stable! No critical insights at the moment.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="card" style="flex:1; min-width:250px; border-left:4px solid #ef4444;">
+        <h3 style="color:#ef4444; margin-top:0;">Early Warning System (At-Risk)</h3>
+        {% if at_risk_students %}
+        <ul style="padding-left:20px;">
+            {% for s in at_risk_students %}
+            <li><strong>{{ s.name }}</strong>: {{ s.reason }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color:#10b981;">No students at risk currently.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Charts -->
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap:20px;">
+    <div class="card">
+        <h3>Performance Trends</h3>
+        <canvas id="perfChart"></canvas>
+    </div>
+    <div class="card">
+        <h3>Revenue per Class</h3>
+        <canvas id="revChart"></canvas>
+    </div>
+    <div class="card">
+        <h3>Student Segmentation</h3>
+        <canvas id="segChart"></canvas>
+    </div>
+</div>
+
+<script>
+    new Chart(document.getElementById('perfChart'), {
+        type: 'line',
+        data: {
+            labels: {{ perf_labels | safe }},
+        datasets: [{
+            label: 'Average Score (%)',
+            data: {{ perf_data | safe }},
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.3
+            }]
+        },
+        options: { scales: { y: { min: 0, max: 100 } } }
+    });
+
+    new Chart(document.getElementById('revChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ rev_labels | safe }},
+        datasets: [{
+            label: 'Revenue (LKR)',
+            data: {{ rev_data | safe }},
+        backgroundColor: '#10b981'
+            }]
+        }
+    });
+
+    new Chart(document.getElementById('segChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['High Performers (≥75%)', 'Average (50-74%)', 'At-Risk (<50%)'],
+            datasets: [{
+                data: [{{ segmentation.high }}, {{ segmentation.avg }}, {{ segmentation.risk }}],
+        backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+            }]
+        }
+    });
+</script>
+{% endblock %}

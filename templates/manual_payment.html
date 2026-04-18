@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Record Payment - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="max-width:700px; margin:20px auto;">
+    <h2>Record Payment</h2>
+    <form action="{{ url_for('finance.manual_payment') }}" method="POST"
+        style="display:flex; flex-direction:column; gap:12px;">
+
+        {% if session.role in ['superadmin', 'moderator'] %}
+        <div>
+            <label style="display:block; margin-bottom:5px;">Instructor (Teacher)</label>
+            <select id="teacherSelect" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <option value="">-- All Teachers --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div>
+            <label style="display:block; margin-bottom:5px;">Class</label>
+            <select name="class_id" id="classSelect" required
+                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <option value="">-- Select Class --</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom:5px;">Student Enrolled</label>
+            <select name="student_id" id="studentSelect" required
+                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <option value="">-- Select Class First --</option>
+            </select>
+        </div>
+
+        <div>
+            <label style="display:block; margin-bottom:5px;">Date</label>
+            <input type="date" name="payment_date" required
+                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" />
+        </div>
+        <div>
+            <label style="display:block; margin-bottom:5px;">Period / Description</label>
+            <input type="text" name="period" placeholder="e.g., 2026-04" required
+                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" />
+        </div>
+        <button type="submit" class="btn">Submit Automatic Payment</button>
+    </form>
+</div>
+
+<script>
+    const enrollments = {{ enrollments | tojson }};
+    const role = "{{ session.role }}";
+
+    const teacherSelect = document.getElementById('teacherSelect');
+    const classSelect = document.getElementById('classSelect');
+    const studentSelect = document.getElementById('studentSelect');
+
+    // Store all existing classes to recreate later
+    const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
+
+    // Step 1: Teacher Select Filters Classes
+    if (teacherSelect) {
+        teacherSelect.addEventListener('change', function () {
+            const selectedTeacher = this.value;
+            classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+            studentSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+
+            allClassOptions.forEach(opt => {
+                if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
+                    classSelect.appendChild(opt.cloneNode(true));
+                }
+            });
+        });
+    }
+
+    // Step 2: Class Select Filters Students dynamically from enrollments JSON
+    classSelect.addEventListener('change', function () {
+        const selectedClass = this.value;
+        studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
+
+        if (!selectedClass) return;
+
+        const enrolledStudents = enrollments.filter(e => e.class_id == selectedClass);
+        enrolledStudents.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.student_id;
+            option.textContent = s.name;
+            studentSelect.appendChild(option);
+        });
+    });
+
+    // Auto-trigger class events if single mode (teacher view)
+    if (role === 'teacher') {
+        classSelect.dispatchEvent(new Event('change'));
+    }
+</script>
+{% endblock %}

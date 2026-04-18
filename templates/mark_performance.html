@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Add Marks - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="margin-top: 20px;">
+    <h2>Unified Marks Entry System</h2>
+    <p style="color:#64748b; margin-bottom:20px;">Select a class to load the student roster for grading.</p>
+
+    <form id="marksForm" action="{{ url_for('performance.add_marks') }}" method="POST">
+        <div
+            style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:20px; background:#f8fafc; padding:20px; border-radius:8px;">
+
+            {% if teachers %}
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600;">Instructor (Teacher)</label>
+                <select id="teacherSelect"
+                    style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+                    <option value="">-- Select Teacher --</option>
+                    {% for t in teachers %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600;">Subject / Class</label>
+                <select id="classSelect" name="class_id" required
+                    style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+                    <option value="">-- {% if teachers %}Choose Teacher First{% else %}Select Class{% endif %} --
+                    </option>
+                    {% for c in classes %}
+                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600;">Assessment Name</label>
+                <input type="text" name="test_name" placeholder="e.g. Midterm 2024" required
+                    style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600;">Max Marks</label>
+                <input type="number" name="max_marks" value="100" required
+                    style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:600;">Date of Exam</label>
+                <input type="date" name="date_recorded" required
+                    style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:4px;">
+            </div>
+        </div>
+
+        <div id="studentListContainer" style="display:none; margin-top:20px;">
+            <h3 style="border-bottom:2px solid #e2e8f0; padding-bottom:10px;">Student Roster</h3>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+                    <thead>
+                        <tr style="background:#f1f5f9; text-align:left;">
+                            <th style="padding:15px; border-bottom:1px solid #e2e8f0;">Student Name</th>
+                            <th style="padding:15px; border-bottom:1px solid #e2e8f0;">Marks Obtained</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentTableBody">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit" class="btn" style="padding:12px 30px; font-size:1rem; background:#4f46e5;">Submit
+                Grades</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const teacherSelect = document.getElementById('teacherSelect');
+    const classSelect = document.getElementById('classSelect');
+    const studentListContainer = document.getElementById('studentListContainer');
+    const studentTableBody = document.getElementById('studentTableBody');
+    const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
+
+    if (teacherSelect) {
+        teacherSelect.addEventListener('change', function () {
+            const selectedTeacher = this.value;
+            classSelect.innerHTML = '<option value="">-- Choose Subject --</option>';
+            allClassOptions.forEach(opt => {
+                if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
+                    classSelect.appendChild(opt.cloneNode(true));
+                }
+            });
+            studentListContainer.style.display = 'none';
+        });
+    }
+
+    classSelect.addEventListener('change', function () {
+        const classId = this.value;
+        if (!classId) {
+            studentListContainer.style.display = 'none';
+            return;
+        }
+
+        fetch(`/api/classes/${classId}/students`)
+            .then(res => res.json())
+            .then(data => {
+                studentTableBody.innerHTML = '';
+                if (data.students && data.students.length > 0) {
+                    data.students.forEach(s => {
+                        const row = `
+                            <tr style="border-bottom:1px solid #f1f5f9;">
+                                <td style="padding:12px; font-weight:500;">${s.name}</td>
+                                <td style="padding:12px;">
+                                    <input type="number" step="0.01" name="marks_${s.id}" 
+                                           placeholder="Exam result"
+                                           style="width:120px; padding:8px; border:1px solid #cbd5e1; border-radius:4px;">
+                                </td>
+                            </tr>
+                        `;
+                        studentTableBody.insertAdjacentHTML('beforeend', row);
+                    });
+                    studentListContainer.style.display = 'block';
+                } else {
+                    studentTableBody.innerHTML = '<tr><td colspan="2" style="padding:20px; text-align:center; color:#64748b;">No students enrolled in this class.</td></tr>';
+                    studentListContainer.style.display = 'block';
+                }
+            });
+    });
+</script>
+{% endblock %}

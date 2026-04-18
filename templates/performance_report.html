@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Performance Report - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="margin-top: 20px;">
+    <h2>Academic Performance Report</h2>
+    <p style="color:#64748b; margin-bottom:20px;">View and analyze student examination results across all assessments.
+    </p>
+
+    <!-- Filter Section -->
+    <form action="{{ url_for('performance.performance_report') }}" method="GET"
+        style="background:#f8fafc; padding:20px; border-radius:8px; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; margin-bottom:30px;">
+        {% if teachers %}
+        <div style="flex:1; min-width:200px;">
+            <label style="display:block; margin-bottom:5px; font-weight:600;">Teacher</label>
+            <select id="teacherFilter" style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+                <option value="">-- All Teachers --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div style="flex:1; min-width:200px;">
+            <label style="display:block; margin-bottom:5px; font-weight:600;">Subject / Class</label>
+            <select id="classFilter" name="class_id" required
+                style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+                <option value="">-- Select Class --</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if selected_class==c.id %}selected{%
+                    endif %}>{{ c.subject }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn" style="padding:10px 25px; background:#4f46e5;">Generate Report</button>
+    </form>
+
+    {% if class_info %}
+    <div style="margin-top:20px;">
+        <h3 style="border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:20px;">Grade Sheet for: {{
+            class_info.subject }}</h3>
+
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; background:white;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="padding:15px; border:1px solid #e2e8f0; text-align:left;">Student Name</th>
+                        {% for col in test_columns %}
+                        <th style="padding:15px; border:1px solid #e2e8f0; text-align:center; min-width:120px;">{{ col
+                            }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600;">{{ student.name }}</td>
+                        {% for col in test_columns %}
+                        <td style="padding:12px; border:1px solid #e2e8f0; text-align:center;">
+                            {{ marks_map.get(student.id, {}).get(col, '-') }}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% elif selected_class %}
+    <div style="text-align:center; padding:40px; color:#64748b;">
+        <p>No performance records found for this class.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    const teacherFilter = document.getElementById('teacherFilter');
+    const classFilter = document.getElementById('classFilter');
+    const allClassOptions = Array.from(classFilter.querySelectorAll('option[data-teacher]'));
+
+    if (teacherFilter) {
+        teacherFilter.addEventListener('change', function () {
+            const selectedTeacher = this.value;
+            classFilter.innerHTML = '<option value="">-- Select Class --</option>';
+            allClassOptions.forEach(opt => {
+                if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
+                    classFilter.appendChild(opt.cloneNode(true));
+                }
+            });
+        });
+    }
+</script>
+{% endblock %}

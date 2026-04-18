@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="A modern and beautiful Flappy Bird clone.">
+    <title>Flappy Bird Clone</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <!-- Game Canvas -->
+        <canvas id="game-canvas" width="400" height="600"></canvas>
+
+        <!-- UI Overlays -->
+        <div id="ui-layer">
+            <!-- Start Screen -->
+            <div id="start-screen" class="screen active">
+                <h1 class="title-text glow">FLAPPY BIRD</h1>
+                <p class="subtitle heartbeat">Tap, Click, or Space to Start</p>
+                <div class="instructions">
+                    <p>Controls:</p>
+                    <p>Spacebar / Click / Tap to Jump</p>
+                </div>
+            </div>
+
+            <!-- Score Display -->
+            <div id="score-display" class="hidden">
+                <span id="current-score">0</span>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="game-over-screen" class="screen hidden">
+                <h1 class="game-over-text">GAME OVER</h1>
+                <div class="score-card">
+                    <div class="score-row">
+                        <span>SCORE</span>
+                        <span id="final-score">0</span>
+                    </div>
+                    <div class="score-row">
+                        <span>BEST</span>
+                        <span id="best-score">0</span>
+                    </div>
+                </div>
+                <button id="restart-btn" class="bounce-in">PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

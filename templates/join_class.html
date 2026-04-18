@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Join Class - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 50px auto;">
+    <h2 style="margin-top: 0; text-align: center;">Join a Class</h2>
+
+    {% if error %}
+    <p style="color: #ef4444; background: #fee2e2; padding: 10px; border-radius: 4px; text-align: center;">{{ error }}
+    </p>
+    {% endif %}
+
+    <form action="{{ url_for('enrollment.join_class') }}" method="POST"
+        style="display:flex; flex-direction:column; gap:15px; margin-top: 20px;">
+        <div>
+            <label style="display:block; margin-bottom:5px;">Class Join Code</label>
+            <input type="text" name="join_code" placeholder="e.g. A1B2C3D4" required
+                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; font-size:16px; text-align:center; letter-spacing: 2px;">
+            <small style="color:#666; display:block; margin-top:5px; text-align:center;">Enter the code provided by your
+                teacher.</small>
+        </div>
+        <button type="submit" class="btn" style="margin-top: 10px;">Join Class</button>
+    </form>
+
+    <div style="text-align:center; margin-top:15px;">
+        <a href="{{ url_for('classes.view_classes') }}" style="color:#3b82f6; text-decoration:none;">Cancel</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% block title %}Scan Attendance - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="max-width:700px; margin:20px auto; text-align:center;">
+  <h2>Rapid Attendance Hub</h2>
+
+  <div style="display:flex; flex-direction:column; gap:12px; align-items:start; text-align:left; margin-bottom:20px;">
+    <div style="width:100%;">
+      <label style="display:block; margin-bottom:5px; font-weight:600;">Instructor (Teacher)</label>
+      <select id="teacherSelect" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+        <option value="">-- Select Teacher --</option>
+        {% for t in teachers %}
+        <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="width:100%;">
+      <label style="display:block; margin-bottom:5px; font-weight:600;">Target Class</label>
+      <select id="classSelect" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+        <option value="">-- Select Class --</option>
+        {% for c in classes %}
+        <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Scanner Control Box -->
+  <div style="background:#f8fafc; padding:20px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom: 20px;">
+    <h3 style="margin-top:0;">QR Scanner</h3>
+    <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Target a physical student ID card to auto-mark class
+      attendance.</p>
+    <button id="startBtn" class="btn" style="background:#3b82f6;">Start Camera</button>
+    <button id="stopBtn" class="btn" disabled style="background:#ef4444;">Stop Camera</button>
+
+    <div id="reader" style="width:100%; max-width:500px; margin: 15px auto 0; overflow: hidden; border-radius:8px;">
+    </div>
+  </div>
+
+  <!-- Unified Status Bar -->
+  <div id="result"
+    style="margin-bottom:20px; font-weight:600; font-size:1.1rem; min-height:40px; padding:10px; background:#f1f5f9; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+    Ready.</div>
+
+  <div
+    style="background:#fef2f2; padding:20px; border-radius:8px; border:1px solid #fecaca; margin-bottom:20px; text-align:center;">
+    <h3 style="margin-top:0; color:#b91c1c;">Finalize Class Operations</h3>
+    <p style="font-size:0.9rem; color:#ef4444; margin-bottom:15px;">When the physical class formally concludes, click
+      this explicit button to immediately execute a backend synchronization that flags any explicitly missing student
+      who failed to formally scan securely inside today strictly as <b>Absent</b> dynamically.</p>
+    <button id="finalizeBtn" class="btn" style="background:#ef4444; width:100%; max-width: 400px;"
+      onclick="finalizeAttendance()">Finalize Missing Student Absences</button>
+    <div id="finalizeResult" style="margin-top:10px; font-weight:500;"></div>
+  </div>
+
+  <hr style="margin:30px 0; border:none; border-top:1px solid #eee;" />
+
+  <!-- Manual Selection Fallback Box -->
+  <div style="background:#fffbeb; padding:20px; border-radius:8px; border:1px solid #fde68a; text-align:left;">
+    <h3 style="margin-top:0; color:#d97706;">Manual Override</h3>
+    <p style="color:#b45309; font-size:0.9rem; margin-bottom:15px;">If the QR camera is rejecting the environment or a
+      student physically lost their card, explicitly select them from the roster below to force verification.</p>
+
+    <label style="display:block; margin-bottom:5px; font-weight:600; color:#92400e;">Student Enrolled</label>
+    <div style="display:flex; gap:10px;">
+      <select id="studentSelect"
+        style="flex:1; padding:8px; border:1px solid #fcd34d; border-radius:4px; background:#fff;">
+        <option value="">-- Select Class First --</option>
+      </select>
+      <button id="manualMarkBtn" class="btn" style="background:#f59e0b;">Mark Student Directly</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // System Data Injection
+  const enrollments = {{ enrollments | tojson }};
+
+  // DOM Attachments
+  const teacherSelect = document.getElementById('teacherSelect');
+  const classSelect = document.getElementById('classSelect');
+  const studentSelect = document.getElementById('studentSelect');
+  const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
+
+  // Step 1: Teacher Cascades Class
+  teacherSelect.addEventListener('change', function () {
+    const selectedTeacher = this.value;
+    classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+    studentSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+    allClassOptions.forEach(opt => {
+      if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
+        classSelect.appendChild(opt.cloneNode(true));
+      }
+    });
+  });
+
+  // Step 2: Class Cascades Student Dropdown
+  classSelect.addEventListener('change', function () {
+    const selectedClass = this.value;
+    studentSelect.innerHTML = '<option value="">-- Select Specific Student --</option>';
+    if (!selectedClass) return;
+
+    const enrolledStudents = enrollments.filter(e => e.class_id == selectedClass);
+    enrolledStudents.forEach(s => {
+      const option = document.createElement('option');
+      option.value = s.student_id;
+      option.textContent = s.name;
+      studentSelect.appendChild(option);
+    });
+  });
+
+  // Submitter Wrapper
+  function submitAttendance(payload) {
+    if (!payload.class_id) {
+      alert("No Class selected!");
+      return;
+    }
+
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = '<span style="color:#f59e0b;">Transmitting data to server...</span>';
+
+    fetch('/attendance/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(r => r.json()).then(j => {
+      if (j.success) {
+        resultDiv.innerHTML = `<span style="color:#10b981;">Verified: ${j.student.name} marked present!</span>`;
+      } else {
+        resultDiv.innerHTML = `<span style="color:#ef4444;">Error: ${j.error}</span>`;
+      }
+      if (html5QrcodeScanner) {
+        try { html5QrcodeScanner.resume(); } catch (e) { }
+      }
+    }).catch(err => {
+      resultDiv.innerText = 'Network extraction error!';
+      if (html5QrcodeScanner) {
+        try { html5QrcodeScanner.resume(); } catch (e) { }
+      }
+    });
+  }
+
+  // Explicit Override Trigger
+  document.getElementById('manualMarkBtn').addEventListener('click', function () {
+    const studentId = studentSelect.value;
+    const classId = classSelect.value;
+    if (!classId || !studentId) {
+      alert("Ensure both a Class and a Student are explicitly targeted.");
+      return;
+    }
+    submitAttendance({ student_id: studentId, class_id: classId });
+  });
+
+  // Scanner logic
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const resultDiv = document.getElementById('result');
+
+  let html5QrcodeScanner = null;
+  let lastScannedToken = null;
+
+  async function ensureHtml5Qrcode() {
+    if (typeof Html5Qrcode !== 'undefined') return;
+    const tryLoad = (src) => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed load'));
+      document.head.appendChild(s);
+    });
+
+    const localPaths = [
+      '/static/js/html5-qrcode.min.js',
+      '/static/js/html5-qrcode.js'
+    ];
+    const cdn = 'https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js';
+
+    for (const p of localPaths) {
+      try {
+        await tryLoad(p);
+        if (typeof Html5Qrcode !== 'undefined') return;
+      } catch (e) { }
+    }
+    try {
+      await tryLoad(cdn);
+    } catch (e) {
+      throw new Error('CDN logic broken');
+    }
+  }
+
+  async function startScanner() {
+    if (!classSelect.value) {
+      alert("Please inherently select a target Class before bridging the camera.");
+      return;
+    }
+
+    try {
+      await ensureHtml5Qrcode();
+    } catch (err) {
+      resultDiv.innerText = 'Unable to fetch secure camera libraries.';
+      return;
+    }
+
+    resultDiv.innerText = 'Requesting active secure camera channel...';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      resultDiv.innerText = 'Camera securely disconnected. Use the Manual Override module below.';
+      return;
+    }
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    resultDiv.innerText = 'Camera Initialized. Aim at physical token.';
+
+    try {
+      if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+      }
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) return;
+
+      const cameraParam = cameras[0].id || cameras[0].deviceId || { facingMode: 'environment' };
+
+      await html5QrcodeScanner.start(
+        cameraParam,
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          if (qrCodeMessage === lastScannedToken) return;
+          lastScannedToken = qrCodeMessage;
+          html5QrcodeScanner.pause();
+          submitAttendance({ token: qrCodeMessage, class_id: classSelect.value });
+        },
+        errorMessage => { /* Silently suppress continuous frame errors */ }
+      );
+    } catch (err) {
+      resultDiv.innerText = 'Camera mount dropped.';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  }
+
+  async function stopScanner() {
+    if (!html5QrcodeScanner) return;
+    try {
+      await html5QrcodeScanner.stop();
+      html5QrcodeScanner.clear();
+      html5QrcodeScanner = null;
+      resultDiv.innerText = 'Camera intentionally unmounted.';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    } catch (err) { }
+  }
+
+  async function finalizeAttendance() {
+    if (!classSelect.value) {
+      alert("Please explicitly target an exclusive Class before broadcasting finalization logic loops.");
+      return;
+    }
+    if (!confirm("Are you structurally absolutely certain you want to forcefully flag all inherently missing students inside the database explicitly as conclusively Absent today?")) return;
+
+    const finalizeResult = document.getElementById('finalizeResult');
+    finalizeResult.style.color = '#f59e0b';
+    finalizeResult.innerText = "Processing explicit structural extraction matrix...";
+
+    try {
+      const r = await fetch('/attendance/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: classSelect.value })
+      });
+      const j = await r.json();
+      if (j.success) {
+        finalizeResult.style.color = '#10b981';
+        finalizeResult.innerText = j.message;
+      } else {
+        finalizeResult.style.color = '#b91c1c';
+        finalizeResult.innerText = j.error || j.message;
+      }
+    } catch (err) {
+      finalizeResult.style.color = '#b91c1c';
+      finalizeResult.innerText = "Network execution error disrupting external payload transmission.";
+    }
+  }
+
+  startBtn.onclick = startScanner;
+  stopBtn.onclick = stopScanner;
+</script>
+{% endblock %}

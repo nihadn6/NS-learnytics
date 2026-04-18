@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}My Enrolled Classes - NS Learnytics{% endblock %}
+{% block content %}
+<div class="header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <h2 style="margin: 0;">My Enrolled Classes</h2>
+    <a href="{{ url_for('enrollment.join_class') }}" class="btn" style="text-decoration:none;">+ Join Class</a>
+</div>
+
+<div class="grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    {% for class in classes %}
+    <div class="card">
+        <h3 style="margin-top:0;">{{ class.subject }}</h3>
+        <p style="margin:5px 0;"><strong>Teacher:</strong> {{ class.teacher_name }}</p>
+        <p style="margin:5px 0;"><strong>Schedule:</strong> {{ class.schedule }}</p>
+        <p style="margin:5px 0;"><strong>Fee:</strong> LKR {{ class.fee }}</p>
+        <p style="margin-top:15px;"><small style="color:#666;">Enrolled on: {{ class.joined_at }}</small></p>
+    </div>
+    {% else %}
+    <div class="card" style="grid-column: 1 / -1; text-align:center; padding: 40px;">
+        <p>You haven't joined any classes yet. Click "+ Join Class" to enter a class code.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

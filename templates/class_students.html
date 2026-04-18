@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Students: {{ class_subject }} - NS Learnytics{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;">
+    <a href="{{ url_for('classes.view_classes') }}"
+        style="text-decoration:none; color:#3b82f6; font-weight: 500;">&larr; Back to My Classes</a>
+    <h2 style="margin-top:15px;">Students Enrolled in <span style="color:#3b82f6;">{{ class_subject }}</span></h2>
+</div>
+
+<div class="card" style="overflow-x: auto;">
+    {% if students %}
+    <table style="width:100%; border-collapse:collapse; min-width: 600px;">
+        <thead>
+            <tr style="border-bottom:2px solid #e2e8f0; text-align:left; background-color: #f8fafc;">
+                <th style="padding:15px;">Name</th>
+                <th style="padding:15px;">Email</th>
+                <th style="padding:15px;">Grade</th>
+                <th style="padding:15px;">Joined At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:15px; font-weight: 500;">{{ s.name }}</td>
+                <td style="padding:15px; color:#64748b;">{{ s.email }}</td>
+                <td style="padding:15px;">{{ s.grade }}</td>
+                <td style="padding:15px; color:#64748b;">{{ s.joined_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center; padding: 40px; color:#64748b;">
+        <p>No students have enrolled in this class yet.</p>
+        <p>Share your join code to invite students!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

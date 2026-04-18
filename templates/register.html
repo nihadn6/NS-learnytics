@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Register - NS Learnytics{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 50px auto;">
+    <h2 style="text-align: center; margin-top: 0;">Register</h2>
+    {% if error %}
+    <p style="color: red; text-align: center;">{{ error }}</p>
+    {% endif %}
+    <form action="{{ url_for('auth.register') }}" method="POST"
+        style="display: flex; flex-direction: column; gap: 15px;">
+        <div>
+            <label for="name" style="display:block; margin-bottom: 5px;">Full Name</label>
+            <input type="text" name="name" id="name" required
+                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <div>
+            <label for="email" style="display:block; margin-bottom: 5px;">Email</label>
+            <input type="email" name="email" id="email" required
+                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <div>
+            <label for="password" style="display:block; margin-bottom: 5px;">Password</label>
+            <input type="password" name="password" id="password" required
+                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <!-- Role is omitted: self-registrations are always students. Admins create teachers/moderators. -->
+        <button type="submit" class="btn" style="margin-top: 10px;">Register</button>
+    </form>
+    <p style="text-align: center; margin-top: 15px;">Already have an account? <a
+            href="{{ url_for('auth.login') }}">Login</a></p>
+</div>
+{% endblock %}

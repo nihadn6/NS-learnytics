@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard - NS Learnytics{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        text-align: center;
+    }
+
+    .stat-box h3 {
+        margin: 0;
+        color: #64748b;
+        font-size: 14px;
+        text-transform: uppercase;
+    }
+
+    .stat-box .value {
+        font-size: 32px;
+        font-weight: bold;
+        color: #0f172a;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+    <h2 style="margin:0;">Student Dashboard</h2>
+    <a href="{{ url_for('classes.view_classes') }}" class="btn" style="text-decoration:none;">My Classes</a>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; margin-bottom:30px;">
+    <div class="stat-box">
+        <h3>Overall Attendance</h3>
+        <div class="value"
+            style="color: {% if attendance_pct >= 75 %}#10b981{% elif attendance_pct >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+            {{ "%.1f"|format(attendance_pct) }}%
+        </div>
+    </div>
+    <div class="stat-box"
+        style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px;">
+        <h3 style="margin-bottom:10px;">Your QR Check-in</h3>
+        {% if qr_code %}
+        <img id="studentQR" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ qr_code }}"
+            alt="Your Attendance QR Code"
+            style="border: 4px solid #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width:120px; height:120px;">
+        <p style="font-size: 10px; color: #64748b; margin-top:5px;">Scan at class to mark present</p>
+        <button onclick="downloadQR()" class="btn"
+            style="font-size: 0.75rem; padding: 5px 10px; margin-top:5px; background: #64748b;">Download QR</button>
+        <script>
+            function downloadQR() {
+                const img = document.getElementById('studentQR');
+                fetch(img.src)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'NS_Learnytics_QR.png';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    });
+            }
+        </script>
+        {% else %}
+        <p style="color:#ef4444; font-size:0.9rem;">QR Code not available.<br>Contact admin.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:30px;">
+    <h3>Performance Timeline</h3>
+    <canvas id="studentPerfChart" style="max-height: 400px;"></canvas>
+</div>
+
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <a href="{{ url_for('performance.view_marks') }}" class="btn"
+        style="text-decoration:none; flex:1; text-align:center; background:#4f46e5;">Detailed Marks Report</a>
+    <a href="{{ url_for('attendance.view_attendance_history') }}" class="btn"
+        style="text-decoration:none; flex:1; text-align:center; background:#0ea5e9;">Attendance History</a>
+    <a href="{{ url_for('finance.student_payments') }}" class="btn"
+        style="text-decoration:none; flex:1; text-align:center; background:#10b981;">Payment Records</a>
+</div>
+
+<script>
+    new Chart(document.getElementById('studentPerfChart'), {
+        type: 'line',
+        data: {
+            labels: {{ perf_labels | safe }},
+        datasets: [{
+            label: 'Exam Score (%)',
+            data: {{ perf_data | safe }},
+        borderColor: '#4f46e5',
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+        pointBackgroundColor: '#4f46e5',
+        pointRadius: 5,
+        fill: true,
+        tension: 0.3
+            }]
+        },
+        options: { scales: { y: { min: 0, max: 100 } }, maintainAspectRatio: false }
+    });
+</script>
+{% endblock %}
