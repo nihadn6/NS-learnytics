@@ -34,5 +34,19 @@ def index():
     # This prevents stale sessions from taking visitors directly to role-specific pages.
     return redirect(url_for('auth.login'))
 
+@app.route('/debug-db')
+def debug_db():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+            cursor.execute("SELECT DATABASE()")
+            db_name = cursor.fetchone()
+        conn.close()
+        return f"Connected to: {db_name}. Tables found: {tables}"
+    except Exception as e:
+        return f"Database Connection Error: {str(e)}"
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
