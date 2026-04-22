@@ -9,7 +9,8 @@ from werkzeug.security import generate_password_hash
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_USER = os.environ.get('DB_USER', 'root')
 DB_PASS = os.environ.get('DB_PASS', '')
-DB_NAME = 'ns_learnytics'
+DB_NAME = os.environ.get('DB_NAME', 'ns_learnytics')
+DB_PORT = int(os.environ.get('DB_PORT', 3306))
 
 def get_connection(db=None):
     return pymysql.connect(
