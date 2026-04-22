@@ -4,10 +4,14 @@ import os
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_USER = os.environ.get('DB_USER', 'root')
 DB_PASS = os.environ.get('DB_PASS', '')
-DB_NAME = 'ns_learnytics'
+DB_NAME = os.environ.get('DB_NAME', 'ns_learnytics')
 
 def get_db_connection():
-    # Use utf8 (not utf8mb4) for compatibility with older MySQL versions
+    # Aiven/Render often require SSL. We check for a DB_SSL_REQUIRED environment variable.
+    ssl_config = None
+    if os.environ.get('DB_SSL_REQUIRED', 'false').lower() == 'true':
+        ssl_config = {'ssl_disabled': False} # Basic SSL enablement
+
     return pymysql.connect(
         host=DB_HOST,
         user=DB_USER,
@@ -15,5 +19,6 @@ def get_db_connection():
         database=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
         charset='utf8',
+        ssl=ssl_config,
         init_command='SET NAMES utf8'
     )

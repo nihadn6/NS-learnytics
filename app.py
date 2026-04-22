@@ -34,5 +34,37 @@ def index():
     # This prevents stale sessions from taking visitors directly to role-specific pages.
     return redirect(url_for('auth.login'))
 
+@app.route('/debug-db')
+def debug_db():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+            cursor.execute("SELECT DATABASE()")
+            db_name = cursor.fetchone()
+        conn.close()
+        return f"Connected to: {db_name}. Tables found: {tables}"
+    except Exception as e:
+        return f"Database Connection Error: {str(e)}"
+
+@app.route('/init-db')
+def web_init_db():
+    try:
+        from init_prod_db import init_db
+        init_db()
+        return "Database Schema Initialized Successfully! <a href='/'>Go to Login</a>"
+    except Exception as e:
+        return f"Error during Init: {str(e)}"
+
+@app.route('/seed-db')
+def web_seed_db():
+    try:
+        from database.seed import seed_data
+        seed_data()
+        return "Database Seeded with test data! <a href='/'>Go to Login</a>"
+    except Exception as e:
+        return f"Error during Seeding: {str(e)}"
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
