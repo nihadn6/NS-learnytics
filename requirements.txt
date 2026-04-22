@@ -3,3 +3,5 @@ pymysql
 Faker
 qrcode
 Pillow
+gunicorn
+cryptography
