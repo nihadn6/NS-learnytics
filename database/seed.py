@@ -14,12 +14,14 @@ DB_PORT = int(os.environ.get('DB_PORT', 3306))
 
 def get_connection(db=None):
     return pymysql.connect(
+        
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASS,
-        database=db,
-        cursorclass=pymysql.cursors.DictCursor,
+        database=DB_NAME,
+        port = DB_PORT,
         autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
         charset='utf8',
         init_command='SET NAMES utf8'
     )
