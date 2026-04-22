@@ -48,5 +48,23 @@ def debug_db():
     except Exception as e:
         return f"Database Connection Error: {str(e)}"
 
+@app.route('/init-db')
+def web_init_db():
+    try:
+        from init_prod_db import init_db
+        init_db()
+        return "Database Schema Initialized Successfully! <a href='/'>Go to Login</a>"
+    except Exception as e:
+        return f"Error during Init: {str(e)}"
+
+@app.route('/seed-db')
+def web_seed_db():
+    try:
+        from database.seed import seed_data
+        seed_data()
+        return "Database Seeded with test data! <a href='/'>Go to Login</a>"
+    except Exception as e:
+        return f"Error during Seeding: {str(e)}"
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
