@@ -5,3 +5,5 @@ qrcode
 Pillow
 gunicorn
 cryptography
+numpy
+scikit-learn
