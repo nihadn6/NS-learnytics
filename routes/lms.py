@@ -6,8 +6,12 @@ import datetime
 
 lms_bp = Blueprint('lms', __name__)
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads', 'lms')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Use /tmp for Vercel (read-only filesystem) or static/uploads locally
+UPLOAD_FOLDER = '/tmp/lms_uploads' if os.environ.get('VERCEL') else os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads', 'lms')
+
+def ensure_upload_folder():
+    """Create upload folder lazily — only when actually needed."""
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Helper function to check allowed extensions
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'ppt', 'pptx', 'zip', 'txt'}
