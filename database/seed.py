@@ -9,18 +9,26 @@ from werkzeug.security import generate_password_hash
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_USER = os.environ.get('DB_USER', 'root')
 DB_PASS = os.environ.get('DB_PASS', '')
-DB_NAME = 'ns_learnytics'
+DB_NAME = os.environ.get('DB_NAME', 'ns_learnytics')
+DB_PORT = int(os.environ.get('DB_PORT', 3306))
 
 def get_connection(db=None):
+    ssl_config = None
+    if os.environ.get('DB_SSL_REQUIRED', 'false').lower() == 'true':
+        ca_path = "/etc/ssl/certs/ca-certificates.crt"
+        ssl_config = {"ca": ca_path} if os.path.exists(ca_path) else {}
+
     return pymysql.connect(
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASS,
-        database=db,
+        database=db or DB_NAME,
+        port=DB_PORT,
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
         charset='utf8',
-        init_command='SET NAMES utf8'
+        ssl=ssl_config,
+        connect_timeout=15
     )
 
 def setup_database():
