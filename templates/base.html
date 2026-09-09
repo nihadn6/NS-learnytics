@@ -5,105 +5,341 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NS Learnytics{% endblock %}</title>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        nav {
-            background-color: #1e293b;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 15px;
-            font-weight: 500;
-        }
-
-        nav a:hover {
-            opacity: 0.8;
-        }
-
-        .card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .btn {
-            padding: 10px 15px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .btn:hover {
-            background: #2563eb;
-        }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block head %}{% endblock %}
 </head>
 
 <body>
-    <nav>
-        <div class="logo" style="font-weight: 700; font-size: 1.2rem;">NS Learnytics</div>
-        <div class="nav-links">
-            {% if session.user_id %}
-            {% if session.role == 'teacher' %}
-            <a href="{{ url_for('analytics.teacher_dashboard') }}">Dashboard</a>
-            {% elif session.role == 'student' %}
-            <a href="{{ url_for('analytics.student_dashboard') }}">Dashboard</a>
-            {% endif %}
-            <a href="{{ url_for('profile.view_profile') }}">Profile</a>
-            {% if session.role == 'superadmin' %}
-            <a href="{{ url_for('admin.dashboard') }}">Admin Dashboard</a>
+    {% if session.user_id %}
+    <!-- LOGGED IN: APP SHELL (SIDEBAR + TOPBAR LAYOUT) -->
+    <div class="app-shell">
+        
+        <!-- Sidebar Backdrop for Mobile -->
+        <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-            {% elif session.role == 'moderator' %}
-            <a href="{{ url_for('analytics.moderator_dashboard') }}">Clerk Dashboard</a>
-            {% endif %}
-            <a href="{{ url_for('auth.logout') }}">Logout</a>
-            {% else %}
-            <a href="{{ url_for('auth.login') }}">Login</a>
-            <a href="{{ url_for('auth.register') }}">Register</a>
-            {% endif %}
+        <!-- Left Sidebar Navigation -->
+        <aside id="appSidebar" class="app-sidebar">
+            <div class="sidebar-brand">
+                <a href="{% if session.role == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.role == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.role == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.role == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="brand-title">
+                    NS Learnytics
+                </a>
+                <button type="button" class="sidebar-close-btn" onclick="toggleSidebar()">&times;</button>
+            </div>
+
+            <nav class="sidebar-nav">
+                
+                <!-- ================= TEACHER MENU ================= -->
+                {% if session.role == 'teacher' %}
+                    <div class="nav-section-title">Core Operations</div>
+                    <a href="{{ url_for('analytics.teacher_dashboard') }}" class="sidebar-link {% if request.endpoint == 'analytics.teacher_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('classes.view_classes') }}" class="sidebar-link {% if request.endpoint == 'classes.view_classes' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <span>My Classes & Roster</span>
+                    </a>
+                    <a href="{{ url_for('lms.index') }}" class="sidebar-link {% if request.endpoint == 'lms.index' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span>LMS Learning Hub</span>
+                    </a>
+                    <a href="{{ url_for('announcements.feed') }}" class="sidebar-link {% if request.endpoint == 'announcements.feed' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                        <span>Announcements</span>
+                    </a>
+
+                    <div class="nav-section-title">Attendance & Exams</div>
+                    <a href="{{ url_for('attendance.scan_attendance') }}" class="sidebar-link {% if request.endpoint == 'attendance.scan_attendance' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        <span>QR Attendance Scan</span>
+                    </a>
+                    <a href="{{ url_for('attendance.attendance_report') }}" class="sidebar-link {% if request.endpoint == 'attendance.attendance_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Attendance Reports</span>
+                    </a>
+                    <a href="{{ url_for('performance.add_marks') }}" class="sidebar-link {% if request.endpoint == 'performance.add_marks' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span>Record Marks</span>
+                    </a>
+                    <a href="{{ url_for('performance.performance_report') }}" class="sidebar-link {% if request.endpoint == 'performance.performance_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Performance Matrix</span>
+                    </a>
+
+                    <div class="nav-section-title">Finance & AI Analytics</div>
+                    <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-link {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <span>Collect Tuition Fee</span>
+                    </a>
+                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Revenue Reports</span>
+                    </a>
+                    <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>AI Risk Predictor</span>
+                    </a>
+                    <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        <span>AI Grade Forecast</span>
+                    </a>
+
+                    <div class="nav-section-title">Communication</div>
+                    <a href="{{ url_for('messages.inbox') }}" class="sidebar-link {% if request.endpoint == 'messages.inbox' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Direct Messages</span>
+                    </a>
+                
+                <!-- ================= STUDENT MENU ================= -->
+                {% elif session.role == 'student' %}
+                    <div class="nav-section-title">Academic Portal</div>
+                    <a href="{{ url_for('analytics.student_dashboard') }}" class="sidebar-link {% if request.endpoint == 'analytics.student_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span>My Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('classes.view_classes') }}" class="sidebar-link {% if request.endpoint == 'classes.view_classes' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <span>Enrolled Classes</span>
+                    </a>
+                    <a href="{{ url_for('lms.index') }}" class="sidebar-link {% if request.endpoint == 'lms.index' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span>LMS Hub & Tasks</span>
+                    </a>
+                    <a href="{{ url_for('performance.view_marks') }}" class="sidebar-link {% if request.endpoint == 'performance.view_marks' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        <span>My Marksheet</span>
+                    </a>
+                    <a href="{{ url_for('attendance.view_attendance_history') }}" class="sidebar-link {% if request.endpoint == 'attendance.view_attendance_history' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span>Attendance Logs</span>
+                    </a>
+                    <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        <span>AI Grade Forecast</span>
+                    </a>
+
+                    <div class="nav-section-title">Finance & Updates</div>
+                    <a href="{{ url_for('finance.student_payments') }}" class="sidebar-link {% if request.endpoint == 'finance.student_payments' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <span>Tuition Payments</span>
+                    </a>
+                    <a href="{{ url_for('announcements.feed') }}" class="sidebar-link {% if request.endpoint == 'announcements.feed' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                        <span>Announcements</span>
+                    </a>
+                    <a href="{{ url_for('messages.inbox') }}" class="sidebar-link {% if request.endpoint == 'messages.inbox' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Chat with Teachers</span>
+                    </a>
+
+                <!-- ================= PARENT MENU ================= -->
+                {% elif session.role == 'parent' %}
+                    <div class="nav-section-title">Family Center</div>
+                    <a href="{{ url_for('parent.dashboard') }}" class="sidebar-link {% if request.endpoint == 'parent.dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span>Parent Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('parent.link_request') }}" class="sidebar-link {% if request.endpoint == 'parent.link_request' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span>Link New Student</span>
+                    </a>
+                    <a href="{{ url_for('lms.index') }}" class="sidebar-link {% if request.endpoint == 'lms.index' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        <span>Child LMS Materials</span>
+                    </a>
+                    <a href="{{ url_for('announcements.feed') }}" class="sidebar-link {% if request.endpoint == 'announcements.feed' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                        <span>School Notices</span>
+                    </a>
+                    <a href="{{ url_for('messages.inbox') }}" class="sidebar-link {% if request.endpoint == 'messages.inbox' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Teacher Messages</span>
+                    </a>
+
+                <!-- ================= SUPER ADMIN MENU ================= -->
+                {% elif session.role == 'superadmin' %}
+                    <div class="nav-section-title">Administration</div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="sidebar-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        <span>Admin Console</span>
+                    </a>
+                    <a href="{{ url_for('admin.manage_users') }}" class="sidebar-link {% if request.endpoint == 'admin.manage_users' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <span>User Management</span>
+                    </a>
+                    <a href="{{ url_for('admin.view_parent_requests') }}" class="sidebar-link {% if request.endpoint == 'admin.view_parent_requests' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        <span>Parent Link Requests</span>
+                    </a>
+
+                    <div class="nav-section-title">Institutional Oversight</div>
+                    <a href="{{ url_for('attendance.scan_attendance') }}" class="sidebar-link {% if request.endpoint == 'attendance.scan_attendance' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        <span>Attendance Scanner</span>
+                    </a>
+                    <a href="{{ url_for('attendance.attendance_report') }}" class="sidebar-link {% if request.endpoint == 'attendance.attendance_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Attendance Reports</span>
+                    </a>
+                    <a href="{{ url_for('performance.performance_report') }}" class="sidebar-link {% if request.endpoint == 'performance.performance_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Performance Sheets</span>
+                    </a>
+                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Financial Audit</span>
+                    </a>
+                    <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>AI Student Risk Radar</span>
+                    </a>
+                    <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        <span>Grade Forecaster</span>
+                    </a>
+                    <a href="{{ url_for('announcements.feed') }}" class="sidebar-link {% if request.endpoint == 'announcements.feed' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                        <span>All Announcements</span>
+                    </a>
+
+                <!-- ================= MODERATOR / CLERK MENU ================= -->
+                {% elif session.role == 'moderator' %}
+                    <div class="nav-section-title">Operations Desk</div>
+                    <a href="{{ url_for('analytics.moderator_dashboard') }}" class="sidebar-link {% if request.endpoint == 'analytics.moderator_dashboard' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span>Clerk Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('attendance.scan_attendance') }}" class="sidebar-link {% if request.endpoint == 'attendance.scan_attendance' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                        <span>Rapid QR Scanner</span>
+                    </a>
+                    <a href="{{ url_for('attendance.manual_mark') }}" class="sidebar-link {% if request.endpoint == 'attendance.manual_mark' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <span>Manual Attendance</span>
+                    </a>
+                    <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-link {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        <span>Collect Tuition Fee</span>
+                    </a>
+                    <a href="{{ url_for('performance.add_marks') }}" class="sidebar-link {% if request.endpoint == 'performance.add_marks' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span>Enter Exam Marks</span>
+                    </a>
+
+                    <div class="nav-section-title">Reports</div>
+                    <a href="{{ url_for('attendance.attendance_report') }}" class="sidebar-link {% if request.endpoint == 'attendance.attendance_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Attendance Reports</span>
+                    </a>
+                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Daily Fee Ledger</span>
+                    </a>
+                {% endif %}
+
+                <div class="nav-section-title">Account</div>
+                <a href="{{ url_for('profile.view_profile') }}" class="sidebar-link {% if request.endpoint == 'profile.view_profile' %}active{% endif %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span>My Profile</span>
+                </a>
+                <a href="{{ url_for('auth.logout') }}" class="sidebar-link" style="color: #f87171; margin-top: 0.5rem;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>Log Out</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Body Wrapper -->
+        <div class="app-main-content">
+            <!-- App Top Header -->
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button type="button" class="mobile-sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">
+                        <svg style="width: 22px; height: 22px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                    <div class="topbar-page-context">
+                        <span class="live-pulse-dot"></span>
+                        <span style="color: var(--text-main); font-weight: 700;">NS Learnytics</span>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <a href="{{ url_for('profile.view_profile') }}" style="text-decoration: none;">
+                        <div class="user-capsule">
+                            <div class="user-avatar-initial">{{ (session.name or 'U')[0]|upper }}</div>
+                            <span class="user-name-text">{{ session.name }}</span>
+                            <span class="role-badge-pill role-badge-{{ session.role }}">{{ session.role }}</span>
+                        </div>
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}" class="topbar-logout-btn">
+                        <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </header>
+
+            <!-- Main Dynamic Content Container -->
+            <main class="app-body-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="alerts-container">
+                            {% for category, message in messages %}
+                                <div class="alert {% if category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-error{% endif %}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+
+            <footer style="margin-top: auto; padding: 1.5rem 2rem; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 0.8rem; background: #ffffff;">
+                <p style="margin: 0;">&copy; 2026 NS Learnytics — Educational Intelligence & Academic Operations System.</p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('appSidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar && overlay) {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            }
+        }
+    </script>
+
+    {% else %}
+    <!-- LOGGED OUT: MINIMAL PUBLIC NAV -->
+    <nav class="public-nav">
+        <div class="logo">NS Learnytics</div>
+        <div class="nav-links">
+            <a href="{{ url_for('auth.login') }}" style="color: #94a3b8;">Login</a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary" style="padding: 0.45rem 1rem;">Get Started</a>
         </div>
     </nav>
-    <div class="container">
+
+    <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div style="max-width:1200px; margin:10px auto;">
-            {% for category, message in messages %}
-            <div
-                style="padding: 15px; margin-bottom: 20px; border-radius: 4px; {% if category == 'success' %}background-color: #d1fae5; color: #065f46; border: 1px solid #10b981;{% else %}background-color: #fee2e2; color: #991b1b; border: 1px solid #ef4444;{% endif %}">
-                {{ message }}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+            {% if messages %}
+                <div class="alerts-container">
+                    {% for category, message in messages %}
+                        <div class="alert {% if category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-error{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         {% endwith %}
-        {% block content %}{% endblock %}
-    </div>
+
+        {% block public_content %}{% endblock %}
+    </main>
+    {% endif %}
 </body>
 
 </html>

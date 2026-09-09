@@ -1,179 +1,307 @@
 {% extends 'base.html' %}
-{% block title %}Teacher Dashboard - NS Learnytics{% endblock %}
+
+{% block title %}Teacher Cockpit - NS Learnytics{% endblock %}
+
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-    .stat-box {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        text-align: center;
-        flex: 1;
-        min-width: 150px;
-    }
-
-    .stat-box h3 {
-        margin: 0;
-        color: #64748b;
-        font-size: 14px;
-        text-transform: uppercase;
-    }
-
-    .stat-box .value {
-        font-size: 28px;
-        font-weight: bold;
-        color: #0f172a;
-        margin-top: 10px;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-    <h2 style="margin:0;">Teacher Dashboard</h2>
-</div>
-
-<!-- Categorized Action Grid -->
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-bottom: 30px;">
-
-    <!-- Section 1: Classroom Operations -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #3b82f6;">
-        <h3 style="margin-top:0; color:#3b82f6;">Classroom Operations</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Manage your instructional schedule and track
-            student attendance history.</p>
-        <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('classes.view_classes') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#3b82f6;">Manage Classes</a>
-            <a href="{{ url_for('attendance.attendance_report') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#8b5cf6;">Attendance</a>
-        </div>
+<!-- Top Header Bar -->
+<div class="dashboard-hero-header">
+    <div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Teacher Classroom Cockpit
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Daily teaching schedule, real-time student tracking, and classroom operational hub.</p>
     </div>
-
-    <!-- Section 2: Academic Records -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #f59e0b;">
-        <h3 style="margin-top:0; color:#f59e0b;">Academic Records</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Input examination results and review
-            comprehensive student performance reports.</p>
-        <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('performance.add_marks') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#f59e0b;">Record Marks</a>
-            <a href="{{ url_for('performance.performance_report') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#0ea5e9;">View Reports</a>
-        </div>
-    </div>
-
-    <!-- Section 3: Financial Management -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #10b981;">
-        <h3 style="margin-top:0; color:#10b981;">Financial Management</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Record physical tuition fee payments and monitor
-            your monthly income trends.</p>
-        <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('finance.manual_payment') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#10b981;">Collect Fee</a>
-            <a href="{{ url_for('finance.income_report') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#059669;">Revenue Doc</a>
-        </div>
-    </div>
-
-</div>
-
-
-<!-- Key Metrics -->
-<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:30px;">
-    <div class="stat-box">
-        <h3>Total Students</h3>
-        <div class="value">{{ total_students }}</div>
-    </div>
-    <div class="stat-box">
-        <h3>Active Classes</h3>
-        <div class="value">{{ total_classes }}</div>
-    </div>
-    <div class="stat-box">
-        <h3>Net Income (This Month)</h3>
-        <div class="value" style="color: #10b981;">LKR {{ "{:,.2f}".format(net_income) }}</div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-primary" style="padding: 0.55rem 1rem;">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+            <span>Scan Attendance</span>
+        </a>
+        <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            <span>Record Marks</span>
+        </a>
     </div>
 </div>
 
-<!-- Insights & At-Risk -->
-<div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:30px;">
-    <div class="card" style="flex:2; min-width:300px;">
-        <h3>AI Insights Generator 🤖</h3>
-        <ul style="background:#fef3c7; padding:15px 30px; border-radius:4px; color:#92400e;">
-            {% for i in insights %}
-            <li style="margin-bottom:10px;">{{ i }}</li>
+<!-- Key Performance Metrics Grid -->
+<div class="stat-grid">
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <span class="stat-label">Active Classes</span>
+        <span class="stat-value" style="color: var(--primary);">{{ total_classes }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Instructional Sections</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--info);">
+        <span class="stat-label">Total Enrolled Students</span>
+        <span class="stat-value" style="color: var(--info);">{{ total_students }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Across All Classes</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--warning);">
+        <span class="stat-label">Ungraded Submissions</span>
+        <span class="stat-value" style="color: {% if pending_grading_cnt > 0 %}var(--warning){% else %}var(--success){% endif %};">
+            {{ pending_grading_cnt }}
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Require Evaluation</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--success);">
+        <span class="stat-label">Net Income (This Month)</span>
+        <span class="stat-value" style="color: var(--success); font-size: 1.85rem;">
+            LKR {{ "{:,.0f}".format(net_income) }}
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">After Operating Expenses</span>
+    </div>
+</div>
+
+<!-- Main 2-Column Operational Grid -->
+<div class="grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+    
+    <!-- LEFT COLUMN: CLASSES SCHEDULE & ANALYTICS -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Active Classes & Classroom Triggers -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.2rem;">Class Schedule & Action Triggers</h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Launch immediate classroom actions for each subject group.</p>
+                </div>
+                <a href="{{ url_for('classes.view_classes') }}" class="btn btn-outline" style="font-size: 0.775rem; padding: 0.35rem 0.75rem;">Manage All Classes &rarr;</a>
+            </div>
+
+            {% if classes_list %}
+                <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    {% for c in classes_list %}
+                        <div class="schedule-card-item">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.65rem;">
+                                <div>
+                                    <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem;">
+                                        {{ c.subject }}
+                                    </h3>
+                                    <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
+                                        <span>⏰ {{ c.schedule }}</span>
+                                        <span>👥 <strong>{{ c.student_count }}</strong> Students</span>
+                                        <span>💰 LKR {{ "{:,.0f}".format(c.fee) }}/mo</span>
+                                        <span>🔑 Join Code: <code style="background: var(--bg-main); padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">{{ c.join_code }}</code></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Station Buttons -->
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border-light); padding-top: 0.65rem;">
+                                <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
+                                    📷 Scan Attendance
+                                </a>
+                                <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
+                                    📝 Enter Marks
+                                </a>
+                                <a href="{{ url_for('lms.index', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
+                                    📚 LMS Hub
+                                </a>
+                                <a href="{{ url_for('enrollment.view_students', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
+                                    👥 Roster
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
             {% else %}
-            <li>Everything looks stable! No critical insights at the moment.</li>
-            {% endfor %}
-        </ul>
-    </div>
-    <div class="card" style="flex:1; min-width:250px; border-left:4px solid #ef4444;">
-        <h3 style="color:#ef4444; margin-top:0;">Early Warning System (At-Risk)</h3>
-        {% if at_risk_students %}
-        <ul style="padding-left:20px;">
-            {% for s in at_risk_students %}
-            <li><strong>{{ s.name }}</strong>: {{ s.reason }}</li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p style="color:#10b981;">No students at risk currently.</p>
-        {% endif %}
-    </div>
-</div>
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                    <p>You haven't created any classes yet.</p>
+                    <a href="{{ url_for('classes.view_classes') }}" class="btn btn-primary">+ Create Your First Class</a>
+                </div>
+            {% endif %}
+        </div>
 
-<!-- Charts -->
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap:20px;">
-    <div class="card">
-        <h3>Performance Trends</h3>
-        <canvas id="perfChart"></canvas>
+        <!-- Academic Trends & Revenue Charts -->
+        <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+            <div class="card">
+                <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Academic Score Progression</h3>
+                <div style="height: 220px;">
+                    <canvas id="perfChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Class Revenue Breakdown</h3>
+                <div style="height: 220px;">
+                    <canvas id="revChart"></canvas>
+                </div>
+            </div>
+        </div>
+
     </div>
-    <div class="card">
-        <h3>Revenue per Class</h3>
-        <canvas id="revChart"></canvas>
-    </div>
-    <div class="card">
-        <h3>Student Segmentation</h3>
-        <canvas id="segChart"></canvas>
+
+    <!-- RIGHT COLUMN: URGENT QUEUE, AI RADAR & NOTICES -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Urgent Action Queue -->
+        <div class="card" style="border-top: 4px solid var(--warning);">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>Daily Action Queue</span>
+                <span class="badge badge-warning" style="font-size: 0.7rem;">Tasks</span>
+            </h3>
+
+            {% if pending_grading_cnt > 0 %}
+                <div class="task-item-card" style="border-left: 3px solid var(--warning);">
+                    <div>
+                        <strong style="font-size: 0.85rem; color: var(--text-main);">{{ pending_grading_cnt }} LMS Submissions</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Students waiting for grades & feedback</div>
+                    </div>
+                    <a href="{{ url_for('lms.index') }}" class="btn btn-primary" style="font-size: 0.725rem; padding: 0.25rem 0.6rem; background: var(--warning); border: none;">Grade &rarr;</a>
+                </div>
+            {% endif %}
+
+            {% if at_risk_students %}
+                <div class="task-item-card" style="border-left: 3px solid var(--danger);">
+                    <div>
+                        <strong style="font-size: 0.85rem; color: var(--danger);">Low Attendance Warning</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ at_risk_students|length }} student(s) below 60% attendance</div>
+                    </div>
+                    <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-danger" style="font-size: 0.725rem; padding: 0.25rem 0.6rem;">Review</a>
+                </div>
+            {% endif %}
+
+            {% if pending_grading_cnt == 0 and not at_risk_students %}
+                <p style="font-size: 0.85rem; color: var(--success); font-weight: 500; margin: 0; padding: 0.5rem 0;">
+                    ✓ All clear! No urgent pending grading or attendance alerts.
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- AI Student At-Risk Radar -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #6d28d9; margin-bottom: 0.1rem;">
+                        AI Student Risk Radar
+                    </h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Random Forest Dropout Detection</span>
+                </div>
+                <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="btn btn-primary" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; background: #7c3aed; text-decoration: none;">Full Radar &rarr;</a>
+            </div>
+
+            {% if top_5_at_risk %}
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for s in top_5_at_risk %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">
+                                    {{ s.name }}
+                                    {% if s.risk_level == 'HIGH' %}
+                                        <span class="badge badge-danger" style="font-size: 0.625rem; padding: 0.1rem 0.35rem;">HIGH</span>
+                                    {% else %}
+                                        <span class="badge badge-warning" style="font-size: 0.625rem; padding: 0.1rem 0.35rem;">MED</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size: 0.725rem; color: var(--text-muted);">
+                                    {{ s.risk_factors[0] if s.risk_factors else 'Attendance / Grades' }}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-weight: 800; font-size: 0.85rem; color: {% if s.risk_pct >= 55 %}var(--danger){% else %}var(--warning){% endif %};">
+                                    {{ s.risk_pct }}% Risk
+                                </div>
+                                <a href="{{ url_for('messages.inbox') }}" style="font-size: 0.7rem; color: var(--primary); text-decoration: underline;">Message</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.825rem; color: var(--success); margin: 0;">No high-risk students identified.</p>
+            {% endif %}
+        </div>
+
+        <!-- Student Segmentation Breakdown -->
+        <div class="card">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">Student Academic Segmentation</h3>
+            <div style="max-width: 220px; margin: 0 auto;">
+                <canvas id="segChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent Announcements -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">Recent Announcements</h3>
+                <a href="{{ url_for('announcements.feed') }}" style="font-size: 0.75rem; color: var(--primary);">View All</a>
+            </div>
+
+            {% if recent_announcements %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for a in recent_announcements %}
+                        <div style="border-left: 3px solid var(--warning); padding-left: 0.65rem;">
+                            <div style="font-weight: 600; font-size: 0.825rem; color: var(--text-main);">{{ a.title }}</div>
+                            <div style="font-size: 0.725rem; color: var(--text-muted);">{{ a.subject }} &bull; {{ a.created_at.strftime('%b %d') }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">No announcements posted yet.</p>
+            {% endif %}
+        </div>
+
     </div>
 </div>
 
 <script>
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+        }
+    };
+
     new Chart(document.getElementById('perfChart'), {
         type: 'line',
         data: {
             labels: {{ perf_labels | safe }},
-        datasets: [{
-            label: 'Average Score (%)',
-            data: {{ perf_data | safe }},
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        fill: true,
-        tension: 0.3
+            datasets: [{
+                label: 'Average Score (%)',
+                data: {{ perf_data | safe }},
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.4
             }]
         },
-        options: { scales: { y: { min: 0, max: 100 } } }
+        options: {
+            ...chartOptions,
+            scales: { y: { min: 0, max: 100, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+        }
     });
 
     new Chart(document.getElementById('revChart'), {
         type: 'bar',
         data: {
             labels: {{ rev_labels | safe }},
-        datasets: [{
-            label: 'Revenue (LKR)',
-            data: {{ rev_data | safe }},
-        backgroundColor: '#10b981'
+            datasets: [{
+                label: 'Revenue (LKR)',
+                data: {{ rev_data | safe }},
+                backgroundColor: '#10b981',
+                borderRadius: 4
             }]
-        }
+        },
+        options: chartOptions
     });
 
     new Chart(document.getElementById('segChart'), {
         type: 'doughnut',
         data: {
-            labels: ['High Performers (≥75%)', 'Average (50-74%)', 'At-Risk (<50%)'],
+            labels: ['High Performers', 'Average', 'At-Risk'],
             datasets: [{
                 data: [{{ segmentation.high }}, {{ segmentation.avg }}, {{ segmentation.risk }}],
-        backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 0
             }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
         }
     });
 </script>

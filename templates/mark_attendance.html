@@ -1,48 +1,64 @@
 {% extends 'base.html' %}
-{% block title %}Mark Attendance - NS Learnytics{% endblock %}
-{% block content %}
-<div class="card" style="margin-top: 20px;">
-    <h2>Mark Attendance</h2>
-    {% if error %}
-    <p style="color:red; background:#fee2e2; padding:10px; border-radius:4px;">{{ error }}</p>
-    {% endif %}
 
-    <form action="" method="GET" style="margin-bottom:20px; display:flex; gap:10px; align-items:flex-end;">
+{% block title %}Mark Attendance - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>Manual Attendance Entry</h1>
+        <p class="text-muted">Manually update the roster for a specific date if QR scanning was bypassed.</p>
+    </div>
+
+    <form action="" method="GET" class="flex gap-4 align-center mb-4" style="background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius);">
         <input type="hidden" name="class_id" value="{{ class_id }}">
-        <div>
-            <label style="display:block; margin-bottom:5px;">Select Date</label>
-            <input type="date" name="date" value="{{ date }}" required
-                style="padding:8px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; max-width: 300px;">
+            <label>Session Date</label>
+            <input type="date" name="date" value="{{ date }}" required>
         </div>
-        <button type="submit" class="btn">Load Students</button>
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary">Load Roster</button>
+        </div>
     </form>
 
     {% if students %}
     <form action="{{ action_url or url_for('attendance.mark_attendance') }}" method="POST">
         <input type="hidden" name="class_id" value="{{ class_id }}">
         <input type="hidden" name="date" value="{{ date }}">
-        <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-                <tr style="border-bottom:2px solid #eee; text-align:left;">
-                    <th style="padding:10px;">Student Name</th>
-                    <th style="padding:10px;">Status</th>
-                </tr>
-                {% for s in students %}
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:10px;">{{ s.name }}</td>
-                    <td style="padding:10px;">
-                        <label style="margin-right:15px; cursor:pointer;">
-                            <input type="radio" name="status_{{ s.id }}" value="present" required checked> Present
-                        </label>
-                        <label style="cursor:pointer;">
-                            <input type="radio" name="status_{{ s.id }}" value="absent" required> Absent
-                        </label>
-                    </td>
-                </tr>
-                {% endfor %}
+        
+        <div class="table-container mb-4">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th style="width: 250px;">Attendance Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in students %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ s.name }}</td>
+                        <td>
+                            <div class="flex gap-4">
+                                <label class="flex align-center gap-2" style="cursor:pointer; color: var(--success); font-weight: 600;">
+                                    <input type="radio" name="status_{{ s.id }}" value="present" required checked style="width: auto;"> Present
+                                </label>
+                                <label class="flex align-center gap-2" style="cursor:pointer; color: var(--danger); font-weight: 600;">
+                                    <input type="radio" name="status_{{ s.id }}" value="absent" required style="width: auto;"> Absent
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
-        <button type="submit" class="btn">Save Attendance</button>
+        
+        <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2.5rem;">Save Daily Attendance</button>
+        </div>
     </form>
     {% endif %}
 </div>

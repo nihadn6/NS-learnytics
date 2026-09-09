@@ -1,136 +1,157 @@
 {% extends 'base.html' %}
-{% block title %}Clerk Dashboard - NS Learnytics{% endblock %}
+
+{% block title %}Clerk Operations Desk - NS Learnytics{% endblock %}
+
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-    <h2 style="margin:0;">Clerk / Moderator Dashboard</h2>
+<!-- Top Header Hero -->
+<div class="dashboard-hero-header">
+    <div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Front-Desk Operations Desk
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Rapid student check-in, physical fee collection, and operational logging.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-primary" style="padding: 0.55rem 1.15rem;">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+            <span>Launch QR Scanner</span>
+        </a>
+    </div>
 </div>
 
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
-
-    <!-- Action 1: QR Scanner -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #3b82f6;">
-        <h3 style="margin-top:0; color:#3b82f6;">Rapid Scan System</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Utilize a camera/webcam to rapidly mark daily
-            attendance securely.</p>
-        <a href="{{ url_for('attendance.scan_attendance') }}" class="btn"
-            style="display:inline-block; padding:12px 30px; text-decoration:none; background:#3b82f6;">Launch
-            Scanner</a>
+<!-- Desk Shift Live Counters -->
+<div class="stat-grid">
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <span class="stat-label">Students Checked-in Today</span>
+        <span class="stat-value" style="color: var(--primary);">{{ today_attendance }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Present Sessions Verified</span>
     </div>
-
-    <!-- Action 2: Finance System -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #10b981;">
-        <h3 style="margin-top:0; color:#10b981;">Finance System</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Process manual physical fee payments and monitor
-            revenue summaries.</p>
-        <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('finance.manual_payment') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#10b981;">Collect Fee</a>
-            <a href="{{ url_for('finance.income_report') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#059669;">Revenue Doc</a>
-        </div>
+    <div class="stat-card" style="border-left: 4px solid var(--success);">
+        <span class="stat-label">Tuition Fees Collected Today</span>
+        <span class="stat-value" style="color: var(--success); font-size: 1.85rem;">
+            LKR {{ "{:,.0f}".format(today_fees) }}
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Cash & Direct Receipts</span>
     </div>
+</div>
 
-    <!-- Action 3: Academic Records -->
-    <div class="card" style="text-align:center; padding:25px; border-top: 4px solid #f59e0b;">
-        <h3 style="margin-top:0; color:#f59e0b;">Academic Records</h3>
-        <p style="color:#64748b; font-size:0.9rem; margin-bottom:20px;">Update student examination results and review
-            analytical grade reports.</p>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            <a href="{{ url_for('performance.add_marks') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#f59e0b;">Enter Marks</a>
-            <a href="{{ url_for('performance.performance_report') }}" class="btn"
-                style="flex:1; text-decoration:none; background:#0ea5e9;">View Reports</a>
-        </div>
-    </div>
+<!-- Primary Action Stations -->
+<div class="card mb-6">
+    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem;">Front-Desk Action Stations</h2>
+    <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">Select an operational station to manage student check-ins, payments, or marks.</p>
 
-    <!-- Action 4: Quick Finalize -->
-    <div class="card" style="padding:25px; border-top: 4px solid #ef4444; background: #fffcfc;">
-        <h3 style="margin-top:0; text-align:center; color: #b91c1c;">Finalize Class</h3>
-        <p style="color:#b91c1c; font-size:0.85rem; text-align:center; margin-bottom:15px;">Mark all missing students as
-            <b>Absent</b> for the target class today.</p>
-
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <div style="width:100%;">
-                <label
-                    style="display:block; margin-bottom:5px; font-weight:600; color:#b91c1c; font-size:0.8rem;">Instructor</label>
-                <select id="teacherSelect"
-                    style="width:100%; padding:8px; border-radius:4px; border:1px solid #fca5a5;">
-                    <option value="">-- Select Teacher --</option>
-                    {% for t in teachers %}
-                    <option value="{{ t.id }}">{{ t.name }}</option>
-                    {% endfor %}
-                </select>
+    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+        
+        <!-- Station 1: Scanner -->
+        <div class="quick-action-tile" style="border-top: 4px solid var(--primary);">
+            <div>
+                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📷</div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Rapid QR Scanner</h3>
+                <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Launch camera verification station to scan incoming student ID badges.</p>
             </div>
-            <div style="width:100%;">
-                <label
-                    style="display:block; margin-bottom:5px; font-weight:600; color:#b91c1c; font-size:0.8rem;">Target
-                    Class</label>
-                <select id="quickClassSelect"
-                    style="width:100%; padding:8px; border-radius:4px; border:1px solid #fca5a5;">
-                    <option value="">-- Choose Instructor --</option>
-                    {% for c in classes %}
-                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
-                    {% endfor %}
-                </select>
+            <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-primary" style="font-size: 0.8rem;">
+                Open Scanner &rarr;
+            </a>
+        </div>
+
+        <!-- Station 2: Fee Collection -->
+        <div class="quick-action-tile" style="border-top: 4px solid var(--success);">
+            <div>
+                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">💵</div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Tuition Fee Counter</h3>
+                <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Record physical cash tuition fee payments and issue billing receipts.</p>
             </div>
-            <button onclick="quickFinalize()" class="btn"
-                style="background:#ef4444; color:#fff; margin-top:5px; padding:10px;">Finalize absences</button>
-            <div id="quickFinalizeStatus"
-                style="text-align:center; font-size:0.8rem; font-weight:bold; margin-top:5px;"></div>
+            <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-primary" style="background: var(--success); font-size: 0.8rem;">
+                Collect Fee &rarr;
+            </a>
+        </div>
+
+        <!-- Station 3: Manual Attendance -->
+        <div class="quick-action-tile" style="border-top: 4px solid var(--warning);">
+            <div>
+                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📋</div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Manual Attendance</h3>
+                <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Manually mark student presence for classrooms when physical cards are absent.</p>
+            </div>
+            <a href="{{ url_for('attendance.manual_mark') }}" class="btn btn-outline" style="font-size: 0.8rem;">
+                Mark Manually &rarr;
+            </a>
+        </div>
+
+        <!-- Station 4: Enter Marks -->
+        <div class="quick-action-tile" style="border-top: 4px solid var(--purple);">
+            <div>
+                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📝</div>
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Enter Test Marks</h3>
+                <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Enter examination marks from physical test sheets into the grade system.</p>
+            </div>
+            <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="font-size: 0.8rem;">
+                Enter Scores &rarr;
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<!-- Recent Transactions Stream & Quick Reports -->
+<div class="grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start;">
+    
+    <!-- Live Recent Payments Table -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Recent Fee Payments Log</h3>
+            <a href="{{ url_for('finance.income_report') }}" style="font-size: 0.775rem; color: var(--primary);">View Income Ledger &rarr;</a>
+        </div>
+
+        {% if recent_payments %}
+            <div class="table-container" style="border: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Class Subject</th>
+                            <th>Billing Period</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in recent_payments %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ p.student_name }}</td>
+                            <td>{{ p.subject }}</td>
+                            <td class="text-muted">{{ p.period }}</td>
+                            <td style="font-weight: 700; color: var(--success);">LKR {{ "{:,.2f}".format(p.amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="text-align: center; color: var(--text-muted); padding: 1.5rem; margin: 0;">No payments recorded yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Quick Reports Directory -->
+    <div class="card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Reporting Tools</h3>
+        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Extract attendance and financial audit summaries.</p>
+
+        <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+            <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
+                📊 Attendance Analytics Report
+            </a>
+            <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
+                💰 Revenue & Income Reports
+            </a>
+            <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
+                📈 Exam Performance Sheets
+            </a>
+            <a href="{{ url_for('announcements.feed') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
+                📢 Broadcast Notices Feed
+            </a>
         </div>
     </div>
 
 </div>
 
-
-<script>
-    const teacherSelect = document.getElementById('teacherSelect');
-    const classSelect = document.getElementById('quickClassSelect');
-    const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
-
-    teacherSelect.addEventListener('change', function () {
-        const selectedTeacher = this.value;
-        classSelect.innerHTML = '<option value="">-- Choose Class to Close --</option>';
-        allClassOptions.forEach(opt => {
-            if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
-                classSelect.appendChild(opt.cloneNode(true));
-            }
-        });
-    });
-
-    function quickFinalize() {
-        const classId = classSelect.value;
-        if (!classId) {
-            alert("Please pick a class first.");
-            return;
-        }
-        if (!confirm("Are you sure? This will mark all enrolled students who haven't been scanned today as Absent.")) return;
-
-        const status = document.getElementById('quickFinalizeStatus');
-        status.innerText = "Processing...";
-        status.style.color = "#4b5563";
-
-        fetch('{{ url_for("attendance.finalize_attendance") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ class_id: classId })
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    status.innerText = data.message;
-                    status.style.color = "#10b981";
-                } else {
-                    status.innerText = "Error: " + data.error;
-                    status.style.color = "#ef4444";
-                }
-            })
-            .catch(err => {
-                status.innerText = "Network error.";
-                status.style.color = "#ef4444";
-            });
-    }
-</script>
-
-</div>
 {% endblock %}

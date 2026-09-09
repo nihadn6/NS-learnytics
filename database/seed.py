@@ -44,7 +44,7 @@ def seed_data():
     with conn.cursor() as cursor:
         # Clean existing data securely
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-        tables = ['expenses', 'payments', 'marks', 'attendance', 'enrollments', 'classes', 'student_profiles', 'teacher_profiles', 'users']
+        tables = ['notifications', 'parent_student_links', 'expenses', 'payments', 'marks', 'attendance', 'enrollments', 'classes', 'student_profiles', 'teacher_profiles', 'users']
         for t in tables:
             cursor.execute(f"TRUNCATE TABLE {t};")
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
@@ -97,6 +97,13 @@ def seed_data():
         # Insert a fixed moderator (clerk) user who can scan and mark attendance
         cursor.execute("INSERT INTO users (name, email, password_hash, role) VALUES (%s, %s, %s, 'moderator')",
                        ('Attendance Clerk', 'clerk@test.com', pw_hash))
+
+        # Insert a fixed Parent user and link to the Demo Student
+        cursor.execute("INSERT INTO users (name, email, password_hash, role) VALUES (%s, %s, %s, 'parent')",
+                       ('Demo Parent', 'parent@test.com', pw_hash))
+        test_parent_id = cursor.lastrowid
+        cursor.execute("INSERT INTO parent_student_links (parent_id, student_id, status) VALUES (%s, %s, 'approved')",
+                       (test_parent_id, test_student_id))
 
         # 3. Classes
         classes = []

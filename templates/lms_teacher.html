@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}LMS Management | NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="flex justify-between align-center mb-4" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">Learning Management Hub</h1>
+        <p class="text-muted" style="margin-bottom: 0;">Publish study resources, upload notes, set assignments, and grade student submissions.</p>
+    </div>
+</div>
+
+<!-- Class Selection Tabs -->
+<div class="card mb-4" style="padding: 1.25rem;">
+    <label style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block; margin-bottom: 0.65rem;">Select Class:</label>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        {% for c in classes %}
+            <a href="{{ url_for('lms.index', class_id=c.id) }}" 
+               class="tab-pill {% if selected_class_id == c.id %}active{% endif %}">
+                {{ c.subject }}
+            </a>
+        {% endfor %}
+    </div>
+</div>
+
+{% if selected_class_id %}
+<div class="grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start;">
+
+    
+    <!-- LEFT COLUMN: STUDY MATERIALS -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0;">Study Materials & Notes</h2>
+            <button onclick="document.getElementById('materialModal').style.display='flex'" class="btn btn-primary" style="padding: 0.45rem 0.875rem; font-size: 0.8rem;">+ Upload Material</button>
+        </div>
+
+        {% if materials %}
+            <div style="display: flex; flex-direction: column; gap: 0.875rem;">
+                {% for m in materials %}
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="padding-right: 0.5rem;">
+                            <h4 style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem; color: var(--text-main);">{{ m.title }}</h4>
+                            <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.4rem;">{{ m.description or 'No description provided.' }}</p>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Uploaded {{ m.created_at.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0;">
+                            {% if m.file_path %}
+                                <a href="{{ url_for('lms.download_file', filename=m.file_path) }}" class="btn btn-outline" style="padding: 0.35rem 0.65rem; font-size: 0.775rem;">File</a>
+                            {% endif %}
+                            <form action="{{ url_for('lms.delete_material', material_id=m.id) }}" method="POST" onsubmit="return confirm('Delete this material?');">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.6rem; font-size: 0.775rem;">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="text-align: center; color: var(--text-muted); padding: 2rem 1rem; font-size: 0.9rem;">No study materials uploaded for this class yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT COLUMN: ASSIGNMENTS & HOMEWORK -->
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0;">Assignments & Tasks</h2>
+            <button onclick="document.getElementById('assignmentModal').style.display='flex'" class="btn btn-primary" style="padding: 0.45rem 0.875rem; font-size: 0.8rem;">+ Create Assignment</button>
+        </div>
+
+        {% if assignments %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for a in assignments %}
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.4rem;">
+                            <h4 style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin-bottom: 0;">{{ a.title }}</h4>
+                            <span class="badge badge-purple">
+                                Max Points: {{ a.max_points }}
+                            </span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">{{ a.description or 'No instructions provided.' }}</p>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.65rem; font-size: 0.8rem;">
+                            <span style="color: var(--danger); font-weight: 600;">Due: {{ a.due_date.strftime('%b %d, %Y %I:%M %p') }}</span>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                {% if a.attachment_path %}
+                                    <a href="{{ url_for('lms.download_file', filename=a.attachment_path) }}" class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">Reference</a>
+                                {% endif %}
+                                <a href="{{ url_for('lms.view_submissions', assignment_id=a.id) }}" class="btn btn-primary" style="padding: 0.25rem 0.7rem; font-size: 0.75rem;">
+                                    Submissions ({{ submissions_map[a.id].total_sub or 0 }})
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="text-align: center; color: var(--text-muted); padding: 2rem 1rem; font-size: 0.9rem;">No assignments published for this class yet.</p>
+        {% endif %}
+    </div>
+
+</div>
+{% else %}
+    <p style="text-align: center; padding: 3rem; color: var(--text-muted);">Please select or create a class to manage LMS content.</p>
+{% endif %}
+
+<!-- UPLOAD MATERIAL MODAL -->
+<div id="materialModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="font-weight: 700; margin-bottom: 1.25rem; color: var(--text-main);">Upload Study Material</h3>
+        <form action="{{ url_for('lms.upload_material') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="class_id" value="{{ selected_class_id }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" required class="input-field" placeholder="e.g. Chapter 4 Lecture Notes">
+            </div>
+            <div class="form-group">
+                <label>Description / Notes</label>
+                <textarea name="description" rows="3" class="input-field" placeholder="Optional brief guidelines..."></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Attachment File (PDF, Doc, Image, Zip)</label>
+                <input type="file" name="file" class="input-field">
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="document.getElementById('materialModal').style.display='none'" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload Material</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CREATE ASSIGNMENT MODAL -->
+<div id="assignmentModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="font-weight: 700; margin-bottom: 1.25rem; color: var(--text-main);">Create Assignment</h3>
+        <form action="{{ url_for('lms.create_assignment') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="class_id" value="{{ selected_class_id }}">
+            <div class="form-group">
+                <label>Assignment Title *</label>
+                <input type="text" name="title" required class="input-field" placeholder="e.g. Midterm Problem Set 1">
+            </div>
+            <div class="form-group">
+                <label>Instructions & Guidelines</label>
+                <textarea name="description" rows="3" class="input-field" placeholder="Describe requirements and expectations..."></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" class="form-group">
+                <div>
+                    <label>Due Date & Time *</label>
+                    <input type="datetime-local" name="due_date" required class="input-field">
+                </div>
+                <div>
+                    <label>Max Points</label>
+                    <input type="number" name="max_points" value="100" class="input-field">
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Reference Attachment (Optional)</label>
+                <input type="file" name="file" class="input-field">
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="document.getElementById('assignmentModal').style.display='none'" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary">Publish Assignment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

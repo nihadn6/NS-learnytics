@@ -1,54 +1,62 @@
 {% extends 'base.html' %}
+
 {% block title %}Record Payment - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width:700px; margin:20px auto;">
-    <h2>Record Payment</h2>
-    <form action="{{ url_for('finance.manual_payment') }}" method="POST"
-        style="display:flex; flex-direction:column; gap:12px;">
-
-        {% if session.role in ['superadmin', 'moderator'] %}
-        <div>
-            <label style="display:block; margin-bottom:5px;">Instructor (Teacher)</label>
-            <select id="teacherSelect" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                <option value="">-- All Teachers --</option>
-                {% for t in teachers %}
-                <option value="{{ t.id }}">{{ t.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% endif %}
-
-        <div>
-            <label style="display:block; margin-bottom:5px;">Class</label>
-            <select name="class_id" id="classSelect" required
-                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                <option value="">-- Select Class --</option>
-                {% for c in classes %}
-                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
-                {% endfor %}
-            </select>
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh;">
+    <div class="card" style="width: 100%; max-width: 600px;">
+        <div class="mb-4">
+            <h1>Record Tuition Payment</h1>
+            <p class="text-muted">Manually process physical fee payments for enrolled students.</p>
         </div>
 
-        <div>
-            <label style="display:block; margin-bottom:5px;">Student Enrolled</label>
-            <select name="student_id" id="studentSelect" required
-                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                <option value="">-- Select Class First --</option>
-            </select>
-        </div>
+        <form action="{{ url_for('finance.manual_payment') }}" method="POST">
+            {% if session.role in ['superadmin', 'moderator'] %}
+            <div class="form-group">
+                <label>Instructor (Teacher)</label>
+                <select id="teacherSelect">
+                    <option value="">-- All Teachers --</option>
+                    {% for t in teachers %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
 
-        <div>
-            <label style="display:block; margin-bottom:5px;">Date</label>
-            <input type="date" name="payment_date" required
-                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" />
-        </div>
-        <div>
-            <label style="display:block; margin-bottom:5px;">Period / Description</label>
-            <input type="text" name="period" placeholder="e.g., 2026-04" required
-                style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;" />
-        </div>
-        <button type="submit" class="btn">Submit Automatic Payment</button>
-    </form>
+            <div class="form-group">
+                <label>Target Class</label>
+                <select name="class_id" id="classSelect" required>
+                    <option value="">-- Select Class --</option>
+                    {% for c in classes %}
+                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Select Student</label>
+                <select name="student_id" id="studentSelect" required>
+                    <option value="">-- Select Class First --</option>
+                </select>
+            </div>
+
+            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label>Payment Date</label>
+                    <input type="date" name="payment_date" value="{{ today }}" required />
+                </div>
+                <div class="form-group">
+                    <label>Billing Period</label>
+                    <input type="text" name="period" placeholder="e.g., April 2026" required />
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; background: var(--success);">Confirm & Record Payment</button>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -59,10 +67,8 @@
     const classSelect = document.getElementById('classSelect');
     const studentSelect = document.getElementById('studentSelect');
 
-    // Store all existing classes to recreate later
     const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
 
-    // Step 1: Teacher Select Filters Classes
     if (teacherSelect) {
         teacherSelect.addEventListener('change', function () {
             const selectedTeacher = this.value;
@@ -77,7 +83,6 @@
         });
     }
 
-    // Step 2: Class Select Filters Students dynamically from enrollments JSON
     classSelect.addEventListener('change', function () {
         const selectedClass = this.value;
         studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
@@ -93,7 +98,6 @@
         });
     });
 
-    // Auto-trigger class events if single mode (teacher view)
     if (role === 'teacher') {
         classSelect.dispatchEvent(new Event('change'));
     }

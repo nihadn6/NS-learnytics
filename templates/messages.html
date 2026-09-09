@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+
+{% block title %}Messages - NS Learnytics{% endblock %}
+
+{% block head %}
+<style>
+    .chat-container {
+        display: flex;
+        height: 70vh;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .contacts-sidebar {
+        width: 300px;
+        background: #f8fafc;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .contacts-header {
+        padding: 1rem;
+        background: #f1f5f9;
+        font-weight: 600;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .contact-list {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .contact-item {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .contact-item:hover {
+        background: #e2e8f0;
+    }
+
+    .contact-item.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .contact-item.active .text-muted {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .unread-badge {
+        background: var(--danger);
+        color: white;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-weight: bold;
+    }
+
+    .chat-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+    }
+
+    .chat-header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        background: #fff;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        background: #f8fafc;
+    }
+
+    .message-bubble {
+        max-width: 70%;
+        padding: 0.75rem 1rem;
+        border-radius: 1rem;
+        position: relative;
+        word-wrap: break-word;
+    }
+
+    .message-bubble.sent {
+        align-self: flex-end;
+        background: var(--primary);
+        color: white;
+        border-bottom-right-radius: 0.25rem;
+    }
+
+    .message-bubble.received {
+        align-self: flex-start;
+        background: #e2e8f0;
+        color: #1e293b;
+        border-bottom-left-radius: 0.25rem;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-top: 0.25rem;
+        text-align: right;
+    }
+
+    .msg-controls {
+        position: absolute;
+        top: -10px;
+        right: 10px;
+        display: none;
+        background: #fff;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        z-index: 10;
+    }
+
+    .message-bubble:hover .msg-controls {
+        display: flex;
+    }
+
+    .msg-controls button {
+        background: none;
+        border: none;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+
+    .msg-controls button:hover {
+        background: #f1f5f9;
+        color: var(--primary);
+    }
+
+    .msg-deleted {
+        font-style: italic;
+        opacity: 0.7;
+    }
+
+    .chat-input {
+        padding: 1rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 0.5rem;
+        background: #fff;
+    }
+
+    .chat-input input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        outline: none;
+    }
+
+    .chat-input input:focus {
+        border-color: var(--primary);
+    }
+
+    .empty-state {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        flex-direction: column;
+        background: #f8fafc;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="mb-4">
+    <h1>Messages</h1>
+    <p class="text-muted">Communicate securely within your educational network.</p>
+</div>
+
+<div class="chat-container">
+    <div class="contacts-sidebar">
+        <div class="contacts-header">
+            Conversations
+        </div>
+        <div class="contact-list" id="contactList">
+            <!-- Contacts loaded via JS -->
+            <div style="padding: 1rem; text-align: center; color: #64748b;">Loading...</div>
+        </div>
+    </div>
+
+    <div class="chat-main" id="chatMain" style="display: none;">
+        <div class="chat-header" id="chatHeader">
+            Select a conversation
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages loaded via JS -->
+        </div>
+        <form class="chat-input" id="chatForm">
+            <input type="text" id="messageInput" placeholder="Type a message..." required autocomplete="off">
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="margin-bottom: 1rem; opacity: 0.5;">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <p>Select a conversation to start messaging</p>
+    </div>
+</div>
+
+<script>
+    const currentUserId = {{ current_user_id }};
+    let activeContactId = null;
+
+    // Load contacts on mount
+    async function loadContacts() {
+        const res = await fetch('/api/messages/contacts');
+        const contacts = await res.json();
+
+        const listEl = document.getElementById('contactList');
+        listEl.innerHTML = '';
+
+        if (contacts.length === 0) {
+            listEl.innerHTML = '<div style="padding: 1rem; text-align: center; color: #64748b; font-size: 0.875rem;">No contacts available. You can only message assigned teachers or students.</div>';
+            return;
+        }
+
+        contacts.forEach(c => {
+            const div = document.createElement('div');
+            div.className = `contact-item ${activeContactId === c.id ? 'active' : ''}`;
+            div.onclick = () => selectContact(c.id, c.name, c.role);
+
+            div.innerHTML = `
+                <div>
+                    <div style="font-weight: 600;">${c.name}</div>
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: capitalize;">${c.role}</div>
+                </div>
+                ${c.unread > 0 ? `<span class="unread-badge">${c.unread}</span>` : ''}
+            `;
+            listEl.appendChild(div);
+        });
+    }
+
+    async function selectContact(id, name, role) {
+        activeContactId = id;
+
+        // UI Updates
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('chatMain').style.display = 'flex';
+        document.getElementById('chatHeader').innerText = `${name} (${role})`;
+
+        // Reload contacts to highlight active and clear badge
+        await loadContacts();
+
+        // Fetch history
+        await loadMessages();
+    }
+
+    async function loadMessages() {
+        if (!activeContactId) return;
+
+        const res = await fetch(`/api/messages/history/${activeContactId}`);
+        const messages = await res.json();
+
+        const messagesEl = document.getElementById('chatMessages');
+        messagesEl.innerHTML = '';
+
+        if (messages.length === 0) {
+            messagesEl.innerHTML = '<div style="text-align: center; color: #94a3b8; margin-top: auto; margin-bottom: auto;">No messages yet. Send a message to start the conversation!</div>';
+        } else {
+            messages.forEach(m => {
+                const isSent = m.sender_id === currentUserId;
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${isSent ? 'sent' : 'received'}`;
+
+                if (m.is_deleted) {
+                    bubble.innerHTML = `
+                        <div class="msg-deleted"><svg style="width: 12px; height:12px; vertical-align:middle; margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>This message was deleted</div>
+                        <div class="message-time">${m.created_at}</div>
+                    `;
+                } else {
+                    let controlsHtml = '';
+                    if (isSent) {
+                        controlsHtml = `
+                        <div class="msg-controls">
+                            <button onclick="editMessage(${m.id}, \`${m.content.replace(/`/g, '\\`')}\`)">Edit</button>
+                            <button onclick="deleteMessage(${m.id})" style="color:var(--danger)">Delete</button>
+                        </div>`;
+                    }
+
+                    bubble.innerHTML = `
+                        ${controlsHtml}
+                        <div>${m.content} ${m.is_edited ? '<span style="font-size: 0.7rem; opacity: 0.7; margin-left: 0.5rem;">(edited)</span>' : ''}</div>
+                        <div class="message-time">${m.created_at}</div>
+                    `;
+                }
+                messagesEl.appendChild(bubble);
+            });
+            // Scroll to bottom
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+    }
+
+    async function deleteMessage(id) {
+        if (!confirm("Are you sure you want to unsend this message?")) return;
+        const res = await fetch(`/api/messages/delete/${id}`, { method: 'DELETE' });
+        if (res.ok) await loadMessages();
+    }
+
+    async function editMessage(id, oldContent) {
+        const newContent = prompt("Edit your message:", oldContent);
+        if (newContent !== null && newContent.trim() !== "" && newContent !== oldContent) {
+            const res = await fetch(`/api/messages/edit/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: newContent.trim() })
+            });
+            if (res.ok) await loadMessages();
+        }
+    }
+
+    document.getElementById('chatForm').onsubmit = async (e) => {
+        e.preventDefault();
+        if (!activeContactId) return;
+
+        const input = document.getElementById('messageInput');
+        const content = input.value.trim();
+        if (!content) return;
+
+        input.value = '';
+
+        const res = await fetch('/api/messages/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiver_id: activeContactId, content })
+        });
+
+        if (res.ok) {
+            await loadMessages();
+        }
+    };
+
+    // Initial Load
+    loadContacts();
+
+    // Optional: Poll for new messages every 10 seconds
+    setInterval(() => {
+        loadContacts();
+        if (activeContactId) {
+            loadMessages();
+        }
+    }, 10000);
+</script>
+{% endblock %}

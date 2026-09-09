@@ -59,54 +59,92 @@ def view_attendance_history():
         return "Student view only", 403
         
     user_id = session['user_id']
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            query_records = """
                 SELECT c.subject, a.date, a.status 
                 FROM attendance a
                 JOIN classes c ON a.class_id = c.id
                 WHERE a.student_id = %s
-                ORDER BY a.date DESC
-            """, (user_id,))
+            """
+            params = [user_id]
+            
+            if start_date and end_date:
+                query_records += " AND a.date >= %s AND a.date <= %s"
+                params.extend([start_date, end_date])
+            
+            query_records += " ORDER BY a.date DESC"
+            cursor.execute(query_records, tuple(params))
             records = cursor.fetchall()
             
-            cursor.execute("""
+            query_pct = """
                 SELECT c.subject, 
                        SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) as percentage
                 FROM attendance a
                 JOIN classes c ON a.class_id = c.id
                 WHERE a.student_id = %s
-                GROUP BY c.id
-            """, (user_id,))
+            """
+            pct_params = [user_id]
+            if start_date and end_date:
+                query_pct += " AND a.date >= %s AND a.date <= %s"
+                pct_params.extend([start_date, end_date])
+            
+            query_pct += " GROUP BY c.id"
+            cursor.execute(query_pct, tuple(pct_params))
             percentages = cursor.fetchall()
             
-            return render_template('attendance_student.html', records=records, percentages=percentages)
+            return render_template('attendance_student.html', 
+                                 records=records, 
+                                 percentages=percentages, 
+                                 start_date=start_date, 
+                                 end_date=end_date)
     finally:
         conn.close()
 
 
 @attendance_bp.route('/attendance/scan', methods=['GET', 'POST'])
 def scan_attendance():
-    # Moderators (clerks) can scan student QR codes to mark attendance
-    if session.get('role') not in ('moderator', 'admin', 'superadmin'):
+    # Teachers, Moderators (clerks), and Super Admins can scan student QR codes or manually mark attendance
+    role = session.get('role')
+    user_id = session.get('user_id')
+
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
         return "Unauthorized", 403
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             if request.method == 'GET':
-                cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
-                teachers = cursor.fetchall()
-                cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
-                classes = cursor.fetchall()
-                cursor.execute("""
-                    SELECT e.class_id, u.id as student_id, u.name 
-                    FROM enrollments e 
-                    JOIN users u ON e.student_id = u.id 
-                    ORDER BY u.name
-                """)
-                enrollments = cursor.fetchall()
+                if role == 'teacher':
+                    cursor.execute("SELECT id, name FROM users WHERE id = %s", (user_id,))
+                    teachers = cursor.fetchall()
+                    cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
+                    classes = cursor.fetchall()
+                    cursor.execute("""
+                        SELECT e.class_id, u.id as student_id, u.name 
+                        FROM enrollments e 
+                        JOIN users u ON e.student_id = u.id 
+                        JOIN classes c ON e.class_id = c.id
+                        WHERE c.teacher_id = %s
+                        ORDER BY u.name
+                    """, (user_id,))
+                    enrollments = cursor.fetchall()
+                else:
+                    cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                    teachers = cursor.fetchall()
+                    cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
+                    classes = cursor.fetchall()
+                    cursor.execute("""
+                        SELECT e.class_id, u.id as student_id, u.name 
+                        FROM enrollments e 
+                        JOIN users u ON e.student_id = u.id 
+                        ORDER BY u.name
+                    """)
+                    enrollments = cursor.fetchall()
                 return render_template('scan_attendance.html', teachers=teachers, classes=classes, enrollments=enrollments)
 
             # POST: accept JSON payload with token/student_id and class_id (and optional date)
@@ -210,7 +248,7 @@ def manual_mark():
 @attendance_bp.route('/attendance/report', methods=['GET'])
 def attendance_report():
     role = session.get('role')
-    if role not in ('teacher', 'admin', 'superadmin'):
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
         return "Unauthorized", 403
 
     user_id = session['user_id']
@@ -222,7 +260,7 @@ def attendance_report():
     try:
         with conn.cursor() as cursor:
             teachers = []
-            if role in ('admin', 'superadmin'):
+            if role in ('moderator', 'admin', 'superadmin'):
                 cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
                 teachers = cursor.fetchall()
                 cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
@@ -230,6 +268,7 @@ def attendance_report():
             else:
                 cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
                 classes = cursor.fetchall()
+
             
             records = []
             aggregated = []
@@ -312,6 +351,18 @@ def finalize_attendance():
                     VALUES (%s, %s, %s, 'absent')
                     ON DUPLICATE KEY UPDATE status = VALUES(status)
                 """, (class_id, student_id, date))
+                
+                # Trigger Notification for Parents
+                try:
+                    from utils.notifications import notify_parents_of_absence
+                    cursor.execute("SELECT name FROM users WHERE id = %s", (student_id,))
+                    s_name = cursor.fetchone()['name']
+                    cursor.execute("SELECT subject FROM classes WHERE id = %s", (class_id,))
+                    c_name = cursor.fetchone()['subject']
+                    notify_parents_of_absence(student_id, s_name, c_name, date)
+                except Exception as e:
+                    print(f"Notification error: {e}")
+
             conn.commit()
 
             return jsonify({'success': True, 'message': f'Algorithm executed successfully: Flagged exactly {len(missing_students)} structurally missing student(s) natively as Absent.'})

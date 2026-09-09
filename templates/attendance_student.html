@@ -1,45 +1,75 @@
 {% extends 'base.html' %}
+
 {% block title %}My Attendance - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-top: 20px;">
-    <h2>Attendance Summary</h2>
-    <div style="display:flex; gap:20px; margin-bottom:30px; flex-wrap:wrap;">
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>My Attendance Analytics</h1>
+        <p class="text-muted">Track your presence across all enrolled subject modules.</p>
+    </div>
+
+    <!-- Period Filter -->
+    <form action="{{ url_for('attendance.view_attendance_history') }}" method="GET" class="flex gap-4 align-center mb-4" style="background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius); flex-wrap: wrap;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
+            <label>From Date</label>
+            <input type="date" name="start_date" value="{{ start_date or '' }}">
+        </div>
+        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
+            <label>To Date</label>
+            <input type="date" name="end_date" value="{{ end_date or '' }}">
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.5rem;">Filter by Period</button>
+            {% if start_date or end_date %}
+                <a href="{{ url_for('attendance.view_attendance_history') }}" class="btn btn-outline" style="font-size: 0.8rem;">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="stat-grid mb-4">
         {% for p in percentages %}
-        <div
-            style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #e2e8f0; min-width:150px; flex:1;">
-            <h4 style="margin:0 0 10px 0;">{{ p.subject }}</h4>
-            <div
-                style="font-size:24px; font-weight:bold; color: {% if p.percentage >= 75 %}#10b981{% elif p.percentage >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+        <div class="stat-card">
+            <span class="stat-label">{{ p.subject }}</span>
+            <span class="stat-value" style="color: {% if p.percentage >= 75 %}var(--success){% elif p.percentage >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
                 {{ "%.1f"|format(p.percentage) }}%
-            </div>
+            </span>
         </div>
         {% else %}
-        <p>No attendance recorded yet for your classes.</p>
+        <div class="alert alert-error" style="grid-column: 1 / -1;">No attendance records found.</div>
         {% endfor %}
     </div>
 
-    <h2>Recent Records</h2>
-    <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr style="border-bottom:2px solid #eee; text-align:left;">
-                <th style="padding:10px;">Date</th>
-                <th style="padding:10px;">Subject</th>
-                <th style="padding:10px;">Status</th>
-            </tr>
-            {% for r in records %}
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:10px;">{{ r.date }}</td>
-                <td style="padding:10px; font-weight:500;">{{ r.subject }}</td>
-                <td
-                    style="padding:10px; color: {% if r.status == 'present' %}#10b981{% else %}#ef4444{% endif %}; font-weight:bold; text-transform:capitalize;">
-                    {{ r.status }}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="3" style="padding:10px; text-align:center;">No records found.</td>
-            </tr>
-            {% endfor %}
+    <h2 class="mb-4">Detailed Session History</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td class="text-muted">{{ r.date }}</td>
+                    <td style="font-weight: 600;">{{ r.subject }}</td>
+                    <td>
+                        <span style="padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; {% if r.status == 'present' %}background: #dcfce7; color: #166534;{% else %}background: #fee2e2; color: #991b1b;{% endif %};">
+                            {{ r.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="text-center text-muted" style="padding: 2rem;">No session history available.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
 </div>

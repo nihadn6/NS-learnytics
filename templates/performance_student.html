@@ -1,34 +1,51 @@
 {% extends 'base.html' %}
+
 {% block title %}My Performance - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-top: 20px;">
-    <h2>My Marks</h2>
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>My Academic Progress</h1>
+        <p class="text-muted">Review your assessment scores and overall subject performance.</p>
+    </div>
+
     {% if marks %}
-    <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr style="border-bottom:2px solid #eee; text-align:left;">
-                <th style="padding:10px;">Date</th>
-                <th style="padding:10px;">Subject</th>
-                <th style="padding:10px;">Assessment</th>
-                <th style="padding:10px;">Score</th>
-                <th style="padding:10px;">Percentage</th>
-            </tr>
-            {% for m in marks %}
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:10px;">{{ m.date_recorded }}</td>
-                <td style="padding:10px; font-weight:500;">{{ m.subject }}</td>
-                <td style="padding:10px;">{{ m.test_name }}</td>
-                <td style="padding:10px;">{{ m.marks_obtained }} / {{ m.max_marks }}</td>
-                <td
-                    style="padding:10px; font-weight:bold; color: {% if (m.marks_obtained / m.max_marks) >= 0.75 %}#10b981{% elif (m.marks_obtained / m.max_marks) >= 0.5 %}#f59e0b{% else %}#ef4444{% endif %};">
-                    {{ "%.1f"|format((m.marks_obtained / m.max_marks) * 100) }}%
-                </td>
-            </tr>
-            {% endfor %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Exam Date</th>
+                    <th>Subject</th>
+                    <th>Assessment</th>
+                    <th>Raw Score</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in marks %}
+                <tr>
+                    <td class="text-muted">{{ m.date_recorded }}</td>
+                    <td style="font-weight: 600;">{{ m.subject }}</td>
+                    <td>{{ m.test_name }}</td>
+                    <td>{{ m.marks_obtained }} <span class="text-muted">/ {{ m.max_marks }}</span></td>
+                    <td>
+                        {% set pct = (m.marks_obtained / m.max_marks) * 100 %}
+                        <span style="font-weight: 800; color: {% if pct >= 75 %}var(--success){% elif pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                            {{ "%.1f"|format(pct) }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
     {% else %}
-    <p>No marks recorded yet. Your teacher will add them here.</p>
+    <div class="alert alert-error text-center" style="padding: 3rem;">
+        <p>No academic records found yet. Your instructor will post grades here after assessments.</p>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

@@ -186,10 +186,22 @@ def income_report():
             """, (teacher_id, start_date, end_date))
             class_summaries = cursor.fetchall()
 
+            # Group by month for monthly-wise report
+            cursor.execute("""
+                SELECT DATE_FORMAT(p.payment_date, '%%Y-%%m') as month, SUM(p.amount) as total
+                FROM payments p
+                JOIN classes c ON p.class_id = c.id
+                WHERE c.teacher_id = %s
+                GROUP BY month
+                ORDER BY month DESC
+            """, (teacher_id,))
+            monthly_summaries = cursor.fetchall()
+
             return render_template('income_report.html', 
                                    payments=payments, 
                                    total_income=total_income,
                                    class_summaries=class_summaries,
+                                   monthly_summaries=monthly_summaries,
                                    start_date=start_date,
                                    end_date=end_date,
                                    teachers=teachers,

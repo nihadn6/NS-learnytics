@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Request Student Link - NS Learnytics{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh; padding-top: 2rem;">
+    <div class="card" style="width: 100%; max-width: 500px;">
+        <div class="mb-6">
+            <a href="{{ url_for('parent.dashboard') }}" class="text-muted" style="text-decoration: none; font-size: 0.875rem;">&larr; Back to Dashboard</a>
+            <h1 class="mt-2">Link with Student</h1>
+            <p class="text-muted">Enter your child's full name or email address to request access to their academic profile.</p>
+        </div>
+
+        <form action="{{ url_for('parent.link_request') }}" method="POST">
+            <div class="form-group">
+                <label for="student_identifier">Student Name or Email</label>
+                <input type="text" name="student_identifier" id="student_identifier" 
+                       placeholder="e.g. John Smith or john@example.com" required
+                       style="padding: 1rem; font-size: 1rem;">
+                <p class="text-muted mt-2" style="font-size: 0.75rem;">
+                    <strong>Note:</strong> To protect student privacy, this request must be verified by a Teacher or System Administrator before you can view any data.
+                </p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; margin-top: 1rem;">Submit Link Request</button>
+        </form>
+
+        <div class="card mt-6" style="background: #f0f9ff; border-color: #bae6fd;">
+            <h4 style="color: #0369a1; margin-top: 0;">How it works</h4>
+            <ol class="text-muted" style="font-size: 0.875rem; padding-left: 1.25rem;">
+                <li>You submit the name or email of the student.</li>
+                <li>Our instructors verify the family relationship.</li>
+                <li>Once approved, the student will appear in your dashboard switcher.</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}

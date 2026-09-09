@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
 from database.db import get_db_connection
+from services.ai_risk_predictor import risk_predictor
+from services.ai_grade_forecaster import grade_forecaster
 import datetime
 
 analytics_bp = Blueprint('analytics', __name__)
@@ -27,7 +29,6 @@ def teacher_dashboard():
             total_students = cursor.fetchone()['cnt']
             
             # Monthly Income (current month based on payment_date)
-            # Use %% to escape for DATE_FORMAT
             current_month_str = datetime.datetime.now().strftime('%Y-%m')
             cursor.execute("""
                 SELECT SUM(amount) as total 
@@ -44,6 +45,36 @@ def teacher_dashboard():
             exp_row = cursor.fetchone()
             monthly_expenses = float(exp_row['total'] or 0.0)
             net_income = monthly_income - monthly_expenses
+
+            # Active Teacher Classes with Enrollment counts
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.fee, c.join_code, COUNT(e.student_id) as student_count
+                FROM classes c
+                LEFT JOIN enrollments e ON c.id = e.class_id
+                WHERE c.teacher_id = %s
+                GROUP BY c.id, c.subject, c.schedule, c.fee, c.join_code
+                ORDER BY c.subject
+            """, (user_id,))
+            classes_list = cursor.fetchall()
+
+            # Pending Grading Count in LMS
+            cursor.execute("""
+                SELECT COUNT(*) as cnt
+                FROM assignment_submissions sub
+                JOIN assignments a ON sub.assignment_id = a.id
+                WHERE a.teacher_id = %s AND sub.status = 'submitted'
+            """, (user_id,))
+            pending_grading_cnt = cursor.fetchone()['cnt']
+
+            # Recent Announcements posted by this teacher
+            cursor.execute("""
+                SELECT a.title, a.content, a.created_at, c.subject
+                FROM announcements a
+                JOIN classes c ON a.class_id = c.id
+                WHERE a.teacher_id = %s
+                ORDER BY a.created_at DESC LIMIT 3
+            """, (user_id,))
+            recent_announcements = cursor.fetchall()
             
             # Attendance Analysis & Segmentation
             cursor.execute("""
@@ -97,23 +128,34 @@ def teacher_dashboard():
             rev_labels = [r['subject'] for r in class_rev]
             rev_data = [float(r['revenue'] or 0) for r in class_rev]
             
+            # Fetch AI Risk Predictor Top 5 At-Risk Students
+            top_5_at_risk = risk_predictor.get_all_student_risks(teacher_id=user_id)[:5]
+
             # Insights Engine
             insights = []
+            if top_5_at_risk:
+                high_risk_cnt = sum(1 for s in top_5_at_risk if s['risk_level'] == 'HIGH')
+                if high_risk_cnt > 0:
+                    insights.append(f"AI Warning: {high_risk_cnt} student(s) in your classes are flagged at HIGH risk of academic dropout.")
             if segmentation['risk'] > segmentation['high']:
-                insights.append("Warning: You have more at-risk students than high performers. Consider revising teaching strategies.")
+                insights.append("Warning: You have more at-risk students than high performers. Review low-attendance follow-ups.")
             best_class = max(class_rev, key=lambda x: float(x['revenue'] or 0)) if class_rev else None
             if best_class and best_class['revenue']:
                 insights.append(f"Class '{best_class['subject']}' generates the highest revenue.")
             if perf_data and len(perf_data) >= 2:
                 if perf_data[-1] < perf_data[-2]:
-                    insights.append("Notice: Average class performance has declined compared to the previous test.")
+                    insights.append("Notice: Average class performance has dipped slightly compared to the previous test.")
             
             return render_template('teacher_dashboard.html', 
                                    total_classes=total_classes,
                                    total_students=total_students,
                                    monthly_income=monthly_income,
                                    net_income=net_income,
+                                   classes_list=classes_list,
+                                   pending_grading_cnt=pending_grading_cnt,
+                                   recent_announcements=recent_announcements,
                                    at_risk_students=at_risk_students,
+                                   top_5_at_risk=top_5_at_risk,
                                    segmentation=segmentation,
                                    perf_labels=perf_labels,
                                    perf_data=perf_data,
@@ -140,6 +182,53 @@ def student_dashboard():
             att_row = cursor.fetchone()
             attendance_pct = float(att_row['pct']) if att_row and att_row['pct'] is not None else 100.0
             
+            # Enrolled Classes Count
+            cursor.execute("SELECT COUNT(*) as cnt FROM enrollments WHERE student_id = %s", (user_id,))
+            class_row = cursor.fetchone()
+            total_classes = class_row['cnt'] if class_row else 0
+
+            # Payments Made Count
+            cursor.execute("SELECT COUNT(*) as cnt FROM payments WHERE student_id = %s", (user_id,))
+            pay_row = cursor.fetchone()
+            total_payments = pay_row['cnt'] if pay_row else 0
+
+            # Upcoming Assignments & Homework
+            cursor.execute("""
+                SELECT a.id, a.title, a.due_date, a.max_points, a.description, c.subject,
+                       sub.status as submission_status, sub.marks_obtained
+                FROM enrollments e
+                JOIN assignments a ON e.class_id = a.class_id
+                JOIN classes c ON a.class_id = c.id
+                LEFT JOIN assignment_submissions sub ON a.id = sub.assignment_id AND sub.student_id = %s
+                WHERE e.student_id = %s
+                ORDER BY a.due_date ASC LIMIT 5
+            """, (user_id, user_id))
+            upcoming_assignments = cursor.fetchall()
+
+            # Recent Marks with Test Name
+            cursor.execute("""
+                SELECT m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject
+                FROM marks m
+                JOIN classes c ON m.class_id = c.id
+                WHERE m.student_id = %s
+                ORDER BY m.date_recorded DESC LIMIT 5
+            """, (user_id,))
+            recent_marks = cursor.fetchall()
+
+            # Enrolled Classes list
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.fee, u.name as teacher_name
+                FROM enrollments e
+                JOIN classes c ON e.class_id = c.id
+                JOIN users u ON c.teacher_id = u.id
+                WHERE e.student_id = %s
+                ORDER BY c.subject
+            """, (user_id,))
+            enrolled_classes = cursor.fetchall()
+
+            # AI Grade Forecast for student
+            student_forecast = grade_forecaster.forecast_student_performance(user_id)
+
             # Performance Chart Data
             cursor.execute("""
                 SELECT test_name, (marks_obtained/max_marks * 100) as score
@@ -154,13 +243,13 @@ def student_dashboard():
             # Insights
             insights = []
             if attendance_pct < 75:
-                insights.append("Your attendance is below 75%. Try to attend more classes to improve your grades.")
+                insights.append("Your attendance is below 75%. Try to attend more classes to keep up with coursework.")
             if perf_data:
                 avg_score = sum(perf_data) / len(perf_data)
                 if avg_score >= 75:
-                    insights.append("Great job! You are performing very well overall.")
+                    insights.append("Great job! You are in the upper academic percentile.")
                 elif avg_score < 50:
-                    insights.append("You might need extra help. Consider talking to your teacher.")
+                    insights.append("You might need extra revision. Reach out to your teacher via Messages.")
             
             # Profile & QR Code
             cursor.execute("SELECT qr_code FROM student_profiles WHERE user_id = %s", (user_id,))
@@ -169,6 +258,12 @@ def student_dashboard():
             
             return render_template('student_dashboard.html',
                                    attendance_pct=attendance_pct,
+                                   total_classes=total_classes,
+                                   total_payments=total_payments,
+                                   upcoming_assignments=upcoming_assignments,
+                                   recent_marks=recent_marks,
+                                   enrolled_classes=enrolled_classes,
+                                   student_forecast=student_forecast,
                                    perf_labels=perf_labels,
                                    perf_data=perf_data,
                                    insights=insights,
@@ -188,6 +283,30 @@ def moderator_dashboard():
             teachers = cursor.fetchall()
             cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
             classes = cursor.fetchall()
-            return render_template('moderator_dashboard.html', teachers=teachers, classes=classes)
+
+            # Today's Check-in Count
+            cursor.execute("SELECT COUNT(*) as cnt FROM attendance WHERE date = CURDATE() AND status = 'present'")
+            today_attendance = cursor.fetchone()['cnt']
+
+            # Today's Total Fees Collected
+            cursor.execute("SELECT SUM(amount) as total FROM payments WHERE payment_date = CURDATE()")
+            today_fees = float(cursor.fetchone()['total'] or 0.0)
+
+            # Live Stream of Recent Payments
+            cursor.execute("""
+                SELECT p.id, p.amount, p.payment_date, p.period, u.name as student_name, c.subject
+                FROM payments p
+                JOIN users u ON p.student_id = u.id
+                JOIN classes c ON p.class_id = c.id
+                ORDER BY p.id DESC LIMIT 6
+            """)
+            recent_payments = cursor.fetchall()
+
+            return render_template('moderator_dashboard.html', 
+                                   teachers=teachers, 
+                                   classes=classes,
+                                   today_attendance=today_attendance,
+                                   today_fees=today_fees,
+                                   recent_payments=recent_payments)
     finally:
         conn.close()

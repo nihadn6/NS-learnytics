@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Report - {{ student.name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            background-color: #f8fafc;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        .report-container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+        .report-title {
+            text-align: right;
+        }
+        .report-title h2 {
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+        .report-title p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .action-bar {
+            max-width: 960px;
+            margin: 0 auto 1.5rem auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-card {
+            max-width: 960px;
+            margin: 0 auto 1.5rem auto;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+
+        .filter-form {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .form-item {
+            flex: 1;
+            min-width: 170px;
+        }
+
+        .form-item label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.875rem;
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--text);
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .student-info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+        }
+        .info-item label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+        .info-item span {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .section-header {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-block {
+            margin-bottom: 2.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Print Specific Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .report-container {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+                max-width: 100%;
+            }
+            .action-bar, .filter-card {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOP ACTION BAR -->
+    <div class="action-bar">
+        <a href="{{ url_for('parent.dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+        <button onclick="window.print()" class="btn btn-primary">Print / Save as PDF</button>
+    </div>
+
+    <!-- REPORT FILTER CARD -->
+    <div class="filter-card">
+        <form action="{{ url_for('parent.progress_report', student_id=student.id) }}" method="GET" class="filter-form">
+            <div class="form-item">
+                <label>Filter Teacher</label>
+                <select id="teacherSelect" name="teacher_id" class="input-field">
+                    <option value="">-- All Teachers --</option>
+                    {% for tid, tname in teachers.items() %}
+                        <option value="{{ tid }}" {% if selected_teacher_id|string == tid|string %}selected{% endif %}>{{ tname }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-item">
+                <label>Filter Class / Subject</label>
+                <select id="classSelect" name="class_id" class="input-field">
+                    <option value="">-- All Classes --</option>
+                    {% for c in enrolled_classes %}
+                        <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }} ({{ c.teacher_name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-item" style="min-width: 130px;">
+                <label>Start Date</label>
+                <input type="date" name="start_date" value="{{ start_date or '' }}" class="input-field">
+            </div>
+            <div class="form-item" style="min-width: 130px;">
+                <label>End Date</label>
+                <input type="date" name="end_date" value="{{ end_date or '' }}" class="input-field">
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.25rem;">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const teacherSelect = document.getElementById('teacherSelect');
+            const classSelect = document.getElementById('classSelect');
+            if (!teacherSelect || !classSelect) return;
+
+            const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
+
+            function filterClasses() {
+                const selectedTeacher = teacherSelect.value;
+                const currentSelected = classSelect.value;
+                
+                // Clear existing options except header
+                Array.from(classSelect.children).forEach(child => {
+                    if (child.value !== "") child.remove();
+                });
+
+                let classFound = false;
+                allClassOptions.forEach(opt => {
+                    if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
+                        classSelect.appendChild(opt.cloneNode(true));
+                        if (opt.value === currentSelected) classFound = true;
+                    }
+                });
+
+                if (!classFound) classSelect.value = "";
+                else classSelect.value = currentSelected;
+            }
+
+            teacherSelect.addEventListener('change', filterClasses);
+            filterClasses();
+        });
+    </script>
+
+
+    <!-- MAIN REPORT CONTAINER -->
+    <div class="report-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">NS Learnytics</div>
+            <div class="report-title">
+                <h2>Official Student Progress Report</h2>
+                <p>Generated on {{ generated_at }}</p>
+            </div>
+        </div>
+
+        <!-- Student Profile Summary -->
+        <div class="student-info-grid">
+            <div class="info-item">
+                <label>Student Name</label>
+                <span>{{ student.name }}</span>
+            </div>
+            <div class="info-item">
+                <label>Grade Level</label>
+                <span>{{ student.grade or 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Student Email</label>
+                <span>{{ student.email }}</span>
+            </div>
+        </div>
+
+        <!-- 1. Attendance Summary -->
+        <div class="section-block">
+            <div class="section-header">
+                Attendance Summary by Class
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subject Class</th>
+                        <th>Instructor</th>
+                        <th>Total Sessions</th>
+                        <th>Present</th>
+                        <th>Absent</th>
+                        <th>Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in attendance %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ a.subject }}</td>
+                        <td style="color: var(--text-muted);">{{ a.teacher_name }}</td>
+                        <td>{{ a.total_sessions }}</td>
+                        <td style="color: var(--success); font-weight: 600;">{{ a.present_sessions }}</td>
+                        <td style="color: var(--danger); font-weight: 600;">{{ a.absent_sessions }}</td>
+                        <td>
+                            {% if a.percentage is not none %}
+                                <span class="badge {% if a.percentage >= 75 %}badge-success{% elif a.percentage >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ "%.1f"|format(a.percentage) }}%
+                                </span>
+                            {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">No sessions recorded</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted);">No attendance records found for the selected filter parameters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 2. Academic Examination Results -->
+        <div class="section-block">
+            <div class="section-header">
+                Academic Assessment Results
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Instructor</th>
+                        <th>Assessment / Test Name</th>
+                        <th>Date Recorded</th>
+                        <th>Marks Obtained</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in marks %}
+                    {% set pct = (m.marks_obtained / m.max_marks * 100) if m.max_marks > 0 else 0 %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ m.subject }}</td>
+                        <td style="color: var(--text-muted);">{{ m.teacher_name }}</td>
+                        <td>{{ m.test_name }}</td>
+                        <td>{{ m.date_recorded.strftime('%Y-%m-%d') if m.date_recorded else 'N/A' }}</td>
+                        <td style="font-weight: 700;">{{ m.marks_obtained }} / {{ m.max_marks }}</td>
+                        <td>
+                            <span class="badge {% if pct >= 75 %}badge-success{% elif pct >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                {{ "%.1f"|format(pct) }}%
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted);">No assessment records found for the selected filter parameters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 3. Financial Payment History -->
+        <div class="section-block">
+            <div class="section-header">
+                Fee Payment History
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subject Class</th>
+                        <th>Instructor</th>
+                        <th>Payment Period</th>
+                        <th>Date Paid</th>
+                        <th>Amount (LKR)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ p.subject }}</td>
+                        <td style="color: var(--text-muted);">{{ p.teacher_name }}</td>
+                        <td>{{ p.period }}</td>
+                        <td>{{ p.payment_date.strftime('%Y-%m-%d') if p.payment_date else 'N/A' }}</td>
+                        <td style="font-weight: 700; color: var(--success);">LKR {{ "{:,.2f}".format(p.amount) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted);">No payment records found for the selected filter parameters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>NS Learnytics Platform &copy; 2026. This report is computer-generated and serves as an official academic record.</p>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,38 +1,47 @@
 {% extends 'base.html' %}
+
 {% block title %}Students: {{ class_subject }} - NS Learnytics{% endblock %}
+
 {% block content %}
-<div style="margin-bottom:20px;">
-    <a href="{{ url_for('classes.view_classes') }}"
-        style="text-decoration:none; color:#3b82f6; font-weight: 500;">&larr; Back to My Classes</a>
-    <h2 style="margin-top:15px;">Students Enrolled in <span style="color:#3b82f6;">{{ class_subject }}</span></h2>
+<div class="mb-4 flex gap-2 align-center">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+    <a href="{{ url_for('classes.view_classes') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to My Classes</a>
+</div>
+<div class="mb-4">
+    <div class="flex justify-between align-center mt-2">
+        <h1>Enrolled Students: <span style="color: var(--primary);">{{ class_subject }}</span></h1>
+        <span class="text-muted" style="font-size: 0.875rem; background: var(--bg-main); padding: 0.25rem 0.75rem; border-radius: 1rem;">{{ students|length }} Students</span>
+    </div>
 </div>
 
-<div class="card" style="overflow-x: auto;">
+<div class="card">
     {% if students %}
-    <table style="width:100%; border-collapse:collapse; min-width: 600px;">
-        <thead>
-            <tr style="border-bottom:2px solid #e2e8f0; text-align:left; background-color: #f8fafc;">
-                <th style="padding:15px;">Name</th>
-                <th style="padding:15px;">Email</th>
-                <th style="padding:15px;">Grade</th>
-                <th style="padding:15px;">Joined At</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for s in students %}
-            <tr style="border-bottom:1px solid #e2e8f0;">
-                <td style="padding:15px; font-weight: 500;">{{ s.name }}</td>
-                <td style="padding:15px; color:#64748b;">{{ s.email }}</td>
-                <td style="padding:15px;">{{ s.grade }}</td>
-                <td style="padding:15px; color:#64748b;">{{ s.joined_at }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Full Name</th>
+                    <th>Email Address</th>
+                    <th>Grade / Group</th>
+                    <th>Enrolled Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td style="font-weight: 600;">{{ s.name }}</td>
+                    <td class="text-muted">{{ s.email }}</td>
+                    <td>{{ s.grade or 'N/A' }}</td>
+                    <td class="text-muted">{{ s.joined_at.strftime('%Y-%m-%d') if s.joined_at else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <div style="text-align:center; padding: 40px; color:#64748b;">
-        <p>No students have enrolled in this class yet.</p>
-        <p>Share your join code to invite students!</p>
+    <div class="text-center" style="padding: 4rem;">
+        <p class="text-muted mb-2">No students have enrolled in this class yet.</p>
+        <p class="text-muted" style="font-size: 0.875rem;">Students can join using your class code.</p>
     </div>
     {% endif %}
 </div>

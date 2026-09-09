@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Student Risk Predictor - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+
+<div class="flex justify-between align-center mb-6" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+            AI Student At-Risk & Dropout Predictor
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Machine Learning Random Forest analysis evaluating attendance rates, score trajectories, and homework completion ratios.</p>
+    </div>
+</div>
+
+<!-- Summary Metric Cards -->
+<div class="stat-grid mb-6">
+    <div class="stat-card" style="border-top: 4px solid var(--danger);">
+        <span class="stat-label">High Risk Students</span>
+        <span class="stat-value" style="color: var(--danger);">{{ high_count }}</span>
+        <span style="font-size: 0.775rem; color: var(--text-muted);">Require Immediate Intervention</span>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid var(--warning);">
+        <span class="stat-label">Moderate Risk</span>
+        <span class="stat-value" style="color: var(--warning);">{{ medium_count }}</span>
+        <span style="font-size: 0.775rem; color: var(--text-muted);">Monitor Attendance & Marks</span>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid var(--success);">
+        <span class="stat-label">Low Risk</span>
+        <span class="stat-value" style="color: var(--success);">{{ low_count }}</span>
+        <span style="font-size: 0.775rem; color: var(--text-muted);">Healthy Track Record</span>
+    </div>
+    <div class="stat-card" style="border-top: 4px solid var(--primary);">
+        <span class="stat-label">Avg System Risk Score</span>
+        <span class="stat-value" style="color: var(--primary);">{{ avg_risk_score }}%</span>
+        <span style="font-size: 0.775rem; color: var(--text-muted);">Across {{ total_students }} Students</span>
+    </div>
+</div>
+
+<!-- Filter Control Card -->
+<div class="card mb-6" style="padding: 1rem 1.25rem;">
+    <form action="{{ url_for('ai_analytics.at_risk_dashboard') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <label style="font-weight: 600; font-size: 0.875rem; color: var(--text-main);">Filter Class:</label>
+            <select name="class_id" class="input-field" onchange="this.form.submit()" style="max-width: 240px; padding: 0.45rem 0.75rem;">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Quick Tabs -->
+        <div style="display: flex; gap: 0.4rem;">
+            <button type="button" onclick="filterLevel('ALL')" id="tabALL" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">All ({{ total_students }})</button>
+            <button type="button" onclick="filterLevel('HIGH')" id="tabHIGH" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);">High Risk ({{ high_count }})</button>
+            <button type="button" onclick="filterLevel('MEDIUM')" id="tabMEDIUM" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--warning); border-color: var(--warning);">Medium Risk ({{ medium_count }})</button>
+        </div>
+    </form>
+</div>
+
+<!-- Student Risk Directory Table -->
+<div class="card">
+    <div class="table-container">
+        <table id="riskTable">
+            <thead>
+                <tr>
+                    <th>Student Details</th>
+                    <th>Risk Classification</th>
+                    <th>Predicted Risk Score</th>
+                    <th>Identified Risk Factors</th>
+                    <th>Attendance %</th>
+                    <th>Exam Avg %</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in student_risks %}
+                <tr class="risk-row" data-risk="{{ s.risk_level }}">
+                    <td style="font-weight: 600;">
+                        {{ s.name }}
+                        <div style="font-size: 0.775rem; color: var(--text-muted); font-weight: 400;">{{ s.email }}</div>
+                    </td>
+                    <td>
+                        {% if s.risk_level == 'HIGH' %}
+                            <span class="badge badge-danger" style="font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.65rem;">HIGH RISK</span>
+                        {% elif s.risk_level == 'MEDIUM' %}
+                            <span class="badge badge-warning" style="font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.65rem;">MODERATE</span>
+                        {% else %}
+                            <span class="badge badge-success" style="font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.65rem;">LOW RISK</span>
+                        {% endif %}
+                    </td>
+                    <td style="min-width: 140px;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="flex: 1; background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div style="width: {{ s.risk_pct }}%; height: 100%; background: {% if s.risk_pct >= 55 %}var(--danger){% elif s.risk_pct >= 25 %}var(--warning){% else %}var(--success){% endif %};"></div>
+                            </div>
+                            <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-main);">{{ s.risk_pct }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        <ul style="margin: 0; padding-left: 1rem; font-size: 0.8rem; color: var(--text-main);">
+                            {% for factor in s.risk_factors %}
+                                <li style="margin-bottom: 0.15rem;">{{ factor }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td style="font-weight: 700; color: {% if s.attendance_pct >= 75 %}var(--success){% elif s.attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                        {{ s.attendance_pct }}%
+                        <div style="font-size: 0.725rem; font-weight: 400; color: var(--text-muted);">30d: {{ s.recent_attendance_pct }}%</div>
+                    </td>
+                    <td style="font-weight: 700; color: {% if s.avg_mark_pct >= 60 %}var(--success){% elif s.avg_mark_pct >= 45 %}var(--warning){% else %}var(--danger){% endif %};">
+                        {{ s.avg_mark_pct }}%
+                        {% if s.mark_trend != 0 %}
+                            <div style="font-size: 0.725rem; font-weight: 500; color: {% if s.mark_trend > 0 %}var(--success){% else %}var(--danger){% endif %};">
+                                {{ s.mark_trend }}%
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.775rem; text-decoration: none;">Message</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No student records found to analyze.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function filterLevel(level) {
+    const rows = document.querySelectorAll('.risk-row');
+    const tabs = ['ALL', 'HIGH', 'MEDIUM'];
+    
+    tabs.forEach(t => {
+        const btn = document.getElementById('tab' + t);
+        if (t === level) {
+            btn.className = 'btn btn-primary';
+        } else {
+            btn.className = 'btn btn-outline';
+        }
+    });
+
+    rows.forEach(row => {
+        if (level === 'ALL' || row.getAttribute('data-risk') === level) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

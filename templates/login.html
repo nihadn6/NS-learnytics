@@ -1,25 +1,40 @@
 {% extends 'base.html' %}
+
 {% block title %}Login - NS Learnytics{% endblock %}
-{% block content %}
-<div class="card" style="max-width: 400px; margin: 50px auto;">
-    <h2 style="text-align: center; margin-top: 0;">Login</h2>
-    {% if error %}
-    <p style="color: red; text-align: center;">{{ error }}</p>
-    {% endif %}
-    <form action="{{ url_for('auth.login') }}" method="POST" style="display: flex; flex-direction: column; gap: 15px;">
-        <div>
-            <label for="email" style="display:block; margin-bottom: 5px;">Email</label>
-            <input type="email" name="email" id="email" required
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+
+{% block public_content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="width: 100%; max-width: 450px;">
+        <div class="text-center mb-4">
+            <h1 style="margin-bottom: 0.5rem;">Welcome Back</h1>
+            <p class="text-muted">Enter your credentials to access your dashboard</p>
         </div>
-        <div>
-            <label for="password" style="display:block; margin-bottom: 5px;">Password</label>
-            <input type="password" name="password" id="password" required
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+
+        {% if error %}
+            <div class="alert alert-error text-center">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form action="{{ url_for('auth.login') }}" method="POST">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" name="email" id="email" placeholder="name@example.com" required>
+            </div>
+            
+            <div class="form-group">
+                <div class="flex justify-between align-center mb-1">
+                    <label for="password" style="margin-bottom: 0;">Password</label>
+                </div>
+                <input type="password" name="password" id="password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Sign In</button>
+        </form>
+
+        <div class="text-center mt-4">
+            <p class="text-muted">Don't have an account? <a href="{{ url_for('auth.register') }}" style="font-weight: 600;">Register here</a></p>
         </div>
-        <button type="submit" class="btn" style="margin-top: 10px;">Login</button>
-    </form>
-    <p style="text-align: center; margin-top: 15px;">Don't have an account? <a
-            href="{{ url_for('auth.register') }}">Register</a></p>
+    </div>
 </div>
 {% endblock %}

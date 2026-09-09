@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Grading Roster | {{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex gap-2 align-center">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+    <a href="{{ url_for('lms.index', class_id=assignment.class_id) }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">← Back to LMS Hub</a>
+</div>
+<div class="mb-4">
+    <div style="display: flex; justify-content: space-between; align-items: start; margin-top: 0.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
+                Submission Roster: {{ assignment.title }}
+            </h1>
+            <p class="text-muted" style="margin-bottom: 0;">Class: <strong>{{ assignment.subject }}</strong> | Max Score: <strong>{{ assignment.max_points }}</strong> | Due: <strong>{{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}</strong></p>
+        </div>
+    </div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Status</th>
+                <th>Submitted At</th>
+                <th>Answer / File</th>
+                <th>Marks Obtained</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in roster %}
+                <tr>
+                    <td style="font-weight: 600;">
+                        {{ row.student_name }}
+                        <div style="font-size: 0.775rem; color: var(--text-muted); font-weight: 400;">{{ row.email }}</div>
+                    </td>
+                    <td>
+                        {% if row.submission_id %}
+                            {% if row.status == 'graded' %}
+                                <span class="badge badge-success">Graded</span>
+                            {% else %}
+                                <span class="badge badge-primary">Submitted</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge badge-danger">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size: 0.825rem; color: var(--text-muted);">
+                        {% if row.submitted_at %}
+                            {{ row.submitted_at.strftime('%b %d, %I:%M %p') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.submission_id %}
+                            {% if row.submission_text %}
+                                <div style="font-size: 0.825rem; max-width: 260px; background: var(--bg-main); border: 1px solid var(--border); padding: 0.5rem; border-radius: var(--radius-sm); margin-bottom: 0.35rem; color: var(--text-main);">
+                                    "{{ row.submission_text }}"
+                                </div>
+                            {% endif %}
+                            {% if row.file_path %}
+                                <a href="{{ url_for('lms.download_file', filename=row.file_path) }}" class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">File</a>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">No submission</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 700; color: var(--success);">
+                        {% if row.marks_obtained is not none %}
+                            {{ row.marks_obtained }} / {{ assignment.max_points }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.submission_id %}
+                            <button onclick="openGradeModal({{ row.submission_id }}, '{{ row.student_name }}', '{{ row.marks_obtained or '' }}', '{{ row.feedback or '' }}')" class="btn btn-primary" style="padding: 0.3rem 0.75rem; font-size: 0.775rem;">
+                                {% if row.status == 'graded' %}Edit Grade{% else %}Grade Work{% endif %}
+                            </button>
+                        {% else %}
+                            <button disabled class="btn btn-outline" style="opacity: 0.4; cursor: not-allowed; padding: 0.3rem 0.75rem; font-size: 0.775rem;">Grade</button>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- GRADE MODAL -->
+<div id="gradeModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 460px;">
+        <h3 style="font-weight: 700; margin-bottom: 1.25rem; color: var(--text-main);" id="gradeStudentName">Grade Student Work</h3>
+        <form id="gradeForm" method="POST">
+            <div class="form-group">
+                <label>Marks Obtained (Max: {{ assignment.max_points }}) *</label>
+                <input type="number" step="0.5" name="marks_obtained" id="gradeInputMarks" required class="input-field" placeholder="e.g. 85">
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Teacher Feedback / Remarks</label>
+                <textarea name="feedback" id="gradeInputFeedback" rows="3" class="input-field" placeholder="Write feedback for the student..."></textarea>
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="document.getElementById('gradeModal').style.display='none'" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Grade</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openGradeModal(subId, name, marks, feedback) {
+    document.getElementById('gradeStudentName').innerText = 'Grade Work: ' + name;
+    document.getElementById('gradeInputMarks').value = marks;
+    document.getElementById('gradeInputFeedback').value = feedback;
+    document.getElementById('gradeForm').action = '/lms/submission/' + subId + '/grade';
+    document.getElementById('gradeModal').style.display = 'flex';
+}
+</script>
+{% endblock %}

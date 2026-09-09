@@ -1,18 +1,23 @@
 {% extends 'base.html' %}
+
 {% block title %}Performance Report - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-top: 20px;">
-    <h2>Academic Performance Report</h2>
-    <p style="color:#64748b; margin-bottom:20px;">View and analyze student examination results across all assessments.
-    </p>
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>Academic Performance Report</h1>
+        <p class="text-muted">View and analyze student examination results across all assessments.</p>
+    </div>
 
     <!-- Filter Section -->
-    <form action="{{ url_for('performance.performance_report') }}" method="GET"
-        style="background:#f8fafc; padding:20px; border-radius:8px; display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end; margin-bottom:30px;">
+    <form action="{{ url_for('performance.performance_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap; background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius);">
         {% if teachers %}
-        <div style="flex:1; min-width:200px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Teacher</label>
-            <select id="teacherFilter" style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
+            <label>Instructor</label>
+            <select id="teacherFilter">
                 <option value="">-- All Teachers --</option>
                 {% for t in teachers %}
                 <option value="{{ t.id }}">{{ t.name }}</option>
@@ -21,44 +26,48 @@
         </div>
         {% endif %}
 
-        <div style="flex:1; min-width:200px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Subject / Class</label>
-            <select id="classFilter" name="class_id" required
-                style="width:100%; padding:10px; border-radius:4px; border:1px solid #cbd5e1;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
+            <label>Subject / Class</label>
+            <select id="classFilter" name="class_id" required>
                 <option value="">-- Select Class --</option>
                 {% for c in classes %}
-                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if selected_class==c.id %}selected{%
-                    endif %}>{{ c.subject }}</option>
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.subject }}</option>
                 {% endfor %}
             </select>
         </div>
 
-        <button type="submit" class="btn" style="padding:10px 25px; background:#4f46e5;">Generate Report</button>
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary">Generate Report</button>
+        </div>
     </form>
 
     {% if class_info %}
-    <div style="margin-top:20px;">
-        <h3 style="border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:20px;">Grade Sheet for: {{
-            class_info.subject }}</h3>
+    <div class="mt-4">
+        <div class="flex justify-between align-center mb-4">
+            <h3>Grade Sheet for: {{ class_info.subject }}</h3>
+            <span class="text-muted" style="font-size: 0.875rem;">Total Assessments: {{ test_columns|length }}</span>
+        </div>
 
-        <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; background:white;">
-                <thead style="background:#f1f5f9;">
+        <div class="table-container">
+            <table>
+                <thead>
                     <tr>
-                        <th style="padding:15px; border:1px solid #e2e8f0; text-align:left;">Student Name</th>
+                        <th style="min-width: 200px;">Student Name</th>
                         {% for col in test_columns %}
-                        <th style="padding:15px; border:1px solid #e2e8f0; text-align:center; min-width:120px;">{{ col
-                            }}</th>
+                        <th class="text-center">{{ col }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
-                    <tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:12px; border:1px solid #e2e8f0; font-weight:600;">{{ student.name }}</td>
+                    <tr>
+                        <td style="font-weight: 600;">{{ student.name }}</td>
                         {% for col in test_columns %}
-                        <td style="padding:12px; border:1px solid #e2e8f0; text-align:center;">
-                            {{ marks_map.get(student.id, {}).get(col, '-') }}
+                        <td class="text-center">
+                            {% set mark = marks_map.get(student.id, {}).get(col, '-') %}
+                            <span style="{% if mark != '-' %}{% if mark|float >= 75 %}color: var(--success); font-weight: 700;{% elif mark|float < 50 %}color: var(--danger); font-weight: 700;{% endif %}{% endif %}">
+                                {{ mark }}
+                            </span>
                         </td>
                         {% endfor %}
                     </tr>
@@ -68,8 +77,8 @@
         </div>
     </div>
     {% elif selected_class %}
-    <div style="text-align:center; padding:40px; color:#64748b;">
-        <p>No performance records found for this class.</p>
+    <div class="alert alert-error text-center mt-4">
+        No performance records found for this class.
     </div>
     {% endif %}
 </div>

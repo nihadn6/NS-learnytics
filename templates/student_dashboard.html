@@ -1,110 +1,298 @@
 {% extends 'base.html' %}
-{% block title %}Student Dashboard - NS Learnytics{% endblock %}
+
+{% block title %}Student Portal - NS Learnytics{% endblock %}
+
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-    .stat-box {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        text-align: center;
-    }
-
-    .stat-box h3 {
-        margin: 0;
-        color: #64748b;
-        font-size: 14px;
-        text-transform: uppercase;
-    }
-
-    .stat-box .value {
-        font-size: 32px;
-        font-weight: bold;
-        color: #0f172a;
-        margin-top: 10px;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-    <h2 style="margin:0;">Student Dashboard</h2>
-    <a href="{{ url_for('classes.view_classes') }}" class="btn" style="text-decoration:none;">My Classes</a>
+<!-- Top Header Hero -->
+<div class="dashboard-hero-header">
+    <div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Academic Mission Control
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Track deadlines, review assignment grades, and monitor exam performance.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('lms.index') }}" class="btn btn-primary" style="padding: 0.55rem 1rem;">
+            <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <span>Open LMS Hub</span>
+        </a>
+        <a href="{{ url_for('enrollment.join_class') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            <span>+ Join Class</span>
+        </a>
+    </div>
 </div>
 
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; margin-bottom:30px;">
-    <div class="stat-box">
-        <h3>Overall Attendance</h3>
-        <div class="value"
-            style="color: {% if attendance_pct >= 75 %}#10b981{% elif attendance_pct >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+<!-- Key Stat Metrics Bar -->
+<div class="stat-grid">
+    <div class="stat-card" style="border-left: 4px solid {% if attendance_pct >= 75 %}var(--success){% elif attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+        <span class="stat-label">Overall Attendance</span>
+        <span class="stat-value" style="color: {% if attendance_pct >= 75 %}var(--success){% elif attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
             {{ "%.1f"|format(attendance_pct) }}%
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+            {% if attendance_pct >= 75 %}Good Standing{% else %}Needs Improvement{% endif %}
+        </span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <span class="stat-label">Enrolled Subjects</span>
+        <span class="stat-value" style="color: var(--primary);">{{ total_classes }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Active Courses</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--info);">
+        <span class="stat-label">Tuition Receipts</span>
+        <span class="stat-value" style="color: var(--info);">{{ total_payments }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Payment Records</span>
+    </div>
+</div>
+
+<!-- Academic Guidance Alerts -->
+{% if insights %}
+<div class="card mb-4" style="border-left: 4px solid var(--primary); background: #f5f3ff; border-color: #ddd6fe; padding: 1rem 1.25rem;">
+    <h4 style="font-weight: 700; color: #5b21b6; margin-bottom: 0.35rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+        <span>💡 Academic Insights & Recommendations</span>
+    </h4>
+    <ul style="margin: 0; padding-left: 1.25rem; color: #4c1d95; font-size: 0.85rem;">
+        {% for ins in insights %}
+            <li style="margin-bottom: 0.2rem;">{{ ins }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Main 2-Column Operational Grid -->
+<div class="grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+    
+    <!-- LEFT COLUMN: DEADLINES, RECENT MARKS & PROGRESS CHART -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Upcoming Tasks & Deadlines (Urgent Queue) -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem;">Upcoming Homework & Tasks</h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">LMS assignment deadlines and submission status.</p>
+                </div>
+                <a href="{{ url_for('lms.index') }}" class="btn btn-outline" style="font-size: 0.775rem; padding: 0.35rem 0.75rem;">View All Tasks &rarr;</a>
+            </div>
+
+            {% if upcoming_assignments %}
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% for a in upcoming_assignments %}
+                        <div class="task-item-card">
+                            <div style="padding-right: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;">
+                                    <span class="badge badge-purple" style="font-size: 0.7rem;">{{ a.subject }}</span>
+                                    <strong style="font-size: 0.9rem; color: var(--text-main);">{{ a.title }}</strong>
+                                </div>
+                                <div style="font-size: 0.775rem; color: var(--danger); font-weight: 600;">
+                                    Due: {{ a.due_date.strftime('%b %d, %Y at %I:%M %p') }}
+                                </div>
+                            </div>
+                            <div style="flex-shrink: 0; text-align: right;">
+                                {% if a.submission_status == 'graded' %}
+                                    <span class="badge badge-success" style="font-size: 0.75rem;">Graded: {{ a.marks_obtained }}/{{ a.max_points }}</span>
+                                {% elif a.submission_status == 'submitted' %}
+                                    <span class="badge badge-warning" style="font-size: 0.75rem;">Under Review</span>
+                                {% else %}
+                                    <a href="{{ url_for('lms.index') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;">Submit Work</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.875rem;">
+                    ✓ All caught up! No upcoming pending assignments.
+                </div>
+            {% endif %}
         </div>
-    </div>
-    <div class="stat-box"
-        style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px;">
-        <h3 style="margin-bottom:10px;">Your QR Check-in</h3>
-        {% if qr_code %}
-        <img id="studentQR" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ qr_code }}"
-            alt="Your Attendance QR Code"
-            style="border: 4px solid #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width:120px; height:120px;">
-        <p style="font-size: 10px; color: #64748b; margin-top:5px;">Scan at class to mark present</p>
-        <button onclick="downloadQR()" class="btn"
-            style="font-size: 0.75rem; padding: 5px 10px; margin-top:5px; background: #64748b;">Download QR</button>
-        <script>
-            function downloadQR() {
-                const img = document.getElementById('studentQR');
-                fetch(img.src)
-                    .then(response => response.blob())
-                    .then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'NS_Learnytics_QR.png';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(url);
-                    });
-            }
-        </script>
-        {% else %}
-        <p style="color:#ef4444; font-size:0.9rem;">QR Code not available.<br>Contact admin.</p>
-        {% endif %}
-    </div>
-</div>
 
-<div class="card" style="margin-bottom:30px;">
-    <h3>Performance Timeline</h3>
-    <canvas id="studentPerfChart" style="max-height: 400px;"></canvas>
-</div>
+        <!-- Recent Examination Results -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem;">Recent Examination Scores</h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Performance logs from recent in-class tests.</p>
+                </div>
+                <a href="{{ url_for('performance.view_marks') }}" class="btn btn-outline" style="font-size: 0.775rem; padding: 0.35rem 0.75rem;">Full Marksheet &rarr;</a>
+            </div>
 
-<div style="display:flex; gap:20px; flex-wrap:wrap;">
-    <a href="{{ url_for('performance.view_marks') }}" class="btn"
-        style="text-decoration:none; flex:1; text-align:center; background:#4f46e5;">Detailed Marks Report</a>
-    <a href="{{ url_for('attendance.view_attendance_history') }}" class="btn"
-        style="text-decoration:none; flex:1; text-align:center; background:#0ea5e9;">Attendance History</a>
-    <a href="{{ url_for('finance.student_payments') }}" class="btn"
-        style="text-decoration:none; flex:1; text-align:center; background:#10b981;">Payment Records</a>
+            {% if recent_marks %}
+                <div class="table-container" style="border: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Test Name</th>
+                                <th>Score</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in recent_marks %}
+                            <tr>
+                                <td style="font-weight: 600;">{{ m.subject }}</td>
+                                <td>{{ m.test_name }}</td>
+                                <td>
+                                    <span style="font-weight: 800; color: {% if (m.marks_obtained / m.max_marks) >= 0.75 %}var(--success){% elif (m.marks_obtained / m.max_marks) >= 0.5 %}var(--warning){% else %}var(--danger){% endif %};">
+                                        {{ m.marks_obtained }} / {{ m.max_marks }}
+                                    </span>
+                                </td>
+                                <td class="text-muted" style="font-size: 0.8rem;">{{ m.date_recorded.strftime('%b %d, %Y') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="text-align: center; color: var(--text-muted); padding: 1.5rem; margin: 0;">No examination results recorded yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Academic Progress Timeline Chart -->
+        <div class="card">
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem;">Academic Progression Timeline</h2>
+            <div style="height: 250px;">
+                <canvas id="studentPerfChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: QR PASS, AI FORECAST & ENROLLED CLASSES -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Digital Attendance QR Pass Card -->
+        <div class="card text-center" style="border-top: 4px solid var(--primary);">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">
+                Entrance QR Digital Pass
+            </h3>
+            <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Present this code to your instructor or clerk upon entering class.</p>
+            
+            {% if qr_code %}
+            <div style="padding: 0.85rem; background: white; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); display: inline-block; margin-bottom: 1rem;">
+                <img id="studentQR" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ qr_code }}" 
+                     alt="Your Attendance QR Code" 
+                     style="width: 150px; height: 150px; display: block; margin: 0 auto;">
+            </div>
+            <div>
+                <button onclick="downloadQR()" class="btn btn-outline" style="font-size: 0.8rem; width: 100%; display: inline-flex; justify-content: center; align-items: center; gap: 0.4rem;">
+                    <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v4a2 2 0 002 2h12a2 2 0 002-2v-4M7 10l5 5m0 0l5-5m-5 5V3"></path></svg>
+                    <span>Download PNG Card</span>
+                </button>
+            </div>
+            {% else %}
+                <div class="alert alert-error" style="font-size: 0.85rem; padding: 0.75rem;">QR Code token unavailable. Contact Admin.</div>
+            {% endif %}
+        </div>
+
+        <!-- AI Grade & Score Forecast -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #6d28d9; margin: 0;">AI Grade Forecast</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Predictive Regression Analysis</span>
+                </div>
+                <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" style="font-size: 0.75rem; color: #7c3aed;">Full Forecast &rarr;</a>
+            </div>
+
+            {% if student_forecast and student_forecast.forecasts %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for f in student_forecast.forecasts %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                <strong style="font-size: 0.875rem; color: var(--text-main);">{{ f.subject }}</strong>
+                                <span class="{{ f.trend_class }}" style="font-size: 0.725rem; font-weight: 600;">{{ f.trend_status }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                                <span class="text-muted">Est. Next Score: <strong>{{ f.predicted_next_exam_pct }}%</strong></span>
+                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% else %}badge-warning{% endif %}">
+                                    Grade: {{ f.predicted_final_grade }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0;">Complete assessments to unlock AI grade forecasting.</p>
+            {% endif %}
+        </div>
+
+        <!-- Enrolled Classes Quick Directory -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">My Enrolled Courses</h3>
+                <a href="{{ url_for('classes.view_classes') }}" style="font-size: 0.75rem; color: var(--primary);">View All</a>
+            </div>
+
+            {% if enrolled_classes %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for c in enrolled_classes %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">{{ c.subject }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Instructor: {{ c.teacher_name }}</div>
+                            </div>
+                            <a href="{{ url_for('lms.index', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.25rem 0.55rem;">Materials</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0;">You are not enrolled in any classes yet.</p>
+            {% endif %}
+        </div>
+
+    </div>
 </div>
 
 <script>
+    function downloadQR() {
+        const img = document.getElementById('studentQR');
+        if (!img) return;
+        fetch(img.src)
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'My_Attendance_QR_Pass.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            });
+    }
+
     new Chart(document.getElementById('studentPerfChart'), {
         type: 'line',
         data: {
             labels: {{ perf_labels | safe }},
-        datasets: [{
-            label: 'Exam Score (%)',
-            data: {{ perf_data | safe }},
-        borderColor: '#4f46e5',
-        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-        pointBackgroundColor: '#4f46e5',
-        pointRadius: 5,
-        fill: true,
-        tension: 0.3
+            datasets: [{
+                label: 'Exam Score (%)',
+                data: {{ perf_data | safe }},
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                fill: true,
+                tension: 0.4
             }]
         },
-        options: { scales: { y: { min: 0, max: 100 } }, maintainAspectRatio: false }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { min: 0, max: 100, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
     });
 </script>
 {% endblock %}

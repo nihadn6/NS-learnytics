@@ -1,34 +1,36 @@
 {% extends 'base.html' %}
+
 {% block title %}Attendance Report - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="margin:20px auto;">
-    <h2>Generate Attendance Report</h2>
-    <p style="color:#64748b;">Analyze the precise attendance percentage of your students for a specific subject module
-        across an explicit time window.</p>
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>Attendance Analytics</h1>
+        <p class="text-muted">Analyze student attendance percentage across specific time windows and modules.</p>
+    </div>
 
-    <form action="{{ url_for('attendance.attendance_report') }}" method="GET"
-        style="display:flex; gap:15px; margin-bottom:30px; align-items:flex-end; flex-wrap:wrap;">
+    <form action="{{ url_for('attendance.attendance_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap;">
+        
+        {% if session.get('role') in ('moderator', 'admin', 'superadmin') %}
 
-        {% if session.get('role') in ('admin', 'superadmin') %}
-        <div style="flex:1; min-width:200px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Instructor</label>
-            <select id="teacherSelect" name="teacher_id"
-                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
+            <label>Instructor</label>
+            <select id="teacherSelect" name="teacher_id">
                 <option value="">-- All Teachers --</option>
                 {% for t in teachers %}
-                <option value="{{ t.id }}" {% if request.args.get('teacher_id')|string==t.id|string %}selected{% endif
-                    %}>{{ t.name }}</option>
+                <option value="{{ t.id }}" {% if request.args.get('teacher_id')|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div style="flex:1; min-width:200px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Target Subject</label>
-            <select id="classSelect" name="class_id" required
-                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
+            <label>Target Subject</label>
+            <select id="classSelect" name="class_id" required>
                 <option value="">-- Choose Class --</option>
                 {% for c in classes %}
-                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if class_id and
-                    class_id|string==c.id|string %}selected{% endif %}>{{ c.subject }}</option>
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if class_id and class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -56,99 +58,96 @@
             document.addEventListener('DOMContentLoaded', filterClasses);
         </script>
         {% else %}
-        <div style="flex:1; min-width:200px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Target Subject</label>
-            <select name="class_id" required
-                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
+            <label>Target Subject</label>
+            <select name="class_id" required>
                 <option value="">-- Choose Class --</option>
                 {% for c in classes %}
-                <option value="{{ c.id }}" {% if class_id and class_id|string==c.id|string %}selected{% endif %}>{{
-                    c.subject }}</option>
+                <option value="{{ c.id }}" {% if class_id and class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
                 {% endfor %}
             </select>
         </div>
         {% endif %}
 
-        <div style="flex:1; min-width:150px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">Start Date</label>
-            <input type="date" name="start_date" value="{{ start_date or '' }}" required
-                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
+            <label>Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date or '' }}" required>
         </div>
-        <div style="flex:1; min-width:150px;">
-            <label style="display:block; margin-bottom:5px; font-weight:600;">End Date</label>
-            <input type="date" name="end_date" value="{{ end_date or '' }}" required
-                style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
+            <label>End Date</label>
+            <input type="date" name="end_date" value="{{ end_date or '' }}" required>
         </div>
-        <div>
-            <button type="submit" class="btn" style="padding:10px 20px; background:#8b5cf6;">Generate Report</button>
+        <div style="margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary" style="background: var(--primary);">Generate Report</button>
         </div>
     </form>
 
     {% if class_id %}
-    {% if not records %}
-    <div style="padding:20px; background:#f8fafc; text-align:center; color:#64748b; border-radius:8px;">
-        No attendance data found for this specific class inside this timeframe.
-    </div>
-    {% else %}
+        {% if not records %}
+            <div class="alert alert-error text-center">
+                No attendance data found for this class in the selected timeframe.
+            </div>
+        {% else %}
+            <!-- Aggregated Performance View -->
+            <div class="mb-4">
+                <h3>Aggregated Performance Matrix</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Days Present</th>
+                                <th>Total Days</th>
+                                <th>Attendance Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in aggregated %}
+                            <tr>
+                                <td style="font-weight: 600;">{{ row.name }}</td>
+                                <td>{{ row.present_days }}</td>
+                                <td>{{ row.total_days }}</td>
+                                <td>
+                                    <span style="font-weight: 800; color: {% if row.attendance_percentage >= 80 %}var(--success){% elif row.attendance_percentage >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                        {{ "%.1f"|format(row.attendance_percentage) }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-    <!-- Aggregated Performance View -->
-    <h3>Aggregated Performance Matrix</h3>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:40px; text-align:left;">
-        <thead>
-            <tr style="background:#f1f5f9; color:#475569;">
-                <th style="padding:12px; border-bottom:2px solid #cbd5e1;">Student Name</th>
-                <th style="padding:12px; border-bottom:2px solid #cbd5e1;">Days Present</th>
-                <th style="padding:12px; border-bottom:2px solid #cbd5e1;">Total Days Logged</th>
-                <th style="padding:12px; border-bottom:2px solid #cbd5e1;">Attendance Rate</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in aggregated %}
-            <tr>
-                <td style="padding:12px; border-bottom:1px solid #e2e8f0; font-weight:500;">{{ row.name }}</td>
-                <td style="padding:12px; border-bottom:1px solid #e2e8f0;">{{ row.present_days }}</td>
-                <td style="padding:12px; border-bottom:1px solid #e2e8f0;">{{ row.total_days }}</td>
-                <td style="padding:12px; border-bottom:1px solid #e2e8f0;">
-                    <span
-                        style="font-weight:bold; color: {% if row.attendance_percentage >= 80 %}#10b981{% elif row.attendance_percentage >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
-                        {{ "%.1f"|format(row.attendance_percentage) }}%
-                    </span>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <!-- Granular Daily Logs -->
-    <h3>Granular Daily Logs</h3>
-    <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.95rem;">
-        <thead>
-            <tr style="background:#f8fafc; color:#64748b;">
-                <th style="padding:10px; border-bottom:1px solid #e2e8f0;">Date</th>
-                <th style="padding:10px; border-bottom:1px solid #e2e8f0;">Student Name</th>
-                <th style="padding:10px; border-bottom:1px solid #e2e8f0;">Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for r in records %}
-            <tr>
-                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">{{ r.date }}</td>
-                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">{{ r.name }} <span
-                        style="color:#94a3b8; font-size:0.8rem;">({{ r.email }})</span></td>
-                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">
-                    {% if r.status == 'present' %}
-                    <span style="color:#10b981; font-weight:500;">Present</span>
-                    {% else %}
-                    <span style="color:#ef4444; font-weight:500;">Absent</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
+            <!-- Granular Daily Logs -->
+            <div>
+                <h3>Granular Daily Logs</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Student Name</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in records %}
+                            <tr>
+                                <td class="text-muted">{{ r.date }}</td>
+                                <td style="font-weight: 600;">{{ r.name }} <span class="text-muted" style="font-size: 0.75rem;">({{ r.email }})</span></td>
+                                <td>
+                                    <span style="padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; {% if r.status == 'present' %}background: #dcfce7; color: #166534;{% else %}background: #fee2e2; color: #991b1b;{% endif %};">
+                                        {{ r.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
     {% endif %}
-    {% endif %}
-
 </div>
 {% endblock %}

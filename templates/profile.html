@@ -1,56 +1,72 @@
 {% extends 'base.html' %}
+
 {% block title %}My Profile - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width: 600px; margin: 20px auto;">
-    <h2 style="margin-top: 0;">My Profile</h2>
-    <form action="{{ url_for('profile.edit_profile') }}" method="POST"
-        style="display: flex; flex-direction: column; gap: 15px;">
-        <div>
-            <label style="display:block; margin-bottom: 5px;">Full Name</label>
-            <input type="text" name="name" value="{{ profile.name }}" required
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-        </div>
-        <div>
-            <label style="display:block; margin-bottom: 5px;">Email</label>
-            <input type="email" name="email" value="{{ profile.email }}" required
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh;">
+    <div class="card" style="width: 100%; max-width: 700px;">
+        <div class="mb-4">
+            <h1>Account Settings</h1>
+            <p class="text-muted">Manage your personal information and profile details.</p>
         </div>
 
-        {% if role == 'teacher' %}
-        <div>
-            <label style="display:block; margin-bottom: 5px;">Subjects Taught</label>
-            <input type="text" name="subjects" value="{{ profile.subjects or '' }}"
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-        </div>
-        <div>
-            <label style="display:block; margin-bottom: 5px;">Experience</label>
-            <textarea name="experience"
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; min-height: 80px; box-sizing: border-box; font-family: inherit;">{{ profile.experience or '' }}</textarea>
-        </div>
-        {% elif role == 'student' %}
-        <div>
-            <label style="display:block; margin-bottom: 5px;">Grade / Class</label>
-            <input type="text" name="grade" value="{{ profile.grade or '' }}"
-                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-        </div>
-        <div style="margin-top: 10px; display:flex; gap:12px; align-items:center;">
-            <div>
-                <label style="display:block; margin-bottom: 5px;">Your QR Code</label>
-                {% if profile.qr_code %}
-                    <img src="{{ url_for('profile.profile_qr') }}" alt="QR Code" style="width:160px; height:160px; border:1px solid #ddd; padding:6px; background:white;" />
-                {% else %}
-                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center; border:1px dashed #ccc;">No QR</div>
-                {% endif %}
+        <form action="{{ url_for('profile.edit_profile') }}" method="POST">
+            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr; margin-bottom: 1.5rem;">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="name" value="{{ profile.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" value="{{ profile.email }}" required>
+                </div>
             </div>
-            <div>
-                {% if profile.qr_code %}
-                    <a class="btn" href="{{ url_for('profile.profile_qr') }}?download=1">Download QR PNG</a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
 
-        <button type="submit" class="btn" style="align-self: flex-start;">Save Changes</button>
-    </form>
+            {% if role == 'teacher' %}
+            <div class="form-group">
+                <label>Subjects Taught</label>
+                <input type="text" name="subjects" value="{{ profile.subjects or '' }}" placeholder="e.g. Mathematics, Physics">
+            </div>
+            <div class="form-group">
+                <label>Experience & Bio</label>
+                <textarea name="experience" style="min-height: 120px;">{{ profile.experience or '' }}</textarea>
+            </div>
+            {% elif role == 'student' %}
+            <div class="form-group">
+                <label>Grade / Class</label>
+                <input type="text" name="grade" value="{{ profile.grade or '' }}" placeholder="e.g. Grade 12-B">
+            </div>
+            
+            <div class="card mb-4" style="background: var(--bg-main); border-style: dashed;">
+                <div class="flex align-center gap-4">
+                    <div style="flex: 0 0 160px;">
+                        {% if profile.qr_code %}
+                            <div style="padding: 0.5rem; background: white; border-radius: 0.5rem; border: 1px solid var(--border);">
+                                <img src="{{ url_for('profile.profile_qr') }}" alt="QR Code" style="width: 100%; display: block;" />
+                            </div>
+                        {% else %}
+                            <div style="width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border); color: var(--text-muted);">No QR Available</div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h3>Attendance QR Identity</h3>
+                        <p class="text-muted mb-4" style="font-size: 0.875rem;">This code is used to mark your attendance in classes. Keep it secure.</p>
+                        {% if profile.qr_code %}
+                            <a class="btn btn-outline" href="{{ url_for('profile.profile_qr') }}?download=1" style="font-size: 0.875rem;">Download QR PNG</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex justify-between align-center mt-4 pt-4" style="border-top: 1px solid var(--border);">
+                <p class="text-muted" style="font-size: 0.875rem;">Last updated: {{ profile.created_at.strftime('%Y-%m-%d') if profile.created_at else 'Recently' }}</p>
+                <button type="submit" class="btn btn-primary">Save Profile Changes</button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

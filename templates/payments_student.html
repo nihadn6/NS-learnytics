@@ -1,29 +1,46 @@
 {% extends 'base.html' %}
+
 {% block title %}My Payments - NS Learnytics{% endblock %}
+
 {% block content %}
-<div class="card" style="margin-top: 20px;">
-    <h2>Payment History</h2>
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+<div class="card">
+    <div class="mb-4">
+        <h1>Payment Ledger</h1>
+        <p class="text-muted">Track your tuition fee payment history and billing periods.</p>
+    </div>
+
     {% if payments %}
-    <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr style="border-bottom:2px solid #eee; text-align:left;">
-                <th style="padding:10px;">Date Paid</th>
-                <th style="padding:10px;">Subject</th>
-                <th style="padding:10px;">Period</th>
-                <th style="padding:10px;">Amount (LKR)</th>
-            </tr>
-            {% for p in payments %}
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:10px;">{{ p.payment_date }}</td>
-                <td style="padding:10px; font-weight:500;">{{ p.subject }}</td>
-                <td style="padding:10px;">{{ p.period }}</td>
-                <td style="padding:10px; color:#10b981; font-weight:bold;">{{ p.amount }}</td>
-            </tr>
-            {% endfor %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date Paid</th>
+                    <th>Subject</th>
+                    <th>Billing Period</th>
+                    <th style="text-align: right;">Amount (LKR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td class="text-muted">{{ p.payment_date }}</td>
+                    <td style="font-weight: 600;">{{ p.subject }}</td>
+                    <td>
+                        <span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600;">{{ p.period }}</span>
+                    </td>
+                    <td style="text-align: right; color: var(--success); font-weight: 800;">{{ "{:,.2f}".format(p.amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </div>
     {% else %}
-    <p>No payment records found.</p>
+    <div class="alert alert-error text-center" style="padding: 3rem;">
+        <p>No payment records found. If you have made physical payments, please contact your clerk.</p>
+    </div>
     {% endif %}
 </div>
 {% endblock %}

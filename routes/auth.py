@@ -13,7 +13,9 @@ def register():
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
-    role = 'student'
+    role = data.get('role', 'student')
+    if role not in ('student', 'parent'):
+        role = 'student'
     
     if not all([name, email, password]):
         return render_template('register.html', error='Missing fields')
@@ -74,6 +76,8 @@ def login():
                     return redirect(url_for('admin.dashboard'))
                 elif user['role'] == 'moderator':
                     return redirect(url_for('analytics.moderator_dashboard'))
+                elif user['role'] == 'parent':
+                    return redirect(url_for('parent.dashboard'))
                 else:
                     return redirect(url_for('analytics.student_dashboard'))
             else:

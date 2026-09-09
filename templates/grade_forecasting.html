@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Exam Grade Forecasting - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
+</div>
+
+<div class="flex justify-between align-center mb-6" style="flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">
+            AI Final Grade & Exam Performance Forecaster
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Predictive Regression Model estimating upcoming exam scores and projected final letter grades based on historical assessment marks & LMS homework trajectories.</p>
+    </div>
+</div>
+
+{% if role in ('teacher', 'superadmin', 'admin') and classes %}
+<!-- Filter Control Card -->
+<div class="card mb-6" style="padding: 1rem 1.25rem;">
+    <form action="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" method="GET" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <label style="font-weight: 600; font-size: 0.875rem; color: var(--text-main);">Filter Subject Class:</label>
+        <select name="class_id" class="input-field" onchange="this.form.submit()" style="max-width: 260px; padding: 0.45rem 0.75rem;">
+            <option value="">All Classes</option>
+            {% for c in classes %}
+                <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% endif %}
+
+<!-- Forecasting Roster -->
+{% if forecast_data %}
+<div class="grid gap-6">
+    {% for s in forecast_data %}
+        <div class="card mb-4" style="border-top: 4px solid var(--primary);">
+            <div class="flex justify-between align-center mb-4" style="flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+                <div>
+                    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.1rem;">
+                        {{ s.name }}
+                    </h3>
+                    <span class="text-muted" style="font-size: 0.8rem;">{{ s.email }}</span>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+                    Subject Trackers Evaluated: {{ s.forecasts|length }}
+                </div>
+            </div>
+
+            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                {% for f in s.forecasts %}
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem;">
+                        <div class="flex justify-between align-center mb-2">
+                            <h4 style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin: 0;">{{ f.subject }}</h4>
+                            <span class="{{ f.trend_class }}" style="font-size: 0.775rem; font-weight: 600; background: rgba(0,0,0,0.03); padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                {{ f.trend_status }}
+                            </span>
+                        </div>
+
+                        <div class="grid gap-2 mb-3" style="grid-template-columns: 1fr 1fr; margin-top: 0.75rem;">
+                            <div style="background: white; padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
+                                <span class="text-muted" style="font-size: 0.75rem; display: block;">Current Average</span>
+                                <span style="font-weight: 800; font-size: 1.1rem; color: var(--text-main);">{{ f.current_avg_pct }}%</span>
+                                <span class="badge badge-primary" style="font-size: 0.7rem; margin-left: 0.25rem;">Grade: {{ f.current_grade }}</span>
+                            </div>
+
+                            <div style="background: white; padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
+                                <span class="text-muted" style="font-size: 0.75rem; display: block;">Predicted Next Exam</span>
+                                <span style="font-weight: 800; font-size: 1.1rem; color: {% if f.predicted_next_exam_pct >= 75 %}var(--success){% elif f.predicted_next_exam_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                    {{ f.predicted_next_exam_pct }}%
+                                </span>
+                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% elif f.predicted_final_grade in ('C', 'S') %}badge-warning{% else %}badge-danger{% endif %}" style="font-size: 0.7rem; margin-left: 0.25rem;">Est. Grade: {{ f.predicted_final_grade }}</span>
+                            </div>
+                        </div>
+
+                        <div style="font-size: 0.775rem; color: var(--text-muted);">
+                            Evaluated across <strong>{{ f.assessment_count }}</strong> historical assessment points.
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card text-center" style="padding: 4rem;">
+    <p class="text-muted">No student assessment records available for score forecasting.</p>
+</div>
+{% endif %}
+{% endblock %}
