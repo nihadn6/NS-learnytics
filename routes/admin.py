@@ -86,6 +86,47 @@ def create_staff():
         conn.close()
 
 
+@admin_bp.route('/admin/create_parent', methods=['POST'])
+def create_parent():
+    if session.get('role') != 'superadmin':
+        return "Unauthorized", 403
+
+    data = request.form
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+    student_id = data.get('student_id', '').strip()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Check email uniqueness
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                return "Email already exists", 400
+
+            pw_hash = generate_password_hash(password)
+            cursor.execute(
+                "INSERT INTO users (name, email, password_hash, role) VALUES (%s, %s, %s, 'parent')",
+                (name, email, pw_hash)
+            )
+            parent_id = cursor.lastrowid
+
+            # Optionally link to a student immediately (approved)
+            if student_id:
+                cursor.execute("SELECT id FROM users WHERE id = %s AND role = 'student'", (student_id,))
+                if cursor.fetchone():
+                    cursor.execute(
+                        "INSERT INTO parent_student_links (parent_id, student_id, status) VALUES (%s, %s, 'approved')",
+                        (parent_id, student_id)
+                    )
+
+            conn.commit()
+            return redirect(url_for('admin.dashboard'))
+    finally:
+        conn.close()
+
+
 @admin_bp.route('/admin/create_student', methods=['POST'])
 def create_student():
     if session.get('role') != 'superadmin':

@@ -190,6 +190,7 @@
         <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
             <button type="button" id="dashTabStaffBtn" class="tab-pill active" style="flex: 1; text-align: center;" onclick="switchDashAddTab('staff')">Staff (Teacher / Clerk)</button>
             <button type="button" id="dashTabStudentBtn" class="tab-pill" style="flex: 1; text-align: center;" onclick="switchDashAddTab('student')">Student</button>
+            <button type="button" id="dashTabParentBtn" class="tab-pill" style="flex: 1; text-align: center;" onclick="switchDashAddTab('parent')">Parent</button>
         </div>
 
         <!-- Staff Form -->
@@ -236,6 +237,28 @@
             </div>
             <button type="submit" class="btn btn-primary" style="width: 100%;">Create Student Profile (With QR)</button>
         </form>
+
+        <!-- Parent Form -->
+        <form id="dashParentAddForm" action="{{ url_for('admin.create_parent') }}" method="POST" style="display: none;">
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" name="name" class="input-field" placeholder="e.g. Saman Silva" required>
+            </div>
+            <div class="form-group">
+                <label>Email Address *</label>
+                <input type="email" name="email" class="input-field" placeholder="parent@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Initial Password *</label>
+                <input type="text" name="password" class="input-field" required value="password123">
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Link to Student (Optional)</label>
+                <input type="number" name="student_id" class="input-field" placeholder="Enter Student ID to link immediately">
+                <small style="color: var(--text-muted); font-size: 0.78rem;">Leave blank if the parent will link themselves later.</small>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Create Parent Account</button>
+        </form>
     </div>
 </div>
 
@@ -243,19 +266,27 @@
     function switchDashAddTab(type) {
         const staffForm = document.getElementById('dashStaffAddForm');
         const studentForm = document.getElementById('dashStudentAddForm');
+        const parentForm = document.getElementById('dashParentAddForm');
         const tabStaffBtn = document.getElementById('dashTabStaffBtn');
         const tabStudentBtn = document.getElementById('dashTabStudentBtn');
+        const tabParentBtn = document.getElementById('dashTabParentBtn');
+
+        staffForm.style.display = 'none';
+        studentForm.style.display = 'none';
+        parentForm.style.display = 'none';
+        tabStaffBtn.classList.remove('active');
+        tabStudentBtn.classList.remove('active');
+        tabParentBtn.classList.remove('active');
 
         if (type === 'staff') {
             staffForm.style.display = 'block';
-            studentForm.style.display = 'none';
             tabStaffBtn.classList.add('active');
-            tabStudentBtn.classList.remove('active');
-        } else {
-            staffForm.style.display = 'none';
+        } else if (type === 'student') {
             studentForm.style.display = 'block';
-            tabStaffBtn.classList.remove('active');
             tabStudentBtn.classList.add('active');
+        } else {
+            parentForm.style.display = 'block';
+            tabParentBtn.classList.add('active');
         }
     }
 </script>
