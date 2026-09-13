@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="mb-4">
-    <a href="{% if session.get('role') == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.get('role') == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.get('role') == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.get('role') == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to Dashboard</a>
 </div>
 <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh;">
     <div class="card" style="width: 100%; max-width: 700px;">
