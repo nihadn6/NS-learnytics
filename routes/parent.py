@@ -187,10 +187,36 @@ def link_request():
     finally:
         conn.close()
 
+@parent_bp.route('/parent/report')
 @parent_bp.route('/parent/report/<int:student_id>')
-def progress_report(student_id):
+def progress_report(student_id=None):
     parent_id = session['user_id']
     
+    # If no student_id provided directly in URL (e.g., from sidebar navigation)
+    if student_id is None:
+        student_id = session.get('selected_student_id')
+        if not student_id:
+            conn_temp = get_db_connection()
+            try:
+                with conn_temp.cursor() as cur:
+                    cur.execute("""
+                        SELECT student_id FROM parent_student_links
+                        WHERE parent_id = %s AND status = 'approved'
+                        ORDER BY id ASC LIMIT 1
+                    """, (parent_id,))
+                    row = cur.fetchone()
+                    if row:
+                        student_id = row['student_id']
+                        session['selected_student_id'] = student_id
+            finally:
+                conn_temp.close()
+
+        if not student_id:
+            flash('No approved linked student found. Please link a student first.', 'warning')
+            return redirect(url_for('parent.dashboard'))
+
+        return redirect(url_for('parent.progress_report', student_id=student_id, **request.args))
+
     # Filter parameters
     class_id = request.args.get('class_id')
     teacher_id = request.args.get('teacher_id')
