@@ -32,6 +32,8 @@ def get_contacts():
                     JOIN classes c ON c.teacher_id = u.id
                     JOIN enrollments e ON e.class_id = c.id
                     WHERE e.student_id = %s
+                    UNION
+                    SELECT id, name, role FROM users WHERE role = 'superadmin'
                 """, (user_id,))
                 contacts = cursor.fetchall()
                 
@@ -60,6 +62,8 @@ def get_contacts():
                     JOIN enrollments e ON psl.student_id = e.student_id
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s AND psl.status = 'approved'
+                    UNION
+                    SELECT id, name, role FROM users WHERE role = 'superadmin'
                 """, (user_id, user_id))
                 contacts = cursor.fetchall()
 
