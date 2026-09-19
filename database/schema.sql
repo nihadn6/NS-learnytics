@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_date DATE NOT NULL,
     period VARCHAR(20) NOT NULL,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
-    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_class_student_period (class_id, student_id, period)
 );
 
 CREATE TABLE IF NOT EXISTS expenses (

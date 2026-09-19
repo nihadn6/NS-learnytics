@@ -4,6 +4,61 @@ import datetime
 
 finance_bp = Blueprint('finance', __name__)
 
+def normalize_period(p):
+    """Normalize billing period string to YYYY-MM format."""
+    if not p:
+        return datetime.date.today().strftime('%Y-%m')
+    p = str(p).strip()
+    try:
+        return datetime.datetime.strptime(p, '%Y-%m').strftime('%Y-%m')
+    except ValueError:
+        pass
+    for fmt in ('%B %Y', '%b %Y', '%B, %Y', '%b, %Y'):
+        try:
+            return datetime.datetime.strptime(p, fmt).strftime('%Y-%m')
+        except ValueError:
+            pass
+    return p
+
+@finance_bp.route('/payments/check_paid', methods=['GET'])
+def check_paid_students():
+    if session.get('role') not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    class_id = request.args.get('class_id')
+    period = normalize_period(request.args.get('period'))
+
+    if not class_id:
+        return jsonify({'paid_student_ids': [], 'paid_details': {}, 'count': 0})
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT p.student_id, p.amount, p.payment_date, p.period, u.name as student_name
+                FROM payments p
+                JOIN users u ON p.student_id = u.id
+                WHERE p.class_id = %s AND p.period = %s
+            """, (class_id, period))
+            rows = cursor.fetchall()
+            paid_student_ids = [r['student_id'] for r in rows]
+            paid_details = {
+                str(r['student_id']): {
+                    'student_name': r['student_name'],
+                    'amount': float(r['amount']),
+                    'payment_date': r['payment_date'].isoformat() if hasattr(r['payment_date'], 'isoformat') else str(r['payment_date']),
+                    'period': r['period']
+                } for r in rows
+            }
+            return jsonify({
+                'period': period,
+                'paid_student_ids': paid_student_ids,
+                'paid_details': paid_details,
+                'count': len(paid_student_ids)
+            })
+    finally:
+        conn.close()
+
 @finance_bp.route('/payments/record', methods=['POST'])
 def record_payment():
     # This endpoint is left for direct teacher submissions; prefer using /payments/manual for broader roles
@@ -14,11 +69,23 @@ def record_payment():
     class_id = data.get('class_id')
     student_id = data.get('student_id')
     payment_date = data.get('payment_date')
-    period = data.get('period')
+    period = normalize_period(data.get('period'))
     
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            # Check for duplicate payment in this period
+            cursor.execute("""
+                SELECT p.id, p.amount, p.payment_date, u.name as student_name
+                FROM payments p
+                JOIN users u ON p.student_id = u.id
+                WHERE p.class_id = %s AND p.student_id = %s AND p.period = %s
+            """, (class_id, student_id, period))
+            existing = cursor.fetchone()
+            if existing:
+                flash(f"Payment already recorded: {existing['student_name']} has already paid LKR {existing['amount']:,.2f} for period {period} on {existing['payment_date']}. Duplicate payment prevented.", "warning")
+                return redirect(url_for('finance.manual_payment'))
+
             cursor.execute("SELECT fee FROM classes WHERE id = %s", (class_id,))
             class_row = cursor.fetchone()
             amount = class_row['fee'] if class_row else 0.0
@@ -28,9 +95,10 @@ def record_payment():
                 VALUES (%s, %s, %s, %s, %s)
             """, (class_id, student_id, amount, payment_date, period))
             conn.commit()
-        # Assume redirected back to class students view
-        # After a teacher records a payment, redirect back to the manual payment page
-        # to allow adding another payment quickly (prefill the class)
+            flash('Payment recorded successfully!', 'success')
+        return redirect(url_for('finance.manual_payment'))
+    except Exception as e:
+        flash(f'Error recording payment: {str(e)}', 'error')
         return redirect(url_for('finance.manual_payment'))
     finally:
         conn.close()
@@ -76,7 +144,7 @@ def manual_payment():
                 enrollments = cursor.fetchall()
 
                 today = datetime.date.today().isoformat()
-                default_period = datetime.datetime.now().strftime('%B %Y')
+                default_period = datetime.date.today().strftime('%Y-%m')
                 selected_teacher_id = request.args.get('teacher_id')
                 selected_class_id = request.args.get('class_id')
 
@@ -93,13 +161,26 @@ def manual_payment():
             class_id = data.get('class_id')
             student_id = data.get('student_id')
             payment_date = data.get('payment_date')
-            period = data.get('period')
+            period = normalize_period(data.get('period'))
+            teacher_id = data.get('teacher_id')
 
             # permissions: teacher must own class
             if session.get('role') == 'teacher':
                 cursor.execute("SELECT 1 FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
                 if not cursor.fetchone():
                     return "Invalid class or unauthorized", 400
+
+            # Duplicate payment validation
+            cursor.execute("""
+                SELECT p.id, p.amount, p.payment_date, u.name as student_name
+                FROM payments p
+                JOIN users u ON p.student_id = u.id
+                WHERE p.class_id = %s AND p.student_id = %s AND p.period = %s
+            """, (class_id, student_id, period))
+            existing = cursor.fetchone()
+            if existing:
+                flash(f"Payment already recorded: {existing['student_name']} has already paid LKR {existing['amount']:,.2f} for period {period} on {existing['payment_date']}. Duplicate payment prevented.", "warning")
+                return redirect(url_for('finance.manual_payment', teacher_id=teacher_id or '', class_id=class_id or ''))
 
             cursor.execute("SELECT fee FROM classes WHERE id = %s", (class_id,))
             class_row = cursor.fetchone()
@@ -109,8 +190,8 @@ def manual_payment():
                            (class_id, student_id, amount, payment_date, period))
             conn.commit()
             flash('Payment recorded successfully!', 'success')
-            # Redirect back to the form to easily record another payment
-            return redirect(url_for('finance.manual_payment'))
+            # Redirect back to the form to easily record another payment, retaining course filter if any
+            return redirect(url_for('finance.manual_payment', teacher_id=teacher_id or '', class_id=class_id or ''))
     except Exception as e:
         flash(f'Error recording payment: {str(e)}', 'error')
         return redirect(url_for('finance.manual_payment'))
