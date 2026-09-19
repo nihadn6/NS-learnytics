@@ -58,14 +58,32 @@
         <div class="grid gap-4" style="grid-template-columns: 1.5fr 1fr;">
             <!-- Manual Override -->
             <div class="card" style="border-left: 4px solid var(--warning);">
-                <h3 style="color: var(--warning);">Manual Override</h3>
-                <p class="text-muted mb-4" style="font-size: 0.8rem;">Manually mark a student if their QR token is unavailable.</p>
-                <div class="flex gap-2">
-                    <select id="studentSelect" style="flex: 1;">
-                        <option value="">-- Select Class --</option>
-                    </select>
-                    <button id="manualMarkBtn" class="btn btn-primary" style="background: var(--warning); font-size: 0.8rem;">Mark</button>
+                <div class="flex justify-between align-center mb-1">
+                    <h3 style="color: var(--warning); margin-bottom: 0;">Manual Override</h3>
+                    <span id="studentCountBadge" style="font-size: 0.72rem; font-weight: 600; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 12px; display: none;"></span>
                 </div>
+                <p class="text-muted mb-3" style="font-size: 0.8rem;">Manually search and mark a student if their QR token is unavailable.</p>
+                
+                <!-- Student Live Search Input -->
+                <div class="form-group mb-2">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="text" id="studentSearchInput" placeholder="🔍 Search student name or email..." 
+                               class="input-field" style="width: 100%; font-size: 0.85rem; padding-right: 2.2rem;" 
+                               autocomplete="off" disabled>
+                        <button type="button" id="clearStudentSearch" 
+                                style="position: absolute; right: 8px; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: #888; display: none; padding: 2px 6px;" 
+                                title="Clear search">&times;</button>
+                    </div>
+                </div>
+
+                <!-- Select Dropdown and Mark Button -->
+                <div class="flex gap-2">
+                    <select id="studentSelect" style="flex: 1; font-size: 0.85rem;" disabled>
+                        <option value="">-- Select Class First --</option>
+                    </select>
+                    <button id="manualMarkBtn" class="btn btn-primary" style="background: var(--warning); font-size: 0.8rem; white-space: nowrap;" disabled>Mark Present</button>
+                </div>
+                <div id="studentSearchStatus" style="font-size: 0.75rem; margin-top: 6px; color: var(--text-muted); min-height: 1.2em;"></div>
             </div>
 
             <!-- Finalize -->
@@ -84,6 +102,11 @@
     const teacherSelect = document.getElementById('teacherSelect');
     const classSelect = document.getElementById('classSelect');
     const studentSelect = document.getElementById('studentSelect');
+    const studentSearchInput = document.getElementById('studentSearchInput');
+    const clearStudentSearch = document.getElementById('clearStudentSearch');
+    const studentCountBadge = document.getElementById('studentCountBadge');
+    const studentSearchStatus = document.getElementById('studentSearchStatus');
+    const manualMarkBtn = document.getElementById('manualMarkBtn');
     const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
 
     const startBtn = document.getElementById('startBtn');
@@ -92,11 +115,109 @@
     
     let html5QrcodeScanner = null;
     let lastScannedToken = null;
+    let currentClassStudents = [];
+
+    function renderStudentOptions(students, query = '') {
+        studentSelect.innerHTML = '';
+
+        if (!students || students.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = query ? '-- No matching students found --' : '-- No students enrolled in this class --';
+            studentSelect.appendChild(opt);
+            studentSelect.disabled = true;
+            manualMarkBtn.disabled = true;
+
+            if (query) {
+                studentSearchStatus.textContent = `No students matching "${query}"`;
+                studentSearchStatus.style.color = 'var(--danger)';
+            } else {
+                studentSearchStatus.textContent = 'No students enrolled';
+                studentSearchStatus.style.color = 'var(--text-muted)';
+            }
+            return;
+        }
+
+        studentSelect.disabled = false;
+        manualMarkBtn.disabled = false;
+
+        // Default placeholder option
+        const placeholderOpt = document.createElement('option');
+        placeholderOpt.value = '';
+        placeholderOpt.textContent = `-- Select Student (${students.length} available) --`;
+        studentSelect.appendChild(placeholderOpt);
+
+        students.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.student_id;
+            option.textContent = s.email ? `${s.name} (${s.email})` : s.name;
+            studentSelect.appendChild(option);
+        });
+
+        // If query is active, auto-select the first student match
+        if (query) {
+            if (students.length >= 1) {
+                studentSelect.value = students[0].student_id;
+            }
+            studentSearchStatus.textContent = `Found ${students.length} match${students.length > 1 ? 'es' : ''} for "${query}"`;
+            studentSearchStatus.style.color = 'var(--primary)';
+        } else {
+            studentSearchStatus.textContent = `Showing all ${currentClassStudents.length} enrolled student(s)`;
+            studentSearchStatus.style.color = 'var(--text-muted)';
+        }
+    }
+
+    function filterStudents() {
+        const query = studentSearchInput.value.trim().toLowerCase();
+        if (query.length > 0) {
+            clearStudentSearch.style.display = 'block';
+            const filtered = currentClassStudents.filter(s => {
+                const nameMatch = s.name && s.name.toLowerCase().includes(query);
+                const emailMatch = s.email && s.email.toLowerCase().includes(query);
+                return nameMatch || emailMatch;
+            });
+            renderStudentOptions(filtered, query);
+        } else {
+            clearStudentSearch.style.display = 'none';
+            renderStudentOptions(currentClassStudents, '');
+        }
+    }
+
+    studentSearchInput.addEventListener('input', filterStudents);
+
+    clearStudentSearch.addEventListener('click', function () {
+        studentSearchInput.value = '';
+        clearStudentSearch.style.display = 'none';
+        renderStudentOptions(currentClassStudents, '');
+        studentSearchInput.focus();
+    });
+
+    // Pressing Enter in search box automatically marks the selected student
+    studentSearchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (studentSelect.value) {
+                manualMarkBtn.click();
+            } else if (studentSelect.options.length > 1 && studentSelect.options[1].value) {
+                studentSelect.selectedIndex = 1;
+                manualMarkBtn.click();
+            }
+        }
+    });
 
     teacherSelect.addEventListener('change', function () {
         const selectedTeacher = this.value;
         classSelect.innerHTML = '<option value="">-- Select Class --</option>';
         studentSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+        studentSelect.disabled = true;
+        studentSearchInput.value = '';
+        studentSearchInput.disabled = true;
+        clearStudentSearch.style.display = 'none';
+        studentCountBadge.style.display = 'none';
+        studentSearchStatus.textContent = '';
+        manualMarkBtn.disabled = true;
+        currentClassStudents = [];
+
         allClassOptions.forEach(opt => {
             if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
                 classSelect.appendChild(opt.cloneNode(true));
@@ -106,25 +227,30 @@
 
     classSelect.addEventListener('change', function () {
         const selectedClass = this.value;
-        studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
-        
+        studentSearchInput.value = '';
+        clearStudentSearch.style.display = 'none';
+
         if (selectedClass) {
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
+            studentSearchInput.disabled = false;
+
+            currentClassStudents = enrollments.filter(e => e.class_id == selectedClass);
+            studentCountBadge.textContent = `${currentClassStudents.length} student${currentClassStudents.length === 1 ? '' : 's'}`;
+            studentCountBadge.style.display = 'inline-block';
+
+            renderStudentOptions(currentClassStudents, '');
         } else {
             startBtn.disabled = true;
             startBtn.style.opacity = "0.5";
+            studentSearchInput.disabled = true;
+            studentSelect.disabled = true;
+            studentSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+            manualMarkBtn.disabled = true;
+            studentCountBadge.style.display = 'none';
+            studentSearchStatus.textContent = '';
+            currentClassStudents = [];
         }
-
-        if (!selectedClass) return;
-
-        const enrolledStudents = enrollments.filter(e => e.class_id == selectedClass);
-        enrolledStudents.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s.student_id;
-            option.textContent = s.name;
-            studentSelect.appendChild(option);
-        });
     });
 
     function submitAttendance(payload) {

@@ -125,7 +125,7 @@ def scan_attendance():
                     cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
                     classes = cursor.fetchall()
                     cursor.execute("""
-                        SELECT e.class_id, u.id as student_id, u.name 
+                        SELECT e.class_id, u.id as student_id, u.name, u.email 
                         FROM enrollments e 
                         JOIN users u ON e.student_id = u.id 
                         JOIN classes c ON e.class_id = c.id
@@ -139,7 +139,7 @@ def scan_attendance():
                     cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
                     classes = cursor.fetchall()
                     cursor.execute("""
-                        SELECT e.class_id, u.id as student_id, u.name 
+                        SELECT e.class_id, u.id as student_id, u.name, u.email 
                         FROM enrollments e 
                         JOIN users u ON e.student_id = u.id 
                         ORDER BY u.name
