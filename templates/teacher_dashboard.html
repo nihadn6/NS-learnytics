@@ -81,10 +81,10 @@
                                         {{ c.subject }}
                                     </h3>
                                     <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
-                                        <span>⏰ {{ c.schedule }}</span>
-                                        <span>👥 <strong>{{ c.student_count }}</strong> Students</span>
-                                        <span>💰 LKR {{ "{:,.0f}".format(c.fee) }}/mo</span>
-                                        <span>🔑 Join Code: <code style="background: var(--bg-main); padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">{{ c.join_code }}</code></span>
+                                        <span>Schedule: {{ c.schedule }}</span>
+                                        <span>Enrolled: <strong>{{ c.student_count }}</strong> Students</span>
+                                        <span>Fee: LKR {{ "{:,.0f}".format(c.fee) }}/mo</span>
+                                        <span>Join Code: <code style="background: var(--bg-main); padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">{{ c.join_code }}</code></span>
                                     </div>
                                 </div>
                             </div>
@@ -92,16 +92,16 @@
                             <!-- Action Station Buttons -->
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border-light); padding-top: 0.65rem;">
                                 <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
-                                    📷 Scan Attendance
+                                    Scan Attendance
                                 </a>
                                 <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
-                                    📝 Enter Marks
+                                    Enter Marks
                                 </a>
                                 <a href="{{ url_for('lms.index', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
-                                    📚 LMS Hub
+                                    LMS Hub
                                 </a>
                                 <a href="{{ url_for('enrollment.view_students', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.7rem;">
-                                    👥 Roster
+                                    Class Roster
                                 </a>
                             </div>
                         </div>
@@ -165,7 +165,7 @@
 
             {% if pending_grading_cnt == 0 and not at_risk_students %}
                 <p style="font-size: 0.85rem; color: var(--success); font-weight: 500; margin: 0; padding: 0.5rem 0;">
-                    ✓ All clear! No urgent pending grading or attendance alerts.
+                    All clear. No urgent pending grading or attendance alerts.
                 </p>
             {% endif %}
         </div>

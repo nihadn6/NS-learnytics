@@ -45,7 +45,6 @@
         <!-- Station 1: Scanner -->
         <div class="quick-action-tile" style="border-top: 4px solid var(--primary);">
             <div>
-                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📷</div>
                 <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Rapid QR Scanner</h3>
                 <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Launch camera verification station to scan incoming student ID badges.</p>
             </div>
@@ -57,7 +56,6 @@
         <!-- Station 2: Fee Collection -->
         <div class="quick-action-tile" style="border-top: 4px solid var(--success);">
             <div>
-                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">💵</div>
                 <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Tuition Fee Counter</h3>
                 <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Record physical cash tuition fee payments and issue billing receipts.</p>
             </div>
@@ -69,7 +67,6 @@
         <!-- Station 3: Manual Attendance -->
         <div class="quick-action-tile" style="border-top: 4px solid var(--warning);">
             <div>
-                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📋</div>
                 <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Manual Attendance</h3>
                 <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Manually mark student presence for classrooms when physical cards are absent.</p>
             </div>
@@ -81,7 +78,6 @@
         <!-- Station 4: Enter Marks -->
         <div class="quick-action-tile" style="border-top: 4px solid var(--purple);">
             <div>
-                <div style="font-size: 1.75rem; margin-bottom: 0.5rem;">📝</div>
                 <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem;">Enter Test Marks</h3>
                 <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Enter examination marks from physical test sheets into the grade system.</p>
             </div>
@@ -138,16 +134,16 @@
 
         <div style="display: flex; flex-direction: column; gap: 0.65rem;">
             <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
-                📊 Attendance Analytics Report
+                Attendance Analytics Report
             </a>
             <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
-                💰 Revenue & Income Reports
+                Revenue & Income Reports
             </a>
             <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
-                📈 Exam Performance Sheets
+                Exam Performance Sheets
             </a>
             <a href="{{ url_for('announcements.feed') }}" class="btn btn-outline" style="justify-content: flex-start; font-size: 0.8rem;">
-                📢 Broadcast Notices Feed
+                Broadcast Notices Feed
             </a>
         </div>
     </div>

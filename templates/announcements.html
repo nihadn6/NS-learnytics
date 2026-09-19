@@ -59,10 +59,10 @@
                                 onclick="openEditModal({{ a.id }}, {{ a.title|tojson }}, {{ a.content|tojson }}, '{{ a.target_audience }}')"
                                 class="btn btn-outline"
                                 style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">
-                                ✏️ Edit
+                                Edit
                             </button>
                             <form action="{{ url_for('announcements.delete_announcement', announcement_id=a.id) }}" method="POST" onsubmit="return confirm('Delete this announcement?')" style="display:inline;">
-                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">🗑 Delete</button>
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">Delete</button>
                             </form>
                         </div>
                         {% endif %}
@@ -73,10 +73,10 @@
                             onclick="openEditModal({{ a.id }}, {{ a.title|tojson }}, {{ a.content|tojson }}, '{{ a.target_audience }}')"
                             class="btn btn-outline"
                             style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">
-                            ✏️ Edit
+                            Edit
                         </button>
                         <form action="{{ url_for('announcements.delete_announcement', announcement_id=a.id) }}" method="POST" onsubmit="return confirm('Delete this announcement?')" style="display:inline;">
-                            <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">🗑 Delete</button>
+                            <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">Delete</button>
                         </form>
                     </div>
                 {% endif %}

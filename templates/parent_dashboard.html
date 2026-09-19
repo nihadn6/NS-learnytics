@@ -26,14 +26,14 @@
             <span style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-right: 0.25rem;">Select Child:</span>
             {% for s in students %}
                 <a href="{{ url_for('parent.dashboard', student_id=s.id) }}" 
-                   class="tab-pill {% if current_student and current_student.id == s.id %}active{% endif %}">
-                    🎓 {{ s.name }} ({{ s.grade }})
+                    class="tab-pill {% if current_student and current_student.id == s.id %}active{% endif %}">
+                    {{ s.name }} ({{ s.grade }})
                 </a>
             {% endfor %}
         </div>
         {% if current_student %}
             <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" target="_blank" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.8rem;">
-                📄 Download Official Report
+                Download Official Report
             </a>
         {% endif %}
     </div>
@@ -50,9 +50,9 @@
                     {{ current_student.name }} <span style="font-size: 0.95rem; font-weight: 500; opacity: 0.9;">({{ current_student.grade }})</span>
                 </h2>
                 <div style="display: flex; gap: 1.5rem; font-size: 0.85rem; flex-wrap: wrap;">
-                    <span>📅 Attendance Rate: <strong>{{ "%.1f"|format(child_att_pct) }}%</strong></span>
-                    <span>📝 Exam Average: <strong>{% if child_avg_mark %}{{ child_avg_mark }}%{% else %}N/A{% endif %}</strong></span>
-                    <span>✓ Standing: <strong>{% if child_att_pct >= 75 %}Good Standing{% else %}Attendance Follow-up Needed{% endif %}</strong></span>
+                    <span>Attendance Rate: <strong>{{ "%.1f"|format(child_att_pct) }}%</strong></span>
+                    <span>Exam Average: <strong>{% if child_avg_mark %}{{ child_avg_mark }}%{% else %}N/A{% endif %}</strong></span>
+                    <span>Academic Standing: <strong>{% if child_att_pct >= 75 %}Good Standing{% else %}Attendance Follow-up Needed{% endif %}</strong></span>
                 </div>
             </div>
             <div>
@@ -106,11 +106,11 @@
                                 </div>
                                 <div style="margin-top: 0.25rem; font-size: 0.72rem; color: var(--text-muted);">
                                     {% if pct_clamped >= 75 %}
-                                        ✓ Good attendance standing
+                                        Status: Good attendance standing
                                     {% elif pct_clamped >= 60 %}
-                                        ⚠ Attendance needs attention
+                                        Status: Attendance needs attention
                                     {% else %}
-                                        ✗ Critically low — follow up required
+                                        Status: Critically low — follow up required
                                     {% endif %}
                                 </div>
                             </div>
@@ -118,7 +118,6 @@
                     </div>
                 {% else %}
                     <div style="text-align: center; padding: 2rem 1rem;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📋</div>
                         <p style="color: var(--text-muted); margin: 0; font-size: 0.875rem;">No attendance records available for this student yet.</p>
                     </div>
                 {% endif %}
@@ -215,7 +214,7 @@
                                     <div style="font-size: 0.75rem; color: var(--text-muted);">{{ t.subject }}</div>
                                 </div>
                                 <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.25rem 0.6rem;">
-                                    💬 Message
+                                    Message
                                 </a>
                             </div>
                         {% endfor %}
