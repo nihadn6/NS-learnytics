@@ -95,6 +95,7 @@ def performance_report():
         
     class_id = request.args.get('class_id')
     selected_test = request.args.get('test_name', '').strip()
+    selected_teacher = request.args.get('teacher_id', type=int)
     
     conn = get_db_connection()
     try:
@@ -106,26 +107,28 @@ def performance_report():
                 teachers = cursor.fetchall()
                 cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
                 classes = cursor.fetchall()
-                # Fetch all distinct exams grouped by class for client-side dropdown switching
+                # Fetch distinct exams per class grouped strictly by class_id and test_name
                 cursor.execute("""
-                    SELECT DISTINCT class_id, test_name, date_recorded, max_marks 
+                    SELECT class_id, test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded 
                     FROM marks 
-                    ORDER BY date_recorded DESC, test_name ASC
+                    GROUP BY class_id, test_name
+                    ORDER BY MIN(date_recorded) ASC, test_name ASC
                 """)
                 test_rows = cursor.fetchall()
             else:
                 cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s ORDER BY subject", (session['user_id'],))
                 classes = cursor.fetchall()
                 cursor.execute("""
-                    SELECT DISTINCT m.class_id, m.test_name, m.date_recorded, m.max_marks
+                    SELECT m.class_id, m.test_name, MAX(m.max_marks) as max_marks, MIN(m.date_recorded) as date_recorded
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
                     WHERE c.teacher_id = %s
-                    ORDER BY m.date_recorded DESC, m.test_name ASC
+                    GROUP BY m.class_id, m.test_name
+                    ORDER BY MIN(m.date_recorded) ASC, m.test_name ASC
                 """, (session['user_id'],))
                 test_rows = cursor.fetchall()
 
-            # Map tests by class_id for instant client-side dropdown reactivity
+            # Map unique tests by class_id for instant client-side dropdown reactivity
             tests_by_class = {}
             for r in test_rows:
                 cid = str(r['class_id'])
@@ -145,6 +148,7 @@ def performance_report():
                     tests_by_class=tests_by_class,
                     class_tests=[],
                     selected_class=None,
+                    selected_teacher=selected_teacher,
                     selected_test='',
                     report_data=None
                 )
@@ -156,19 +160,26 @@ def performance_report():
                     return "Unauthorized for this class", 401
 
             # Fetch class info
-            cursor.execute("SELECT subject FROM classes WHERE id = %s", (class_id,))
+            cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE id = %s", (class_id,))
             class_info = cursor.fetchone()
+            if not class_info:
+                return "Class not found", 404
 
-            # Fetch distinct tests conducted for this specific class
+            # Ensure teacher dropdown reflects the class's teacher if not explicitly set
+            if not selected_teacher and class_info:
+                selected_teacher = class_info['teacher_id']
+
+            # Fetch strictly distinct assessments conducted for this specific class
             cursor.execute("""
-                SELECT DISTINCT test_name, date_recorded, max_marks
+                SELECT test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded
                 FROM marks 
                 WHERE class_id = %s 
-                ORDER BY date_recorded ASC, test_name ASC
+                GROUP BY test_name
+                ORDER BY MIN(date_recorded) ASC, test_name ASC
             """, (class_id,))
             class_tests = cursor.fetchall()
 
-            # Determine columns to display based on exam filter
+            # Determine columns to display based on exam filter (strictly unique to this class)
             if selected_test:
                 matched_tests = [t['test_name'] for t in class_tests if t['test_name'] == selected_test]
                 test_columns = matched_tests if matched_tests else [selected_test]
@@ -253,6 +264,7 @@ def performance_report():
                 marks_map=marks_map,
                 exam_stats=exam_stats,
                 selected_class=int(class_id),
+                selected_teacher=selected_teacher,
                 selected_test=selected_test
             )
     finally:

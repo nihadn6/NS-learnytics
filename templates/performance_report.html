@@ -16,10 +16,10 @@
         {% if teachers %}
         <div class="form-group mb-0" style="flex: 1; min-width: 180px;">
             <label style="font-weight: 600; font-size: 0.85rem;">Instructor Filter</label>
-            <select id="teacherFilter" class="input-field" style="width: 100%;">
+            <select id="teacherFilter" name="teacher_id" class="input-field" style="width: 100%;">
                 <option value="">-- All Teachers --</option>
                 {% for t in teachers %}
-                <option value="{{ t.id }}">{{ t.name }}</option>
+                <option value="{{ t.id }}" {% if selected_teacher == t.id %}selected{% endif %}>{{ t.name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -42,7 +42,7 @@
                 {% if class_tests %}
                     {% for t in class_tests %}
                     <option value="{{ t.test_name }}" {% if selected_test == t.test_name %}selected{% endif %}>
-                        {{ t.test_name }}{% if t.date_recorded %} ({{ t.date_recorded }}){% endif %}
+                        {{ t.test_name }}
                     </option>
                     {% endfor %}
                 {% endif %}
@@ -51,7 +51,7 @@
 
         <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; align-items: center;">
             <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.55rem 1.2rem;">Generate Report</button>
-            {% if selected_class or selected_test %}
+            {% if selected_class or selected_test or selected_teacher %}
             <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.55rem 0.85rem;">Reset</a>
             {% endif %}
         </div>
@@ -67,7 +67,7 @@
                         <span>📋 {{ exam_stats.test_name }}</span>
                         {% if exam_stats.date_recorded %}
                         <span style="font-size: 0.75rem; background: #d1fae5; color: #047857; padding: 0.2rem 0.5rem; border-radius: 9999px; font-weight: 600;">
-                            Exam Date: {{ exam_stats.date_recorded }}
+                            Conducted: {{ exam_stats.date_recorded }}
                         </span>
                         {% endif %}
                     </h3>
@@ -115,7 +115,7 @@
                         {% if selected_test %}
                             Displaying marks for assessment: <strong style="color: var(--primary);">{{ selected_test }}</strong>
                         {% else %}
-                            Displaying all <strong>{{ test_columns|length }}</strong> assessments
+                            Displaying <strong>{{ test_columns|length }}</strong> assessments conducted for this class
                         {% endif %}
                         &bull; Enrolled Students: <strong>{{ students|length }}</strong>
                     </div>
@@ -184,29 +184,46 @@
 </div>
 
 <script>
-    // JSON mapping of available exams for each class
+    // JSON mapping of available unique exams for each class
     const testsByClass = {{ tests_by_class|tojson }};
     const currentlySelectedTest = {{ selected_test|tojson }};
+    const initialSelectedClass = {{ selected_class|tojson }};
+    const initialSelectedTeacher = {{ selected_teacher|tojson }};
 
     const teacherFilter = document.getElementById('teacherFilter');
     const classFilter = document.getElementById('classFilter');
     const testFilter = document.getElementById('testFilter');
     const allClassOptions = Array.from(classFilter.querySelectorAll('option[data-teacher]'));
 
+    // Filter classes to only show those of the selected teacher
+    function filterClassesByTeacher(teacherId, preserveClassVal = null) {
+        if (!classFilter) return;
+        classFilter.innerHTML = '<option value="">-- Select Class --</option>';
+        allClassOptions.forEach(opt => {
+            if (!teacherId || opt.getAttribute('data-teacher') === String(teacherId)) {
+                const clone = opt.cloneNode(true);
+                if (preserveClassVal && clone.value === String(preserveClassVal)) {
+                    clone.selected = true;
+                }
+                classFilter.appendChild(clone);
+            }
+        });
+    }
+
     // Populate the exam dropdown based on selected class
     function updateTestDropdown(classId, preserveSelected = false) {
         if (!testFilter) return;
         testFilter.innerHTML = '<option value="">-- All Assessments / Exams --</option>';
         
-        if (!classId || !testsByClass[classId]) {
+        if (!classId || !testsByClass[String(classId)]) {
             return;
         }
 
-        const tests = testsByClass[classId];
+        const tests = testsByClass[String(classId)];
         tests.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.test_name;
-            opt.textContent = t.date_recorded ? `${t.test_name} (${t.date_recorded})` : t.test_name;
+            opt.textContent = t.test_name;
             if (preserveSelected && t.test_name === currentlySelectedTest) {
                 opt.selected = true;
             }
@@ -224,13 +241,7 @@
     // Teacher dropdown logic (for admins/moderators)
     if (teacherFilter) {
         teacherFilter.addEventListener('change', function () {
-            const selectedTeacher = this.value;
-            classFilter.innerHTML = '<option value="">-- Select Class --</option>';
-            allClassOptions.forEach(opt => {
-                if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
-                    classFilter.appendChild(opt.cloneNode(true));
-                }
-            });
+            filterClassesByTeacher(this.value, null);
             // Reset exam filter
             updateTestDropdown('', false);
         });
@@ -264,9 +275,12 @@
         });
     }
 
-    // If a class is already selected on page load, populate exams if not already populated
+    // Initialize dropdowns on page load
     document.addEventListener('DOMContentLoaded', function () {
-        if (classFilter && classFilter.value && testFilter && testFilter.options.length <= 1) {
+        if (teacherFilter && teacherFilter.value) {
+            filterClassesByTeacher(teacherFilter.value, initialSelectedClass);
+        }
+        if (classFilter && classFilter.value) {
             updateTestDropdown(classFilter.value, true);
         }
     });
