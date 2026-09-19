@@ -11,12 +11,16 @@
         </h1>
         <p class="text-muted" style="margin-bottom: 0;">Institutional management, system accounts, and operational oversight.</p>
     </div>
-    <div style="display: flex; gap: 0.75rem;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <button class="btn btn-primary" onclick="document.getElementById('addUserModal').style.display='flex'" style="padding: 0.55rem 1rem;">
             <span>+ Provision New User</span>
         </button>
         <a href="{{ url_for('admin.manage_users') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
             <span>User Directory</span>
+        </a>
+        <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="padding: 0.55rem 1rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            <span>Messages</span>
         </a>
     </div>
 </div>
@@ -121,6 +125,18 @@
                     <div style="display: flex; gap: 0.4rem;">
                         <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="btn btn-primary" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem; background: #7c3aed;">Risk Radar</a>
                         <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem;">Forecast</a>
+                    </div>
+                </div>
+
+                <!-- Station 5: Communications & Direct Messages -->
+                <div class="quick-action-tile" style="border-top: 3px solid #0284c7;">
+                    <div>
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem;">💬 Direct Messages</h3>
+                        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Chat directly with teachers, students, and staff members across all classes.</p>
+                    </div>
+                    <div style="display: flex; gap: 0.4rem;">
+                        <a href="{{ url_for('messages.inbox') }}" class="btn btn-primary" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem; background: #0284c7; border-color: #0284c7;">Open Inbox</a>
+                        <a href="{{ url_for('announcements.feed') }}" class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem;">Announcements</a>
                     </div>
                 </div>
 
