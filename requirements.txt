@@ -7,3 +7,5 @@ gunicorn
 cryptography
 numpy
 scikit-learn
+openpyxl
+reportlab

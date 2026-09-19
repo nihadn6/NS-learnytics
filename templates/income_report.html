@@ -1,28 +1,97 @@
 {% extends 'base.html' %}
 
-{% block title %}Income Report - NS Learnytics{% endblock %}
+{% block title %}Financial Audit Report - NS Learnytics{% endblock %}
+
+{% block head %}
+<style>
+    @media print {
+        .app-sidebar, .app-topbar, .public-nav, footer, .export-action-bar, form {
+            display: none !important;
+        }
+        .app-main-content, .app-body-container {
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        body {
+            background: #ffffff !important;
+            color: #000000 !important;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="mb-4">
 </div>
+
 <div class="card">
-    <div class="flex justify-between align-center mb-4">
+    <div class="flex justify-between align-center mb-4" style="flex-wrap: wrap; gap: 1rem;">
         <div>
-            <h1>Financial Income Report</h1>
-            <p class="text-muted">Track revenue generated from student tuition fees across all classes.</p>
+            <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">Financial Audit Report</h1>
+            <p class="text-muted" style="margin-bottom: 0;">Institutional tuition revenue, fee collections, and transaction ledger.</p>
         </div>
-        <div class="stat-card" style="margin-bottom: 0; background: var(--success); color: white; border: none; min-width: 200px; text-align: right;">
-            <span class="stat-label" style="color: rgba(255,255,255,0.8);">Total Revenue</span>
-            <span class="stat-value" style="color: white; font-size: 1.5rem;">LKR {{ "{:,.2f}".format(total_income) }}</span>
+        <div class="stat-card" style="margin-bottom: 0; background: var(--success); color: white; border: none; min-width: 220px; text-align: right;">
+            <span class="stat-label" style="color: rgba(255,255,255,0.85);">Total Period Revenue</span>
+            <span class="stat-value" style="color: white; font-size: 1.6rem;">LKR {{ "{:,.2f}".format(total_income) }}</span>
         </div>
     </div>
 
+    <!-- Export & Download Action Bar -->
+    <div class="export-action-bar" style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
+            <svg style="width: 16px; height: 16px; color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Download Audit Report:
+        </span>
+        
+        <!-- PDF Download -->
+        <a href="{{ url_for('finance.export_income_report', format='pdf', start_date=start_date, end_date=end_date, teacher_id=selected_teacher) }}" 
+           class="btn btn-outline" 
+           style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #dc2626; border-color: #fca5a5; background: #fff5f5; text-decoration: none;"
+           title="Download PDF Document">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            <span>PDF</span>
+        </a>
+
+        <!-- Excel Download -->
+        <a href="{{ url_for('finance.export_income_report', format='excel', start_date=start_date, end_date=end_date, teacher_id=selected_teacher) }}" 
+           class="btn btn-outline" 
+           style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #15803d; border-color: #86efac; background: #f0fdf4; text-decoration: none;"
+           title="Download Excel Spreadsheet (.xlsx)">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>Excel (.xlsx)</span>
+        </a>
+
+        <!-- CSV Download -->
+        <a href="{{ url_for('finance.export_income_report', format='csv', start_date=start_date, end_date=end_date, teacher_id=selected_teacher) }}" 
+           class="btn btn-outline" 
+           style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #0284c7; border-color: #7dd3fc; background: #f0f9ff; text-decoration: none;"
+           title="Download Comma-Separated Values File">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>CSV</span>
+        </a>
+
+        <!-- Print View Button -->
+        <button type="button" 
+                onclick="window.print()" 
+                class="btn btn-outline" 
+                style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+            <span>Print View</span>
+        </button>
+    </div>
+
     <!-- Filter Section -->
-    <form action="{{ url_for('finance.income_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap; background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius);">
+    <form action="{{ url_for('finance.income_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap; background: var(--bg-main); padding: 1.25rem 1.5rem; border-radius: var(--radius);">
         {% if teachers %}
         <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
-            <label>Instructor</label>
-            <select name="teacher_id">
+            <label style="font-weight: 600; font-size: 0.85rem;">Instructor Filter</label>
+            <select name="teacher_id" class="input-field" style="width: 100%;">
                 <option value="">-- All Teachers --</option>
                 {% for t in teachers %}
                 <option value="{{ t.id }}" {% if selected_teacher == t.id %}selected{% endif %}>{{ t.name }}</option>
@@ -32,24 +101,27 @@
         {% endif %}
 
         <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
-            <label>Start Date</label>
-            <input type="date" name="start_date" value="{{ start_date }}">
+            <label style="font-weight: 600; font-size: 0.85rem;">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date }}" class="input-field" style="width: 100%;">
         </div>
 
         <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
-            <label>End Date</label>
-            <input type="date" name="end_date" value="{{ end_date }}">
+            <label style="font-weight: 600; font-size: 0.85rem;">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date }}" class="input-field" style="width: 100%;">
         </div>
 
-        <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary" style="background: var(--success);">Update Analytics</button>
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary" style="background: var(--success); font-size: 0.85rem; padding: 0.5rem 1.15rem;">Update Analytics</button>
+            {% if selected_teacher or start_date or end_date %}
+            <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.5rem 0.85rem;">Reset</a>
+            {% endif %}
         </div>
     </form>
 
     <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: 2rem;">
         <!-- Subject Summary -->
         <div class="card" style="padding: 1.5rem;">
-            <h3 class="mb-4" style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Revenue by Subject</h3>
+            <h3 class="mb-4" style="font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Revenue by Subject</h3>
             <div class="table-container" style="border: none;">
                 <table style="border: none;">
                     <tbody>
@@ -60,7 +132,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="2" class="text-center text-muted">No data available for this period.</td>
+                            <td colspan="2" class="text-center text-muted" style="padding: 1.5rem 0;">No data available for this period.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -68,9 +140,9 @@
             </div>
         </div>
 
-        <!-- Stats Card -->
+        <!-- Financial Pulse -->
         <div class="card" style="padding: 1.5rem; background: #ecfdf5; border-color: #d1fae5;">
-            <h3 class="mb-4" style="color: #065f46; border-bottom: 1px solid #d1fae5; padding-bottom: 0.5rem;">Financial Pulse</h3>
+            <h3 class="mb-4" style="font-size: 1.05rem; font-weight: 700; color: #065f46; border-bottom: 1px solid #d1fae5; padding-bottom: 0.5rem;">Financial Pulse</h3>
             <div class="flex flex-column gap-4">
                 <div>
                     <span class="stat-label" style="color: #065f46;">Total Collections</span>
@@ -87,7 +159,7 @@
 
         <!-- Monthly Breakdown -->
         <div class="card" style="padding: 1.5rem;">
-            <h3 class="mb-4" style="border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Monthly Revenue Breakdown</h3>
+            <h3 class="mb-4" style="font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">Monthly Revenue Breakdown</h3>
             <div class="table-container" style="border: none;">
                 <table style="border: none;">
                     <thead>
@@ -104,7 +176,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="2" class="text-center text-muted">No monthly data available.</td>
+                            <td colspan="2" class="text-center text-muted" style="padding: 1.5rem 0;">No monthly data available.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -114,7 +186,7 @@
     </div>
 
     <!-- Detailed Transactions -->
-    <h3 class="mb-4">Detailed Transaction Ledger</h3>
+    <h3 class="mb-4" style="font-size: 1.15rem; font-weight: 700;">Detailed Transaction Ledger</h3>
     <div class="table-container">
         <table>
             <thead>
@@ -122,6 +194,7 @@
                     <th>Date</th>
                     <th>Student Name</th>
                     <th>Subject</th>
+                    <th>Teacher</th>
                     <th>Billing Period</th>
                     <th style="text-align: right;">Amount Paid</th>
                 </tr>
@@ -132,12 +205,13 @@
                     <td class="text-muted">{{ p.payment_date }}</td>
                     <td style="font-weight: 600;">{{ p.student_name }}</td>
                     <td>{{ p.subject }}</td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted);">{{ p.teacher_name or '-' }}</td>
                     <td><span style="background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600;">{{ p.period }}</span></td>
                     <td style="text-align: right; font-weight: 800; color: var(--success);">LKR {{ "{:,.2f}".format(p.amount) }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted" style="padding: 3rem;">No tutoring fees recorded in this period.</td>
+                    <td colspan="6" class="text-center text-muted" style="padding: 3rem;">No tutoring fees recorded in this period.</td>
                 </tr>
                 {% endfor %}
             </tbody>
