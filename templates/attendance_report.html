@@ -68,30 +68,49 @@
         </div>
         {% endif %}
 
-        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
-            <label>Start Date</label>
-            <input type="date" name="start_date" value="{{ start_date or '' }}" required>
+        <div class="form-group mb-0" style="flex: 1; min-width: 140px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Start Date</label>
+            <input type="date" name="start_date" value="{{ start_date or '' }}" required class="input-field" style="width: 100%;">
         </div>
-        <div class="form-group mb-0" style="flex: 1; min-width: 150px;">
-            <label>End Date</label>
-            <input type="date" name="end_date" value="{{ end_date or '' }}" required>
+        <div class="form-group mb-0" style="flex: 1; min-width: 140px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">End Date</label>
+            <input type="date" name="end_date" value="{{ end_date or '' }}" required class="input-field" style="width: 100%;">
         </div>
-        <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary" style="background: var(--primary);">Generate Report</button>
+        <div class="form-group mb-0" style="flex: 1.2; min-width: 180px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Search Student</label>
+            <input type="text" name="student_search" id="studentSearchInput" value="{{ student_search or '' }}" placeholder="Name or email..." class="input-field" style="width: 100%;">
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; align-items: center;">
+            <button type="submit" class="btn btn-primary" style="background: var(--primary); font-size: 0.85rem; padding: 0.55rem 1.2rem;">Generate Report</button>
+            {% if class_id or student_search or start_date or end_date %}
+            <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.55rem 0.85rem;">Reset</a>
+            {% endif %}
         </div>
     </form>
 
     {% if class_id %}
         {% if not records %}
             <div class="alert alert-error text-center">
-                No attendance data found for this class in the selected timeframe.
+                No attendance data found for this class in the selected timeframe{% if student_search %} matching "{{ student_search }}"{% endif %}.
             </div>
         {% else %}
             <!-- Aggregated Performance View -->
             <div class="mb-4">
-                <h3>Aggregated Performance Matrix</h3>
+                <div class="flex justify-between align-center mb-3" style="flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem;">Aggregated Performance Matrix</h3>
+                        {% if student_search %}
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            Filtered by search: <strong style="color: var(--primary);">{{ student_search }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <input type="text" id="liveTableSearch" placeholder="Live filter on table..." class="input-field" style="padding: 0.35rem 0.75rem; font-size: 0.85rem; width: 220px;">
+                    </div>
+                </div>
                 <div class="table-container">
-                    <table>
+                    <table id="matrixTable">
                         <thead>
                             <tr>
                                 <th>Student Name</th>
@@ -102,8 +121,8 @@
                         </thead>
                         <tbody>
                             {% for row in aggregated %}
-                            <tr>
-                                <td style="font-weight: 600;">{{ row.name }}</td>
+                            <tr class="matrix-row">
+                                <td style="font-weight: 600;" class="matrix-student-name">{{ row.name }}</td>
                                 <td>{{ row.present_days }}</td>
                                 <td>{{ row.total_days }}</td>
                                 <td>
@@ -113,6 +132,11 @@
                                 </td>
                             </tr>
                             {% endfor %}
+                            <tr id="noMatrixResultsRow" style="display: none;">
+                                <td colspan="4" class="text-center text-muted" style="padding: 2rem;">
+                                    No student matching filter.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -120,9 +144,9 @@
 
             <!-- Granular Daily Logs -->
             <div>
-                <h3>Granular Daily Logs</h3>
+                <h3 style="margin-bottom: 0.75rem; font-size: 1.15rem;">Granular Daily Logs</h3>
                 <div class="table-container">
-                    <table>
+                    <table id="logsTable">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -132,9 +156,9 @@
                         </thead>
                         <tbody>
                             {% for r in records %}
-                            <tr>
+                            <tr class="log-row">
                                 <td class="text-muted">{{ r.date }}</td>
-                                <td style="font-weight: 600;">{{ r.name }} <span class="text-muted" style="font-size: 0.75rem;">({{ r.email }})</span></td>
+                                <td style="font-weight: 600;" class="log-student-name">{{ r.name }} <span class="text-muted" style="font-size: 0.75rem;">({{ r.email }})</span></td>
                                 <td>
                                     <span style="padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; {% if r.status == 'present' %}background: #dcfce7; color: #166534;{% else %}background: #fee2e2; color: #991b1b;{% endif %};">
                                         {{ r.status }}
@@ -142,6 +166,11 @@
                                 </td>
                             </tr>
                             {% endfor %}
+                            <tr id="noLogsResultsRow" style="display: none;">
+                                <td colspan="3" class="text-center text-muted" style="padding: 2rem;">
+                                    No daily logs matching filter.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -149,4 +178,48 @@
         {% endif %}
     {% endif %}
 </div>
+
+<script>
+    // Real-time table filter for both matrix and daily logs
+    const liveTableSearch = document.getElementById('liveTableSearch');
+    if (liveTableSearch) {
+        liveTableSearch.addEventListener('input', function () {
+            const query = this.value.trim().toLowerCase();
+
+            // Filter Matrix Table
+            const matrixRows = document.querySelectorAll('.matrix-row');
+            let visibleMatrix = 0;
+            matrixRows.forEach(row => {
+                const nameCell = row.querySelector('.matrix-student-name');
+                if (nameCell && nameCell.textContent.toLowerCase().includes(query)) {
+                    row.style.display = '';
+                    visibleMatrix++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            const noMatrix = document.getElementById('noMatrixResultsRow');
+            if (noMatrix) {
+                noMatrix.style.display = (visibleMatrix === 0 && matrixRows.length > 0) ? '' : 'none';
+            }
+
+            // Filter Daily Logs Table
+            const logRows = document.querySelectorAll('.log-row');
+            let visibleLogs = 0;
+            logRows.forEach(row => {
+                const nameCell = row.querySelector('.log-student-name');
+                if (nameCell && nameCell.textContent.toLowerCase().includes(query)) {
+                    row.style.display = '';
+                    visibleLogs++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            const noLogs = document.getElementById('noLogsResultsRow');
+            if (noLogs) {
+                noLogs.style.display = (visibleLogs === 0 && logRows.length > 0) ? '' : 'none';
+            }
+        });
+    }
+</script>
 {% endblock %}

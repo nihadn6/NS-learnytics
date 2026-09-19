@@ -255,6 +255,7 @@ def attendance_report():
     class_id = request.args.get('class_id')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    student_search = request.args.get('student_search', '').strip()
 
     conn = get_db_connection()
     try:
@@ -269,7 +270,6 @@ def attendance_report():
                 cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
                 classes = cursor.fetchall()
 
-            
             records = []
             aggregated = []
             
@@ -283,29 +283,49 @@ def attendance_report():
                     authorized = True
                 
                 if authorized:
-                    cursor.execute("""
+                    search_clause = ""
+                    params_records = [class_id, start_date, end_date]
+                    params_aggregated = [class_id, start_date, end_date]
+
+                    if student_search:
+                        search_clause = " AND (u.name LIKE %s OR u.email LIKE %s)"
+                        search_param = f"%{student_search}%"
+                        params_records.extend([search_param, search_param])
+                        params_aggregated.extend([search_param, search_param])
+
+                    cursor.execute(f"""
                         SELECT u.name, u.email, a.date, a.status
                         FROM attendance a
                         JOIN users u ON a.student_id = u.id
-                        WHERE a.class_id = %s AND a.date >= %s AND a.date <= %s
+                        WHERE a.class_id = %s AND a.date >= %s AND a.date <= %s{search_clause}
                         ORDER BY a.date DESC, u.name ASC
-                    """, (class_id, start_date, end_date))
+                    """, tuple(params_records))
                     records = cursor.fetchall()
                     
-                    cursor.execute("""
-                        SELECT u.name,
+                    cursor.execute(f"""
+                        SELECT u.name, u.email,
                                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_days,
                                COUNT(a.id) as total_days,
                                (SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / COUNT(a.id)) as attendance_percentage
                         FROM attendance a
                         JOIN users u ON a.student_id = u.id
-                        WHERE a.class_id = %s AND a.date >= %s AND a.date <= %s
-                        GROUP BY a.student_id, u.name
+                        WHERE a.class_id = %s AND a.date >= %s AND a.date <= %s{search_clause}
+                        GROUP BY a.student_id, u.name, u.email
                         ORDER BY attendance_percentage DESC
-                    """, (class_id, start_date, end_date))
+                    """, tuple(params_aggregated))
                     aggregated = cursor.fetchall()
                     
-            return render_template('attendance_report.html', teachers=teachers, classes=classes, class_id=class_id, start_date=start_date, end_date=end_date, records=records, aggregated=aggregated)
+            return render_template(
+                'attendance_report.html', 
+                teachers=teachers, 
+                classes=classes, 
+                class_id=class_id, 
+                start_date=start_date, 
+                end_date=end_date, 
+                student_search=student_search,
+                records=records, 
+                aggregated=aggregated
+            )
     finally:
         conn.close()
 
