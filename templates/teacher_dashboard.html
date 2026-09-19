@@ -73,11 +73,77 @@
                 <canvas id="perfChart"></canvas>
             </div>
         </div>
+        <!-- Latest Assessment Grade Spread -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.15rem;">
+                        Latest Assessment Grade Spread
+                    </h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">
+                        {% if latest_test_name %}
+                            <b>{{ latest_test_name }}</b> ({{ latest_test_subject }}) &bull; Student performance brackets.
+                        {% else %}
+                            Overview of student scores by grade tier.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            {% if latest_test_name %}
+                <div style="height: 220px;">
+                    <canvas id="gradeDistChart"></canvas>
+                </div>
+            {% else %}
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0; padding: 1.5rem 0; text-align: center;">
+                    No assessment records found to display grade distribution.
+                </p>
+            {% endif %}
+        </div>
     </div>
 
-    <!-- RIGHT COLUMN: URGENT QUEUE, AI RADAR & NOTICES -->
+    <!-- RIGHT COLUMN: TODAY'S SCHEDULE, ACTION QUEUE & AI RADAR -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
         
+        <!-- Today's Teaching Schedule -->
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.1rem;">
+                        Today's Schedule
+                    </h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">{{ today_name }}</span>
+                </div>
+                <a href="{{ url_for('classes.view_classes') }}" style="font-size: 0.75rem; color: var(--primary);">All Classes &rarr;</a>
+            </div>
+
+            {% if todays_classes %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for c in todays_classes %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">
+                                    {{ c.subject }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                    <span>{{ c.schedule }}</span> &bull; <span>{{ c.student_count }} Students</span>
+                                </div>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('attendance.scan_attendance') }}?class_id={{ c.id }}" class="btn btn-primary" style="font-size: 0.725rem; padding: 0.3rem 0.65rem;">
+                                    Scan Pass
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.825rem;">
+                    <p style="margin-bottom: 0.5rem;">No classes scheduled for today ({{ today_name }}).</p>
+                    <a href="{{ url_for('classes.view_classes') }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.25rem 0.6rem;">View Weekly Timetable</a>
+                </div>
+            {% endif %}
+        </div>
+
         <!-- Urgent Action Queue -->
         <div class="card" style="border-top: 4px solid var(--warning);">
             <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
@@ -192,5 +258,28 @@
             }
         }
     });
+
+    {% if latest_test_name %}
+    new Chart(document.getElementById('gradeDistChart'), {
+        type: 'bar',
+        data: {
+            labels: ['A (75%+)', 'B (65-74%)', 'C (50-64%)', 'Needs Support (<50%)'],
+            datasets: [{
+                label: 'Students',
+                data: [{{ grade_dist['A'] }}, {{ grade_dist['B'] }}, {{ grade_dist['C'] }}, {{ grade_dist['Needs Support'] }}],
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                borderRadius: 4,
+                maxBarThickness: 45
+            }]
+        },
+        options: {
+            ...chartOptions,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+    {% endif %}
 </script>
 {% endblock %}

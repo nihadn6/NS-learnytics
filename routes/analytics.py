@@ -116,6 +116,52 @@ def teacher_dashboard():
             perf_labels = [p['test_name'] for p in perf_trends]
             perf_data = [float(p['avg_score']) for p in perf_trends]
             
+            # Today's Scheduled Classes
+            today_day_short = datetime.date.today().strftime('%a')
+            today_day_full = datetime.date.today().strftime('%A')
+            today_name = today_day_full
+
+            todays_classes = []
+            for c in classes_list:
+                sched = (c.get('schedule') or '').lower()
+                if today_day_short.lower() in sched or today_day_full.lower() in sched:
+                    todays_classes.append(c)
+
+            # Latest Test Grade Distribution
+            cursor.execute("""
+                SELECT m.test_name, c.subject, MAX(m.date_recorded) as test_date
+                FROM marks m
+                JOIN classes c ON m.class_id = c.id
+                WHERE c.teacher_id = %s
+                GROUP BY m.test_name, c.subject
+                ORDER BY test_date DESC LIMIT 1
+            """, (user_id,))
+            latest_test = cursor.fetchone()
+
+            grade_dist = {'A': 0, 'B': 0, 'C': 0, 'Needs Support': 0}
+            latest_test_name = None
+            latest_test_subject = None
+            if latest_test:
+                latest_test_name = latest_test['test_name']
+                latest_test_subject = latest_test['subject']
+                cursor.execute("""
+                    SELECT (m.marks_obtained / m.max_marks * 100) as pct
+                    FROM marks m
+                    JOIN classes c ON m.class_id = c.id
+                    WHERE c.teacher_id = %s AND m.test_name = %s
+                """, (user_id, latest_test_name))
+                m_rows = cursor.fetchall()
+                for r in m_rows:
+                    score = float(r['pct'] or 0)
+                    if score >= 75:
+                        grade_dist['A'] += 1
+                    elif score >= 65:
+                        grade_dist['B'] += 1
+                    elif score >= 50:
+                        grade_dist['C'] += 1
+                    else:
+                        grade_dist['Needs Support'] += 1
+
             # Business Analytics (Revenue per class)
             cursor.execute("""
                 SELECT c.subject, SUM(p.amount) as revenue
@@ -152,6 +198,11 @@ def teacher_dashboard():
                                    monthly_income=monthly_income,
                                    net_income=net_income,
                                    classes_list=classes_list,
+                                   todays_classes=todays_classes,
+                                   today_name=today_name,
+                                   latest_test_name=latest_test_name,
+                                   latest_test_subject=latest_test_subject,
+                                   grade_dist=grade_dist,
                                    pending_grading_cnt=pending_grading_cnt,
                                    recent_announcements=recent_announcements,
                                    at_risk_students=at_risk_students,
