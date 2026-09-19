@@ -6,54 +6,79 @@
 <div class="mb-4">
 </div>
 <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh;">
-    <div class="card" style="width: 100%; max-width: 600px;">
+    <div class="card" style="width: 100%; max-width: 650px;">
         <div class="mb-4">
             <h1>Record Tuition Payment</h1>
-            <p class="text-muted">Manually process physical fee payments for enrolled students.</p>
+            <p class="text-muted">Process physical fee payments for a specific teacher and course.</p>
         </div>
 
         <form action="{{ url_for('finance.manual_payment') }}" method="POST">
-            {% if session.role in ['superadmin', 'moderator'] %}
+            {% if session.role in ['superadmin', 'admin', 'moderator'] %}
             <div class="form-group">
-                <label>Instructor (Teacher)</label>
+                <label style="font-weight: 600;">Instructor (Teacher)</label>
                 <select id="teacherSelect">
                     <option value="">-- All Teachers --</option>
                     {% for t in teachers %}
-                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    <option value="{{ t.id }}" {% if selected_teacher_id and selected_teacher_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             {% endif %}
 
             <div class="form-group">
-                <label>Target Class</label>
+                <label style="font-weight: 600;">Target Course (Class)</label>
                 <select name="class_id" id="classSelect" required>
-                    <option value="">-- Select Class --</option>
+                    <option value="">-- Select Course / Class --</option>
                     {% for c in classes %}
-                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}">{{ c.subject }}</option>
+                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" data-fee="{{ c.fee }}" data-teacher-name="{{ c.teacher_name }}" {% if selected_class_id and selected_class_id|string == c.id|string %}selected{% endif %}>
+                        {{ c.subject }}{% if c.fee %} (Fee: LKR {{ "{:,.2f}".format(c.fee) }}){% endif %}
+                    </option>
                     {% endfor %}
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>Select Student</label>
-                <select name="student_id" id="studentSelect" required>
-                    <option value="">-- Select Class First --</option>
-                </select>
+            <!-- Course Fee Summary Callout -->
+            <div id="courseFeeInfo" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Selected Course</span>
+                        <div id="courseSummaryTitle" style="font-size: 0.95rem; font-weight: 700; color: #14532d;"></div>
+                        <div id="courseSummaryTeacher" style="font-size: 0.8rem; color: #15803d;"></div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Monthly Fee</span>
+                        <div id="courseSummaryFee" style="font-size: 1.15rem; font-weight: 800; color: #15803d;"></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
-                <div class="form-group">
-                    <label>Payment Date</label>
+            <!-- Student Selection with Live Search -->
+            <div class="form-group mb-3">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <label style="font-weight: 600; margin-bottom: 0;">Enrolled Student</label>
+                    <span id="studentCountBadge" style="font-size: 0.72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; display: none;"></span>
+                </div>
+                <div style="position: relative; margin-bottom: 0.5rem;">
+                    <input type="text" id="studentSearchInput" placeholder="Search student name or email..." class="input-field" style="width: 100%; font-size: 0.85rem;" autocomplete="off" disabled>
+                </div>
+                <select name="student_id" id="studentSelect" required disabled>
+                    <option value="">-- Select Course First --</option>
+                </select>
+                <div id="studentSearchStatus" style="font-size: 0.75rem; margin-top: 4px; color: var(--text-muted); min-height: 1.2em;"></div>
+            </div>
+
+            <div class="grid gap-4 mb-4" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group mb-0">
+                    <label style="font-weight: 600;">Payment Date</label>
                     <input type="date" name="payment_date" value="{{ today }}" required />
                 </div>
-                <div class="form-group">
-                    <label>Billing Period</label>
-                    <input type="text" name="period" placeholder="e.g., April 2026" required />
+                <div class="form-group mb-0">
+                    <label style="font-weight: 600;">Billing Period</label>
+                    <input type="text" name="period" value="{{ default_period }}" placeholder="e.g., September 2026" required />
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; background: var(--success);">Confirm & Record Payment</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; background: var(--success);">Confirm & Record Payment</button>
         </form>
     </div>
 </div>
@@ -65,14 +90,82 @@
     const teacherSelect = document.getElementById('teacherSelect');
     const classSelect = document.getElementById('classSelect');
     const studentSelect = document.getElementById('studentSelect');
+    const studentSearchInput = document.getElementById('studentSearchInput');
+    const studentCountBadge = document.getElementById('studentCountBadge');
+    const studentSearchStatus = document.getElementById('studentSearchStatus');
+    const courseFeeInfo = document.getElementById('courseFeeInfo');
+    const courseSummaryTitle = document.getElementById('courseSummaryTitle');
+    const courseSummaryTeacher = document.getElementById('courseSummaryTeacher');
+    const courseSummaryFee = document.getElementById('courseSummaryFee');
 
     const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
+    let currentClassStudents = [];
+
+    function renderStudentOptions(students, query = '') {
+        studentSelect.innerHTML = '';
+        if (!students || students.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = query ? '-- No matching students found --' : '-- No students enrolled in this course --';
+            studentSelect.appendChild(opt);
+            studentSelect.disabled = true;
+            studentSearchStatus.textContent = query ? `No students matching "${query}"` : 'No students enrolled';
+            studentSearchStatus.style.color = query ? 'var(--danger)' : 'var(--text-muted)';
+            return;
+        }
+
+        studentSelect.disabled = false;
+        const placeholderOpt = document.createElement('option');
+        placeholderOpt.value = '';
+        placeholderOpt.textContent = `-- Select Student (${students.length} available) --`;
+        studentSelect.appendChild(placeholderOpt);
+
+        students.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.student_id;
+            option.textContent = s.email ? `${s.name} (${s.email})` : s.name;
+            studentSelect.appendChild(option);
+        });
+
+        if (query) {
+            if (students.length >= 1) {
+                studentSelect.value = students[0].student_id;
+            }
+            studentSearchStatus.textContent = `Found ${students.length} match${students.length > 1 ? 'es' : ''} for "${query}"`;
+            studentSearchStatus.style.color = 'var(--primary)';
+        } else {
+            studentSearchStatus.textContent = `Showing all ${currentClassStudents.length} enrolled student(s)`;
+            studentSearchStatus.style.color = 'var(--text-muted)';
+        }
+    }
+
+    function filterStudents() {
+        const query = studentSearchInput.value.trim().toLowerCase();
+        if (query.length > 0) {
+            const filtered = currentClassStudents.filter(s => {
+                const nameMatch = s.name && s.name.toLowerCase().includes(query);
+                const emailMatch = s.email && s.email.toLowerCase().includes(query);
+                return nameMatch || emailMatch;
+            });
+            renderStudentOptions(filtered, query);
+        } else {
+            renderStudentOptions(currentClassStudents, '');
+        }
+    }
+
+    studentSearchInput.addEventListener('input', filterStudents);
 
     if (teacherSelect) {
         teacherSelect.addEventListener('change', function () {
             const selectedTeacher = this.value;
-            classSelect.innerHTML = '<option value="">-- Select Class --</option>';
-            studentSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+            classSelect.innerHTML = '<option value="">-- Select Course / Class --</option>';
+            studentSelect.innerHTML = '<option value="">-- Select Course First --</option>';
+            studentSelect.disabled = true;
+            studentSearchInput.disabled = true;
+            studentSearchInput.value = '';
+            studentCountBadge.style.display = 'none';
+            studentSearchStatus.textContent = '';
+            courseFeeInfo.style.display = 'none';
 
             allClassOptions.forEach(opt => {
                 if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
@@ -84,20 +177,45 @@
 
     classSelect.addEventListener('change', function () {
         const selectedClass = this.value;
-        studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
+        const selectedOpt = this.selectedOptions ? this.selectedOptions[0] : null;
+        studentSearchInput.value = '';
 
-        if (!selectedClass) return;
+        if (selectedClass && selectedOpt) {
+            const fee = selectedOpt.getAttribute('data-fee');
+            const teacherName = selectedOpt.getAttribute('data-teacher-name');
+            const subject = selectedOpt.textContent.trim();
 
-        const enrolledStudents = enrollments.filter(e => e.class_id == selectedClass);
-        enrolledStudents.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s.student_id;
-            option.textContent = s.name;
-            studentSelect.appendChild(option);
-        });
+            if (fee || teacherName) {
+                courseSummaryTitle.textContent = subject;
+                courseSummaryTeacher.textContent = teacherName ? `Instructor: ${teacherName}` : '';
+                courseSummaryFee.textContent = fee ? `LKR ${parseFloat(fee).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'Free';
+                courseFeeInfo.style.display = 'block';
+            } else {
+                courseFeeInfo.style.display = 'none';
+            }
+
+            studentSearchInput.disabled = false;
+            currentClassStudents = enrollments.filter(e => e.class_id == selectedClass);
+            studentCountBadge.textContent = `${currentClassStudents.length} student${currentClassStudents.length === 1 ? '' : 's'}`;
+            studentCountBadge.style.display = 'inline-block';
+            renderStudentOptions(currentClassStudents, '');
+        } else {
+            courseFeeInfo.style.display = 'none';
+            studentSearchInput.disabled = true;
+            studentSelect.disabled = true;
+            studentSelect.innerHTML = '<option value="">-- Select Course First --</option>';
+            studentCountBadge.style.display = 'none';
+            studentSearchStatus.textContent = '';
+            currentClassStudents = [];
+        }
     });
 
-    if (role === 'teacher') {
+    // Handle initial state if preselected or teacher role
+    if (teacherSelect && teacherSelect.value) {
+        teacherSelect.dispatchEvent(new Event('change'));
+    } else if (classSelect.value) {
+        classSelect.dispatchEvent(new Event('change'));
+    } else if (role === 'teacher') {
         classSelect.dispatchEvent(new Event('change'));
     }
 </script>

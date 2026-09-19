@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
 from database.db import get_db_connection
+import datetime
 
 finance_bp = Blueprint('finance', __name__)
 
@@ -37,8 +38,8 @@ def record_payment():
 
 @finance_bp.route('/payments/manual', methods=['GET', 'POST'])
 def manual_payment():
-    # Allow teacher, moderator, superadmin to record payments
-    if session.get('role') not in ('teacher', 'moderator', 'superadmin'):
+    # Allow teacher, moderator, admin, superadmin to record payments
+    if session.get('role') not in ('teacher', 'moderator', 'admin', 'superadmin'):
         return "Unauthorized", 403
 
     conn = get_db_connection()
@@ -48,22 +49,45 @@ def manual_payment():
                 if session.get('role') == 'teacher':
                     cursor.execute("SELECT u.id, u.name FROM users u WHERE u.id = %s", (session['user_id'],))
                     teachers = cursor.fetchall()
-                    cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s", (session['user_id'],))
+                    cursor.execute("""
+                        SELECT id, subject, teacher_id, fee, %s as teacher_name 
+                        FROM classes 
+                        WHERE teacher_id = %s 
+                        ORDER BY subject
+                    """, (session.get('name', 'Teacher'), session['user_id']))
                     classes = cursor.fetchall()
                 else:
                     cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
                     teachers = cursor.fetchall()
-                    cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
+                    cursor.execute("""
+                        SELECT c.id, c.subject, c.teacher_id, c.fee, u.name as teacher_name 
+                        FROM classes c 
+                        JOIN users u ON c.teacher_id = u.id 
+                        ORDER BY u.name, c.subject
+                    """)
                     classes = cursor.fetchall()
 
                 cursor.execute("""
-                    SELECT e.class_id, u.id as student_id, u.name 
+                    SELECT e.class_id, u.id as student_id, u.name, u.email 
                     FROM enrollments e 
                     JOIN users u ON e.student_id = u.id 
                     ORDER BY u.name
                 """)
                 enrollments = cursor.fetchall()
-                return render_template('manual_payment.html', teachers=teachers, classes=classes, enrollments=enrollments)
+
+                today = datetime.date.today().isoformat()
+                default_period = datetime.datetime.now().strftime('%B %Y')
+                selected_teacher_id = request.args.get('teacher_id')
+                selected_class_id = request.args.get('class_id')
+
+                return render_template('manual_payment.html', 
+                                       teachers=teachers, 
+                                       classes=classes, 
+                                       enrollments=enrollments,
+                                       today=today,
+                                       default_period=default_period,
+                                       selected_teacher_id=selected_teacher_id,
+                                       selected_class_id=selected_class_id)
 
             data = request.form
             class_id = data.get('class_id')
