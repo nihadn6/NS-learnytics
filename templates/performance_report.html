@@ -3,6 +3,23 @@
 {% block title %}Performance Report - NS Learnytics{% endblock %}
 
 {% block content %}
+<style>
+@media print {
+    .sidebar, .navbar, .export-action-bar, form, #studentSearch, .btn, .no-print {
+        display: none !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+}
+</style>
+
 <div class="mb-4">
 </div>
 <div class="card">
@@ -58,6 +75,60 @@
     </form>
 
     {% if class_info %}
+        <!-- Export & Download Action Bar -->
+        <div class="export-action-bar" style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; padding: 0.75rem 1rem; background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
+                <svg style="width: 16px; height: 16px; color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Download Report:
+            </span>
+            
+            <!-- PDF Download -->
+            <a href="{{ url_for('performance.export_performance_report', format='pdf', class_id=selected_class, test_name=selected_test, teacher_id=selected_teacher) }}" 
+               class="btn btn-outline" 
+               style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #dc2626; border-color: #fca5a5; background: #fff5f5; text-decoration: none;"
+               title="Download PDF Document">
+                <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                <span>PDF</span>
+            </a>
+
+            <!-- Excel Download -->
+            <a href="{{ url_for('performance.export_performance_report', format='excel', class_id=selected_class, test_name=selected_test, teacher_id=selected_teacher) }}" 
+               class="btn btn-outline" 
+               style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #15803d; border-color: #86efac; background: #f0fdf4; text-decoration: none;"
+               title="Download Excel Spreadsheet (.xlsx)">
+                <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>Excel (.xlsx)</span>
+            </a>
+
+            <!-- CSV Download -->
+            <a href="{{ url_for('performance.export_performance_report', format='csv', class_id=selected_class, test_name=selected_test, teacher_id=selected_teacher) }}" 
+               class="btn btn-outline" 
+               style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #0284c7; border-color: #7dd3fc; background: #f0f9ff; text-decoration: none;"
+               title="Download Comma-Separated Values File">
+                <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>CSV</span>
+            </a>
+
+            <!-- JSON Download -->
+            <a href="{{ url_for('performance.export_performance_report', format='json', class_id=selected_class, test_name=selected_test, teacher_id=selected_teacher) }}" 
+               class="btn btn-outline" 
+               target="_blank"
+               style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; color: #475569; border-color: #cbd5e1; background: #f8fafc; text-decoration: none;"
+               title="Download JSON Data">
+                <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                <span>JSON</span>
+            </a>
+
+            <!-- Print View Button -->
+            <button type="button" 
+                    onclick="window.print()" 
+                    class="btn btn-outline" 
+                    style="font-size: 0.8rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-left: auto;">
+                <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                <span>Print View</span>
+            </button>
+        </div>
+
         <!-- Exam Summary Metrics (shown when a specific exam is filtered) -->
         {% if exam_stats %}
         <div class="card mb-4" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #a7f3d0; padding: 1.25rem;">

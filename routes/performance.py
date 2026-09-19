@@ -270,6 +270,372 @@ def performance_report():
     finally:
         conn.close()
 
+@performance_bp.route('/marks/report/export', methods=['GET'])
+def export_performance_report():
+    if session.get('role') not in ('teacher', 'moderator', 'superadmin'):
+        return "Unauthorized", 403
+
+    class_id = request.args.get('class_id')
+    selected_test = request.args.get('test_name', '').strip()
+    export_format = request.args.get('format', 'pdf').lower()
+
+    if not class_id:
+        return "Missing class_id", 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Permissions check for teachers
+            if session['role'] == 'teacher':
+                cursor.execute("SELECT 1 FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+                if not cursor.fetchone():
+                    return "Unauthorized for this class", 401
+
+            # Fetch class and teacher info
+            cursor.execute("""
+                SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name
+                FROM classes c
+                JOIN users u ON c.teacher_id = u.id
+                WHERE c.id = %s
+            """, (class_id,))
+            class_info = cursor.fetchone()
+            if not class_info:
+                return "Class not found", 404
+
+            # Fetch strictly unique assessments conducted for this specific class
+            cursor.execute("""
+                SELECT test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded
+                FROM marks 
+                WHERE class_id = %s 
+                GROUP BY test_name
+                ORDER BY MIN(date_recorded) ASC, test_name ASC
+            """, (class_id,))
+            class_tests = cursor.fetchall()
+
+            if selected_test:
+                matched_tests = [t['test_name'] for t in class_tests if t['test_name'] == selected_test]
+                test_columns = matched_tests if matched_tests else [selected_test]
+            else:
+                test_columns = [t['test_name'] for t in class_tests]
+
+            # Fetch enrolled students
+            cursor.execute("""
+                SELECT u.id, u.name 
+                FROM enrollments e 
+                JOIN users u ON e.student_id = u.id 
+                WHERE e.class_id = %s 
+                ORDER BY u.name
+            """, (class_id,))
+            students = cursor.fetchall()
+
+            # Fetch marks for this class
+            if selected_test:
+                cursor.execute("""
+                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    FROM marks 
+                    WHERE class_id = %s AND test_name = %s
+                """, (class_id, selected_test))
+            else:
+                cursor.execute("""
+                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    FROM marks 
+                    WHERE class_id = %s
+                """, (class_id,))
+            all_marks = cursor.fetchall()
+
+            marks_map = {}
+            for m in all_marks:
+                sid = m['student_id']
+                tname = m['test_name']
+                if sid not in marks_map:
+                    marks_map[sid] = {}
+                obt = float(m['marks_obtained'])
+                mx = float(m['max_marks']) if m.get('max_marks') else 100.0
+                pct = (obt / mx * 100.0) if mx > 0 else 0.0
+                marks_map[sid][tname] = {
+                    'display': f"{obt:g} / {mx:g}",
+                    'obtained': obt,
+                    'max_marks': mx,
+                    'pct': round(pct, 1)
+                }
+
+            # Calculate assessment summary statistics when single exam is filtered
+            exam_stats = None
+            if selected_test and all_marks:
+                scores = [float(m['marks_obtained']) for m in all_marks]
+                max_score = float(all_marks[0]['max_marks']) if all_marks[0].get('max_marks') else 100.0
+                pct_scores = [(s / max_score * 100.0) if max_score > 0 else 0.0 for s in scores]
+                pass_count = sum(1 for p in pct_scores if p >= 50.0)
+                exam_stats = {
+                    'test_name': selected_test,
+                    'date_recorded': str(all_marks[0]['date_recorded']) if all_marks[0].get('date_recorded') else '',
+                    'max_marks': max_score,
+                    'turnout': len(scores),
+                    'roster_count': len(students),
+                    'turnout_pct': round((len(scores) / len(students) * 100.0), 1) if students else 0,
+                    'avg_score': round(sum(scores) / len(scores), 2) if scores else 0,
+                    'avg_pct': round(sum(pct_scores) / len(pct_scores), 1) if pct_scores else 0,
+                    'highest_score': max(scores) if scores else 0,
+                    'highest_pct': round((max(scores) / max_score * 100.0), 1) if max_score > 0 else 0,
+                    'lowest_score': min(scores) if scores else 0,
+                    'lowest_pct': round((min(scores) / max_score * 100.0), 1) if max_score > 0 else 0,
+                    'pass_count': pass_count,
+                    'pass_rate': round((pass_count / len(scores) * 100.0), 1) if scores else 0
+                }
+
+            from datetime import date
+            safe_subject = class_info['subject'].replace(' ', '_').lower()
+            safe_test = (f"_{selected_test.replace(' ', '_').lower()}" if selected_test else "_all_assessments")
+            filename_base = f"academic_report_{safe_subject}{safe_test}_{date.today().isoformat()}"
+
+            if export_format == 'csv':
+                import io, csv
+                from flask import Response
+                output = io.StringIO()
+                output.write('\ufeff') # UTF-8 BOM
+                writer = csv.writer(output)
+                writer.writerow(["NS Learnytics — Academic Performance Report"])
+                writer.writerow(["Subject / Class", class_info['subject']])
+                writer.writerow(["Instructor", class_info['teacher_name']])
+                writer.writerow(["Assessment Filter", selected_test if selected_test else "All Assessments"])
+                writer.writerow(["Generated On", date.today().isoformat()])
+                writer.writerow(["Total Enrolled Students", len(students)])
+                if exam_stats:
+                    writer.writerow(["Class Average", f"{exam_stats['avg_score']} ({exam_stats['avg_pct']}%)"])
+                    writer.writerow(["Highest Score", f"{exam_stats['highest_score']} ({exam_stats['highest_pct']}%)"])
+                    writer.writerow(["Lowest Score", f"{exam_stats['lowest_score']} ({exam_stats['lowest_pct']}%)"])
+                    writer.writerow(["Pass Rate", f"{exam_stats['pass_rate']}% ({exam_stats['pass_count']}/{exam_stats['turnout']} passed)"])
+                writer.writerow([]) # Blank row
+
+                # Table headers
+                header_row = ["Student ID", "Student Name"]
+                for col in test_columns:
+                    header_row.extend([f"{col} (Score)", f"{col} (%)"])
+                writer.writerow(header_row)
+
+                # Student rows
+                for s in students:
+                    row = [s['id'], s['name']]
+                    for col in test_columns:
+                        m_info = marks_map.get(s['id'], {}).get(col)
+                        if m_info:
+                            row.extend([m_info['display'], f"{m_info['pct']}%"])
+                        else:
+                            row.extend(["Not Taken", "N/A"])
+                    writer.writerow(row)
+
+                output.seek(0)
+                return Response(
+                    output.getvalue(),
+                    mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment;filename={filename_base}.csv"}
+                )
+
+            elif export_format in ('excel', 'xlsx'):
+                import io, openpyxl
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+                from flask import send_file
+
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = "Academic Report"
+
+                title_font = Font(name="Calibri", size=15, bold=True, color="0F766E")
+                sub_font = Font(name="Calibri", size=10, italic=True, color="475569")
+                tbl_header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+                tbl_header_fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
+                thin_border = Border(
+                    left=Side(style='thin', color='CBD5E1'),
+                    right=Side(style='thin', color='CBD5E1'),
+                    top=Side(style='thin', color='CBD5E1'),
+                    bottom=Side(style='thin', color='CBD5E1')
+                )
+
+                # Report Banner
+                ws.append(["NS Learnytics — Academic Performance Report"])
+                ws.cell(row=1, column=1).font = title_font
+                ws.append([f"Course: {class_info['subject']} | Instructor: {class_info['teacher_name']}"])
+                ws.cell(row=2, column=1).font = sub_font
+                ws.append([f"Assessment: {selected_test if selected_test else 'All Assessments'} | Date: {date.today().isoformat()} | Enrolled: {len(students)} Students"])
+                ws.cell(row=3, column=1).font = sub_font
+
+                curr_row = 4
+                if exam_stats:
+                    ws.append([f"Class Average: {exam_stats['avg_score']} ({exam_stats['avg_pct']}%) | High: {exam_stats['highest_score']} | Low: {exam_stats['lowest_score']} | Pass Rate: {exam_stats['pass_rate']}%"])
+                    ws.cell(row=4, column=1).font = sub_font
+                    curr_row = 5
+
+                ws.append([]) # Blank
+                curr_row += 1
+
+                # Table Header
+                headers = ["Student ID", "Student Name"]
+                for col in test_columns:
+                    headers.extend([f"{col} (Score)", f"{col} (%)"])
+                ws.append(headers)
+                header_row_idx = curr_row
+
+                for col_idx in range(1, len(headers) + 1):
+                    cell = ws.cell(row=header_row_idx, column=col_idx)
+                    cell.font = tbl_header_font
+                    cell.fill = tbl_header_fill
+                    cell.alignment = Alignment(horizontal="center" if col_idx != 2 else "left")
+                    cell.border = thin_border
+
+                # Data rows
+                for r_idx, s in enumerate(students, start=header_row_idx + 1):
+                    row_data = [s['id'], s['name']]
+                    for col in test_columns:
+                        m_info = marks_map.get(s['id'], {}).get(col)
+                        if m_info:
+                            row_data.extend([m_info['display'], f"{m_info['pct']}%"])
+                        else:
+                            row_data.extend(["Not Taken", "-"])
+                    ws.append(row_data)
+                    for c_idx in range(1, len(headers) + 1):
+                        cell = ws.cell(row=r_idx, column=c_idx)
+                        cell.border = thin_border
+                        if c_idx > 2 or c_idx == 1:
+                            cell.alignment = Alignment(horizontal="center")
+
+                # Column widths auto-adjustment
+                for col in ws.columns:
+                    max_len = max(len(str(cell.value or '')) for cell in col)
+                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                    ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+                buf = io.BytesIO()
+                wb.save(buf)
+                buf.seek(0)
+                return send_file(
+                    buf,
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    as_attachment=True,
+                    download_name=f"{filename_base}.xlsx"
+                )
+
+            elif export_format == 'pdf':
+                import io
+                from reportlab.lib.pagesizes import letter, landscape
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib import colors
+                from flask import send_file
+
+                buf = io.BytesIO()
+                doc = SimpleDocTemplate(buf, pagesize=landscape(letter), leftMargin=25, rightMargin=25, topMargin=25, bottomMargin=25)
+                styles = getSampleStyleSheet()
+
+                title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=15, leading=18, textColor=colors.HexColor('#0f766e'))
+                meta_style = ParagraphStyle('MetaStyle', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=colors.HexColor('#475569'))
+
+                elements = [
+                    Paragraph("NS Learnytics — Academic Performance Report", title_style),
+                    Spacer(1, 3),
+                    Paragraph(f"Course: <b>{class_info['subject']}</b> &nbsp;|&nbsp; Instructor: <b>{class_info['teacher_name']}</b> &nbsp;|&nbsp; Assessment: <b>{selected_test if selected_test else 'All Assessments'}</b> &nbsp;|&nbsp; Date: <b>{date.today().isoformat()}</b>", meta_style),
+                    Paragraph(f"Total Enrolled Students: <b>{len(students)}</b> &nbsp;|&nbsp; Total Assessments Conducted: <b>{len(test_columns)}</b>", meta_style),
+                    Spacer(1, 8)
+                ]
+
+                if exam_stats:
+                    kpi_data = [[
+                        f"Class Average: {exam_stats['avg_score']} ({exam_stats['avg_pct']}%)",
+                        f"Highest: {exam_stats['highest_score']} ({exam_stats['highest_pct']}%)",
+                        f"Lowest: {exam_stats['lowest_score']} ({exam_stats['lowest_pct']}%)",
+                        f"Pass Rate: {exam_stats['pass_rate']}% ({exam_stats['pass_count']}/{exam_stats['turnout']})",
+                        f"Turnout: {exam_stats['turnout']}/{exam_stats['roster_count']} ({exam_stats['turnout_pct']}%)"
+                    ]]
+                    kpi_table = Table(kpi_data, colWidths=[150, 140, 140, 160, 140])
+                    kpi_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ecfdf5')),
+                        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#065f46')),
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 8),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#a7f3d0')),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                        ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    elements.append(kpi_table)
+                    elements.append(Spacer(1, 8))
+
+                # Table headers
+                tbl_headers = ["Student Name"]
+                for col in test_columns:
+                    tbl_headers.append(f"{col}")
+                tbl_data = [tbl_headers]
+
+                for s in students:
+                    row = [s['name']]
+                    for col in test_columns:
+                        m_info = marks_map.get(s['id'], {}).get(col)
+                        if m_info:
+                            row.append(f"{m_info['display']} ({m_info['pct']}%)")
+                        else:
+                            row.append("Not Taken")
+                    tbl_data.append(row)
+
+                col_count = len(tbl_headers)
+                name_w = 160
+                remaining_w = 740 - name_w
+                col_w = max(50, remaining_w / max(1, (col_count - 1)))
+                widths = [name_w] + [col_w] * (col_count - 1)
+
+                t = Table(tbl_data, colWidths=widths)
+                t.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f766e')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8.5),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#ffffff'), colors.HexColor('#f8fafc')]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                    ('TOPPADDING', (0, 0), (-1, -1), 4),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ]))
+                elements.append(t)
+                doc.build(elements)
+                buf.seek(0)
+                return send_file(
+                    buf,
+                    mimetype="application/pdf",
+                    as_attachment=True,
+                    download_name=f"{filename_base}.pdf"
+                )
+
+            elif export_format == 'json':
+                from flask import jsonify
+                payload = {
+                    "report_title": "Academic Performance Report",
+                    "generated_at": date.today().isoformat(),
+                    "class": {
+                        "id": class_info['id'],
+                        "subject": class_info['subject'],
+                        "teacher": class_info['teacher_name']
+                    },
+                    "assessment_filter": selected_test if selected_test else "ALL",
+                    "assessments": test_columns,
+                    "summary_statistics": exam_stats,
+                    "student_records": [
+                        {
+                            "student_id": s['id'],
+                            "student_name": s['name'],
+                            "marks": {
+                                col: marks_map.get(s['id'], {}).get(col) for col in test_columns
+                            }
+                        }
+                        for s in students
+                    ]
+                }
+                return jsonify(payload)
+            else:
+                return "Invalid export format. Supported formats: pdf, excel, csv, json", 400
+    finally:
+        conn.close()
+
 @performance_bp.route('/marks/template/<int:class_id>', methods=['GET'])
 def download_marks_template(class_id):
     if session.get('role') not in ('teacher', 'moderator', 'superadmin'):
