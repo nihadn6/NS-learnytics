@@ -25,7 +25,9 @@
                 <a href="{% if session.role == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.role == 'teacher' %}{{ url_for('analytics.teacher_dashboard') }}{% elif session.role == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% elif session.role == 'parent' %}{{ url_for('parent.dashboard') }}{% else %}{{ url_for('analytics.student_dashboard') }}{% endif %}" class="brand-title">
                     NS Learnytics
                 </a>
-                <button type="button" class="sidebar-close-btn" onclick="toggleSidebar()">&times;</button>
+                <button type="button" class="sidebar-collapse-btn sidebar-close-btn" onclick="toggleSidebar()" aria-label="Collapse menu" title="Collapse sidebar into three lines">
+                    <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                </button>
             </div>
 
             <nav class="sidebar-nav">
@@ -261,7 +263,7 @@
             <!-- App Top Header -->
             <header class="app-topbar">
                 <div class="topbar-left">
-                    <button type="button" class="mobile-sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">
+                    <button type="button" class="sidebar-toggle-btn mobile-sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation" title="Toggle menu">
                         <svg style="width: 22px; height: 22px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
                     <div class="topbar-page-context">
@@ -310,13 +312,29 @@
 
     <script>
         function toggleSidebar() {
+            const isMobile = window.innerWidth <= 1024;
             const sidebar = document.getElementById('appSidebar');
             const overlay = document.getElementById('sidebarOverlay');
-            if (sidebar && overlay) {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('active');
+
+            if (isMobile) {
+                if (sidebar) sidebar.classList.toggle('open');
+                if (overlay) overlay.classList.toggle('active');
+            } else {
+                const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+                try {
+                    localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+                } catch (e) {}
             }
         }
+
+        // Restore saved preference on desktop
+        (function () {
+            try {
+                if (window.innerWidth > 1024 && localStorage.getItem('sidebar_collapsed') === '1') {
+                    document.body.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
     </script>
 
     {% else %}
