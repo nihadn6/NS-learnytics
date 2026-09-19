@@ -19,7 +19,7 @@ class GradeForecaster:
         else:
             return 'F'
 
-    def forecast_student_performance(self, student_id, class_id=None):
+    def forecast_student_performance(self, student_id, class_id=None, teacher_id=None):
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -31,15 +31,19 @@ class GradeForecaster:
 
                 # Build SQL query for assessment marks
                 query_marks = """
-                    SELECT m.class_id, c.subject, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded
+                    SELECT m.class_id, c.subject, c.teacher_id, u.name as teacher_name, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
+                    LEFT JOIN users u ON c.teacher_id = u.id
                     WHERE m.student_id = %s
                 """
                 params = [student_id]
                 if class_id:
                     query_marks += " AND m.class_id = %s"
                     params.append(class_id)
+                if teacher_id:
+                    query_marks += " AND c.teacher_id = %s"
+                    params.append(teacher_id)
                 query_marks += " ORDER BY m.date_recorded ASC"
 
                 cursor.execute(query_marks, tuple(params))
@@ -47,16 +51,20 @@ class GradeForecaster:
 
                 # Fetch LMS assignment scores
                 query_hw = """
-                    SELECT a.class_id, c.subject, sub.marks_obtained, a.max_points, sub.submitted_at
+                    SELECT a.class_id, c.subject, c.teacher_id, u.name as teacher_name, sub.marks_obtained, a.max_points, sub.submitted_at
                     FROM assignment_submissions sub
                     JOIN assignments a ON sub.assignment_id = a.id
                     JOIN classes c ON a.class_id = c.id
+                    LEFT JOIN users u ON c.teacher_id = u.id
                     WHERE sub.student_id = %s AND sub.status = 'graded' AND sub.marks_obtained IS NOT NULL
                 """
                 hw_params = [student_id]
                 if class_id:
                     query_hw += " AND a.class_id = %s"
                     hw_params.append(class_id)
+                if teacher_id:
+                    query_hw += " AND c.teacher_id = %s"
+                    hw_params.append(teacher_id)
                 query_hw += " ORDER BY sub.submitted_at ASC"
 
                 cursor.execute(query_hw, tuple(hw_params))
@@ -68,7 +76,7 @@ class GradeForecaster:
             for m in marks_rows:
                 cid = m['class_id']
                 if cid not in subject_data:
-                    subject_data[cid] = {'subject': m['subject'], 'timeline': []}
+                    subject_data[cid] = {'subject': m['subject'], 'teacher_name': m.get('teacher_name', ''), 'teacher_id': m.get('teacher_id'), 'timeline': []}
                 
                 max_pts = float(m['max_marks']) if m['max_marks'] else 100.0
                 pts = float(m['marks_obtained']) if m['marks_obtained'] else 0.0
@@ -84,7 +92,7 @@ class GradeForecaster:
             for h in hw_rows:
                 cid = h['class_id']
                 if cid not in subject_data:
-                    subject_data[cid] = {'subject': h['subject'], 'timeline': []}
+                    subject_data[cid] = {'subject': h['subject'], 'teacher_name': h.get('teacher_name', ''), 'teacher_id': h.get('teacher_id'), 'timeline': []}
 
                 max_pts = float(h['max_points']) if h['max_points'] else 100.0
                 pts = float(h['marks_obtained']) if h['marks_obtained'] else 0.0
@@ -140,6 +148,8 @@ class GradeForecaster:
                 forecasts.append({
                     'class_id': cid,
                     'subject': sinfo['subject'],
+                    'teacher_name': sinfo.get('teacher_name', ''),
+                    'teacher_id': sinfo.get('teacher_id'),
                     'historical_scores': scores,
                     'assessment_count': len(scores),
                     'current_avg_pct': curr_avg,
@@ -167,7 +177,16 @@ class GradeForecaster:
                 query = "SELECT DISTINCT u.id FROM users u WHERE u.role = 'student'"
                 params = []
 
-                if class_id:
+                if class_id and teacher_id:
+                    query = """
+                        SELECT DISTINCT u.id 
+                        FROM users u 
+                        JOIN enrollments e ON u.id = e.student_id 
+                        JOIN classes c ON e.class_id = c.id
+                        WHERE u.role = 'student' AND e.class_id = %s AND c.teacher_id = %s
+                    """
+                    params.extend([class_id, teacher_id])
+                elif class_id:
                     query = """
                         SELECT DISTINCT u.id 
                         FROM users u 
@@ -190,7 +209,7 @@ class GradeForecaster:
 
             results = []
             for sid in student_ids:
-                f_data = self.forecast_student_performance(sid, class_id=class_id)
+                f_data = self.forecast_student_performance(sid, class_id=class_id, teacher_id=teacher_id)
                 if f_data and f_data['forecasts']:
                     results.append(f_data)
 

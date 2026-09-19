@@ -15,13 +15,13 @@
     </div>
 </div>
 
-<!-- Universal Search & Course Filter Controls for Every Role -->
+<!-- Universal Search & Filter Controls (with Teacher & Course Filters for Admin) -->
 <div class="card mb-6" style="padding: 1.1rem 1.25rem;">
     <form id="forecasterFilterForm" action="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" method="GET" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; justify-content: space-between;">
         
         <div style="display: flex; gap: 0.85rem; align-items: center; flex-wrap: wrap; flex: 1; min-width: 280px;">
             <!-- Live Search Bar -->
-            <div style="position: relative; flex: 1; min-width: 220px; max-width: 380px;">
+            <div style="position: relative; flex: 1; min-width: 220px; max-width: 350px;">
                 <svg style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94a3b8; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <circle cx="11" cy="11" r="8" stroke-width="2"/>
                     <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
@@ -30,7 +30,7 @@
                        name="search" 
                        id="forecasterSearchInput" 
                        value="{{ search_query or '' }}" 
-                       placeholder="{% if role in ('student', 'parent') %}Search course or subject...{% else %}Search student, email, or course...{% endif %}" 
+                       placeholder="{% if role in ('student', 'parent') %}Search course or subject...{% elif teachers %}Search student, course, or teacher...{% else %}Search student, email, or course...{% endif %}" 
                        class="input-field" 
                        style="padding: 0.5rem 1.85rem 0.5rem 2.25rem; font-size: 0.85rem; width: 100%; border-radius: 0.5rem;" 
                        autocomplete="off">
@@ -41,18 +41,37 @@
                         title="Clear search">&times;</button>
             </div>
 
-            <!-- Course / Subject Filter -->
+            <!-- Teacher Filter Dropdown (Admins / Superadmins) -->
+            {% if teachers %}
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <label for="teacherFilterSelect" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap;">Teacher:</label>
+                <select name="teacher_id" 
+                        id="teacherFilterSelect" 
+                        class="input-field" 
+                        onchange="this.form.submit()" 
+                        style="padding: 0.5rem 0.85rem; font-size: 0.85rem; min-width: 170px; max-width: 220px; border-radius: 0.5rem;">
+                    <option value="">All Teachers</option>
+                    {% for t in teachers %}
+                        <option value="{{ t.id }}" {% if selected_teacher_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Course / Subject Filter Dropdown -->
             {% if classes %}
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
                 <label for="courseFilterSelect" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap;">Course:</label>
                 <select name="class_id" 
                         id="courseFilterSelect" 
                         class="input-field" 
                         onchange="this.form.submit()" 
-                        style="padding: 0.5rem 0.85rem; font-size: 0.85rem; max-width: 240px; border-radius: 0.5rem;">
+                        style="padding: 0.5rem 0.85rem; font-size: 0.85rem; min-width: 180px; max-width: 250px; border-radius: 0.5rem;">
                     <option value="">All Courses & Subjects</option>
                     {% for c in classes %}
-                        <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
+                        <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>
+                            {{ c.subject }}{% if c.teacher_name and not selected_teacher_id %} ({{ c.teacher_name }}){% endif %}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -60,7 +79,7 @@
 
             <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.5rem 1rem;">Filter</button>
             
-            {% if search_query or selected_class_id %}
+            {% if search_query or selected_class_id or selected_teacher_id %}
             <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.5rem 0.85rem;">Reset</a>
             {% endif %}
         </div>
@@ -106,10 +125,16 @@
                     <div class="forecast-subject-card" 
                          style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem;"
                          data-subject-name="{{ (f.subject or '')|lower }}"
+                         data-teacher-name="{{ (f.teacher_name or '')|lower }}"
                          data-trend="{{ (f.trend_status or '')|lower }}">
                         
                         <div class="flex justify-between align-center mb-2">
-                            <h4 style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin: 0;">{{ f.subject }}</h4>
+                            <div>
+                                <h4 style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin: 0;">{{ f.subject }}</h4>
+                                {% if f.teacher_name %}
+                                    <span class="text-muted" style="font-size: 0.75rem;">Teacher: <strong>{{ f.teacher_name }}</strong></span>
+                                {% endif %}
+                            </div>
                             <span class="{{ f.trend_class }}" style="font-size: 0.775rem; font-weight: 600; background: rgba(0,0,0,0.03); padding: 0.2rem 0.5rem; border-radius: 4px;">
                                 {{ f.trend_status }}
                             </span>
@@ -148,14 +173,14 @@
         <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
     </svg>
     <h3 style="font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 0.35rem;">No matching forecast records</h3>
-    <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">No student or course evaluations matched your search criteria.</p>
+    <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">No student, course, or teacher evaluations matched your search criteria.</p>
     <button type="button" onclick="clearForecasterSearch()" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.45rem 0.95rem;">Clear Filters</button>
 </div>
 
 {% else %}
 <div class="card text-center" style="padding: 4rem;">
     <p class="text-muted" style="margin: 0;">No student assessment records available for score forecasting.</p>
-    {% if search_query or selected_class_id %}
+    {% if search_query or selected_class_id or selected_teacher_id %}
     <div style="margin-top: 1rem;">
         <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.9rem;">Clear Search & Filters</a>
     </div>
@@ -202,8 +227,9 @@
 
             subjectCards.forEach(sc => {
                 const subjectName = (sc.getAttribute('data-subject-name') || '');
+                const teacherName = (sc.getAttribute('data-teacher-name') || '');
                 const trend = (sc.getAttribute('data-trend') || '');
-                const subjectMatches = subjectName.includes(term) || trend.includes(term);
+                const subjectMatches = subjectName.includes(term) || trend.includes(term) || teacherName.includes(term);
 
                 if (studentHeaderMatches || subjectMatches || !term) {
                     sc.style.display = '';

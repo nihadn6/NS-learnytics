@@ -57,11 +57,13 @@ def grade_forecasting_dashboard():
     if role not in ('superadmin', 'admin', 'teacher', 'student', 'parent'):
         return redirect(url_for('auth.login'))
 
+    teacher_id = request.args.get('teacher_id')
     class_id = request.args.get('class_id')
     search_query = request.args.get('search', '').strip()
     
     conn = get_db_connection()
     classes = []
+    teachers = []
     forecast_data = []
     try:
         with conn.cursor() as cursor:
@@ -70,9 +72,28 @@ def grade_forecasting_dashboard():
                 classes = cursor.fetchall()
                 forecast_data = grade_forecaster.forecast_all_students(teacher_id=user_id, class_id=class_id)
             elif role in ('superadmin', 'admin', 'moderator'):
-                cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+                # Fetch all teachers for admin dropdown
+                cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                teachers = cursor.fetchall()
+
+                # Fetch classes (optionally filtered if teacher_id is selected)
+                if teacher_id:
+                    cursor.execute("""
+                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        FROM classes c 
+                        LEFT JOIN users u ON c.teacher_id = u.id 
+                        WHERE c.teacher_id = %s 
+                        ORDER BY c.subject
+                    """, (teacher_id,))
+                else:
+                    cursor.execute("""
+                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        FROM classes c 
+                        LEFT JOIN users u ON c.teacher_id = u.id 
+                        ORDER BY c.subject
+                    """)
                 classes = cursor.fetchall()
-                forecast_data = grade_forecaster.forecast_all_students(class_id=class_id)
+                forecast_data = grade_forecaster.forecast_all_students(teacher_id=teacher_id, class_id=class_id)
             elif role == 'student':
                 cursor.execute("""
                     SELECT DISTINCT c.id, c.subject 
@@ -113,7 +134,7 @@ def grade_forecasting_dashboard():
                 for s in forecast_data:
                     name_match = sq in (s.get('name') or '').lower()
                     email_match = sq in (s.get('email') or '').lower()
-                    subj_match = any(sq in (f.get('subject') or '').lower() for f in s.get('forecasts', []))
+                    subj_match = any(sq in (f.get('subject') or '').lower() or sq in (f.get('teacher_name') or '').lower() for f in s.get('forecasts', []))
                     if name_match or email_match or subj_match:
                         filtered.append(s)
                 forecast_data = filtered
@@ -123,6 +144,8 @@ def grade_forecasting_dashboard():
     return render_template('grade_forecasting.html',
                            forecast_data=forecast_data,
                            classes=classes,
+                           teachers=teachers,
+                           selected_teacher_id=teacher_id,
                            selected_class_id=class_id,
                            search_query=search_query,
                            role=role)
