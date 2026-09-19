@@ -11,8 +11,8 @@ def check_auth():
 @messages_bp.route('/messages', methods=['GET'])
 def inbox():
     role = session.get('role')
-    if role not in ['teacher', 'student', 'parent', 'superadmin']:
-        return "Unauthorized. Only teachers, students, parents, and admins can use messaging.", 403
+    if role not in ['teacher', 'student', 'parent', 'superadmin', 'moderator']:
+        return "Unauthorized. Only teachers, students, parents, admins, and staff can use messaging.", 403
 
     return render_template('messages.html', current_user_id=session.get('user_id'))
 
@@ -27,56 +27,78 @@ def get_contacts():
         with conn.cursor() as cursor:
             if role == 'student':
                 cursor.execute("""
-                    SELECT DISTINCT u.id, u.name, u.role
+                    SELECT DISTINCT u.id, u.name, u.email, u.role
                     FROM users u
                     JOIN classes c ON c.teacher_id = u.id
                     JOIN enrollments e ON e.class_id = c.id
                     WHERE e.student_id = %s
                     UNION
-                    SELECT id, name, role FROM users WHERE role = 'superadmin'
-                """, (user_id,))
+                    SELECT id, name, email, role FROM users WHERE role = 'superadmin'
+                    UNION
+                    SELECT DISTINCT u.id, u.name, u.email, 'student' as role
+                    FROM users u
+                    JOIN enrollments e ON e.student_id = u.id
+                    WHERE e.class_id IN (SELECT class_id FROM enrollments WHERE student_id = %s) AND u.id != %s
+                """, (user_id, user_id, user_id))
                 contacts = cursor.fetchall()
                 
             elif role == 'parent':
                 cursor.execute("""
-                    SELECT DISTINCT u.id, u.name, u.role
+                    SELECT DISTINCT u.id, u.name, u.email, u.role
                     FROM users u
                     JOIN classes c ON c.teacher_id = u.id
                     JOIN enrollments e ON e.class_id = c.id
                     JOIN parent_student_links psl ON psl.student_id = e.student_id
                     WHERE psl.parent_id = %s AND psl.status = 'approved'
+                    UNION
+                    SELECT id, name, email, role FROM users WHERE role = 'superadmin'
                 """, (user_id,))
                 contacts = cursor.fetchall()
                 
             elif role == 'teacher':
                 cursor.execute("""
-                    SELECT DISTINCT u.id, u.name, 'student' as role
+                    SELECT DISTINCT u.id, u.name, u.email, 'student' as role
                     FROM users u
                     JOIN enrollments e ON e.student_id = u.id
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s
                     UNION
-                    SELECT DISTINCT u.id, u.name, 'parent' as role
+                    SELECT DISTINCT u.id, u.name, u.email, 'parent' as role
                     FROM users u
                     JOIN parent_student_links psl ON psl.parent_id = u.id
                     JOIN enrollments e ON psl.student_id = e.student_id
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s AND psl.status = 'approved'
                     UNION
-                    SELECT id, name, role FROM users WHERE role = 'superadmin'
-                """, (user_id, user_id))
+                    SELECT id, name, email, role FROM users WHERE role = 'superadmin'
+                    UNION
+                    SELECT id, name, email, role FROM users WHERE role = 'teacher' AND id != %s
+                """, (user_id, user_id, user_id))
                 contacts = cursor.fetchall()
 
-            elif role == 'superadmin':
-                # Admin can message all teachers and students
+            elif role in ['superadmin', 'moderator']:
                 cursor.execute("""
-                    SELECT id, name, role
+                    SELECT id, name, email, role
                     FROM users
-                    WHERE role IN ('teacher', 'student')
-                    AND id != %s
+                    WHERE id != %s
                     ORDER BY role, name
                 """, (user_id,))
                 contacts = cursor.fetchall()
+
+            # Always merge any person who has exchanged messages with this user
+            cursor.execute("""
+                SELECT DISTINCT u.id, u.name, u.email, u.role
+                FROM users u
+                JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = %s) 
+                                OR (m.receiver_id = u.id AND m.sender_id = %s)
+                WHERE u.id != %s
+            """, (user_id, user_id, user_id))
+            past_contacts = cursor.fetchall()
+            existing_ids = {c['id'] for c in contacts}
+            for pc in past_contacts:
+                if pc['id'] not in existing_ids:
+                    contacts.append(pc)
+                    existing_ids.add(pc['id'])
 
             # For each contact, fetch the unread message count and latest message timestamp
             for c in contacts:
@@ -101,6 +123,68 @@ def get_contacts():
             contacts.sort(key=lambda x: (-x['latest_msg_time'], x['name']))
 
         return jsonify(contacts)
+    finally:
+        conn.close()
+
+@messages_bp.route('/api/messages/search', methods=['GET'])
+def search_contacts():
+    user_id = session.get('user_id')
+    role = session.get('role')
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify([])
+
+    conn = get_db_connection()
+    try:
+        search_pattern = f"%{query}%"
+        with conn.cursor() as cursor:
+            if role in ['superadmin', 'moderator']:
+                cursor.execute("""
+                    SELECT id, name, email, role
+                    FROM users
+                    WHERE id != %s AND (name LIKE %s OR email LIKE %s OR role LIKE %s)
+                    ORDER BY name LIMIT 20
+                """, (user_id, search_pattern, search_pattern, search_pattern))
+            elif role == 'teacher':
+                cursor.execute("""
+                    SELECT DISTINCT u.id, u.name, u.email, u.role
+                    FROM users u
+                    WHERE u.id != %s AND (u.name LIKE %s OR u.email LIKE %s OR u.role LIKE %s)
+                    AND (
+                        u.role IN ('teacher', 'superadmin')
+                        OR u.id IN (SELECT e.student_id FROM enrollments e JOIN classes c ON e.class_id = c.id WHERE c.teacher_id = %s)
+                        OR u.id IN (SELECT psl.parent_id FROM parent_student_links psl JOIN enrollments e ON psl.student_id = e.student_id JOIN classes c ON e.class_id = c.id WHERE c.teacher_id = %s AND psl.status = 'approved')
+                    )
+                    ORDER BY u.name LIMIT 20
+                """, (user_id, search_pattern, search_pattern, search_pattern, user_id, user_id))
+            elif role == 'student':
+                cursor.execute("""
+                    SELECT DISTINCT u.id, u.name, u.email, u.role
+                    FROM users u
+                    WHERE u.id != %s AND (u.name LIKE %s OR u.email LIKE %s OR u.role LIKE %s)
+                    AND (
+                        u.role = 'superadmin'
+                        OR u.id IN (SELECT c.teacher_id FROM classes c JOIN enrollments e ON e.class_id = c.id WHERE e.student_id = %s)
+                        OR u.id IN (SELECT e2.student_id FROM enrollments e2 WHERE e2.class_id IN (SELECT class_id FROM enrollments WHERE student_id = %s))
+                    )
+                    ORDER BY u.name LIMIT 20
+                """, (user_id, search_pattern, search_pattern, search_pattern, user_id, user_id))
+            elif role == 'parent':
+                cursor.execute("""
+                    SELECT DISTINCT u.id, u.name, u.email, u.role
+                    FROM users u
+                    WHERE u.id != %s AND (u.name LIKE %s OR u.email LIKE %s OR u.role LIKE %s)
+                    AND (
+                        u.role = 'superadmin'
+                        OR u.id IN (SELECT c.teacher_id FROM classes c JOIN enrollments e ON e.class_id = c.id JOIN parent_student_links psl ON psl.student_id = e.student_id WHERE psl.parent_id = %s AND psl.status = 'approved')
+                    )
+                    ORDER BY u.name LIMIT 20
+                """, (user_id, search_pattern, search_pattern, search_pattern, user_id))
+            else:
+                return jsonify([])
+
+            results = cursor.fetchall()
+            return jsonify(results)
     finally:
         conn.close()
 

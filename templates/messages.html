@@ -6,16 +6,16 @@
 <style>
     .chat-container {
         display: flex;
-        height: 70vh;
+        height: 72vh;
         background: #fff;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
         overflow: hidden;
         border: 1px solid var(--border);
     }
 
     .contacts-sidebar {
-        width: 300px;
+        width: 320px;
         background: #f8fafc;
         border-right: 1px solid var(--border);
         display: flex;
@@ -23,10 +23,76 @@
     }
 
     .contacts-header {
-        padding: 1rem;
-        background: #f1f5f9;
-        font-weight: 600;
+        padding: 0.9rem 1rem;
+        background: #ffffff;
+        font-weight: 700;
         border-bottom: 1px solid var(--border);
+    }
+
+    .contacts-count-badge {
+        font-size: 0.72rem;
+        background: #e2e8f0;
+        color: #475569;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+
+    .contacts-search-box {
+        padding: 0.65rem 0.75rem;
+        background: #ffffff;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-input-wrapper input {
+        width: 100%;
+        padding: 0.45rem 1.85rem 0.45rem 2.15rem;
+        font-size: 0.825rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        background: #f1f5f9;
+        color: var(--text-main);
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .search-input-wrapper input:focus {
+        border-color: var(--primary);
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .search-input-wrapper .search-icon {
+        position: absolute;
+        left: 0.65rem;
+        width: 15px;
+        height: 15px;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .clear-search-btn {
+        position: absolute;
+        right: 0.45rem;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.15rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0.15rem 0.35rem;
+        border-radius: 50%;
+    }
+
+    .clear-search-btn:hover {
+        color: var(--text-main);
+        background: #e2e8f0;
     }
 
     .contact-list {
@@ -35,17 +101,18 @@
     }
 
     .contact-item {
-        padding: 1rem;
+        padding: 0.75rem 1rem;
         border-bottom: 1px solid var(--border);
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.15s ease;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 0.5rem;
     }
 
     .contact-item:hover {
-        background: #e2e8f0;
+        background: #f1f5f9;
     }
 
     .contact-item.active {
@@ -54,16 +121,55 @@
     }
 
     .contact-item.active .text-muted {
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    .contact-item.active .contact-name {
+        color: #ffffff !important;
+    }
+
+    .contact-item.active .role-badge-pill {
+        background: rgba(255, 255, 255, 0.25) !important;
+        color: #ffffff !important;
+    }
+
+    .contact-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #ffffff;
+        background: #64748b;
+        flex-shrink: 0;
+    }
+
+    .role-avatar-teacher { background: #4f46e5; }
+    .role-avatar-student { background: #0284c7; }
+    .role-avatar-superadmin { background: #db2777; }
+    .role-avatar-parent { background: #d97706; }
+    .role-avatar-moderator { background: #7c3aed; }
+
+    .contact-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .unread-badge {
         background: var(--danger);
         color: white;
-        font-size: 0.75rem;
-        padding: 0.2rem 0.5rem;
+        font-size: 0.725rem;
+        padding: 0.15rem 0.45rem;
         border-radius: 999px;
         font-weight: bold;
+        flex-shrink: 0;
     }
 
     .chat-main {
@@ -74,7 +180,7 @@
     }
 
     .chat-header {
-        padding: 1rem;
+        padding: 0.9rem 1.25rem;
         border-bottom: 1px solid var(--border);
         font-weight: 600;
         background: #fff;
@@ -82,7 +188,7 @@
 
     .chat-messages {
         flex: 1;
-        padding: 1rem;
+        padding: 1rem 1.25rem;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -155,7 +261,7 @@
     }
 
     .chat-input {
-        padding: 1rem;
+        padding: 1rem 1.25rem;
         border-top: 1px solid var(--border);
         display: flex;
         gap: 0.5rem;
@@ -164,10 +270,11 @@
 
     .chat-input input {
         flex: 1;
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
         border: 1px solid var(--border);
         border-radius: 0.5rem;
         outline: none;
+        font-size: 0.9rem;
     }
 
     .chat-input input:focus {
@@ -188,23 +295,42 @@
 
 {% block content %}
 <div class="mb-4">
-</div>
-<div class="mb-4">
-    <h1>Messages</h1>
-    <p class="text-muted">Communicate securely within your educational network.</p>
+    <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">Messages</h1>
+    <p class="text-muted" style="margin-bottom: 0;">Communicate securely within your academic network.</p>
 </div>
 
 <div class="chat-container">
     <div class="contacts-sidebar">
+        <!-- Sidebar Header -->
         <div class="contacts-header">
-            Conversations
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 0.5rem;">
+                    <svg style="width: 17px; height: 17px; color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <span>Conversations</span>
+                </span>
+                <span id="contactsCountBadge" class="contacts-count-badge">0</span>
+            </div>
         </div>
+
+        <!-- Search People Bar -->
+        <div class="contacts-search-box">
+            <div class="search-input-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="11" cy="11" r="8" stroke-width="2"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"></line>
+                </svg>
+                <input type="text" id="contactSearchInput" placeholder="Search people by name, role..." autocomplete="off">
+                <button type="button" id="clearSearchBtn" class="clear-search-btn" style="display: none;" title="Clear search" aria-label="Clear search">&times;</button>
+            </div>
+        </div>
+
+        <!-- People / Contact List -->
         <div class="contact-list" id="contactList">
-            <!-- Contacts loaded via JS -->
-            <div style="padding: 1rem; text-align: center; color: #64748b;">Loading...</div>
+            <div style="padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.85rem;">Loading contacts...</div>
         </div>
     </div>
 
+    <!-- Active Chat Pane -->
     <div class="chat-main" id="chatMain" style="display: none;">
         <div class="chat-header" id="chatHeader">
             Select a conversation
@@ -214,46 +340,106 @@
         </div>
         <form class="chat-input" id="chatForm">
             <input type="text" id="messageInput" placeholder="Type a message..." required autocomplete="off">
-            <button type="submit" class="btn btn-primary">Send</button>
+            <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">Send</button>
         </form>
     </div>
 
+    <!-- Empty State -->
     <div class="empty-state" id="emptyState">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            style="margin-bottom: 1rem; opacity: 0.5;">
+            style="margin-bottom: 1rem; opacity: 0.4;">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
-        <p>Select a conversation to start messaging</p>
+        <p style="font-weight: 600; margin-bottom: 0.25rem;">Select a conversation to start messaging</p>
+        <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Or use the search box on the left to find and message people.</p>
     </div>
 </div>
 
 <script>
     const currentUserId = {{ current_user_id }};
     let activeContactId = null;
+    let activeContactName = '';
+    let activeContactRole = '';
+    let allContacts = [];
+    let currentSearchTerm = '';
 
-    // Load contacts on mount
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // Load contacts on mount and periodically
     async function loadContacts() {
-        const res = await fetch('/api/messages/contacts');
-        const contacts = await res.json();
+        try {
+            const res = await fetch('/api/messages/contacts');
+            const data = await res.json();
+            
+            // Preserve unread updates & merge with current contacts
+            allContacts = data;
+            renderContactList();
+        } catch (err) {
+            console.error('Failed to load contacts', err);
+        }
+    }
 
+    function renderContactList() {
         const listEl = document.getElementById('contactList');
+        const badgeEl = document.getElementById('contactsCountBadge');
+        const term = currentSearchTerm.trim().toLowerCase();
+
+        let filtered = allContacts;
+        if (term) {
+            filtered = allContacts.filter(c => {
+                const nameMatch = (c.name || '').toLowerCase().includes(term);
+                const roleMatch = (c.role || '').toLowerCase().includes(term);
+                const emailMatch = (c.email || '').toLowerCase().includes(term);
+                return nameMatch || roleMatch || emailMatch;
+            });
+        }
+
+        if (badgeEl) {
+            badgeEl.innerText = term ? `${filtered.length} found` : allContacts.length;
+        }
+
         listEl.innerHTML = '';
 
-        if (contacts.length === 0) {
-            listEl.innerHTML = '<div style="padding: 1rem; text-align: center; color: #64748b; font-size: 0.875rem;">No contacts available. You can only message assigned teachers or students.</div>';
+        if (filtered.length === 0) {
+            if (term) {
+                listEl.innerHTML = `
+                    <div style="padding: 2rem 1rem; text-align: center; color: #64748b;">
+                        <svg style="width: 32px; height: 32px; margin: 0 auto 0.5rem; opacity: 0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="11" cy="11" r="8" stroke-width="2"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <div style="font-weight: 600; color: var(--text-main); font-size: 0.875rem;">No people found</div>
+                        <p style="font-size: 0.775rem; color: #94a3b8; margin: 0.25rem 0 0.75rem;">No contacts matching "${escapeHtml(currentSearchTerm)}"</p>
+                        <button type="button" onclick="clearSearch()" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;">Clear Search</button>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: #64748b; font-size: 0.85rem;">No contacts available.</div>';
+            }
             return;
         }
 
-        contacts.forEach(c => {
+        filtered.forEach(c => {
             const div = document.createElement('div');
             div.className = `contact-item ${activeContactId === c.id ? 'active' : ''}`;
             div.onclick = () => selectContact(c.id, c.name, c.role);
 
+            const initial = (c.name || 'U')[0].toUpperCase();
             div.innerHTML = `
-                <div>
-                    <div style="font-weight: 600;">${c.name}</div>
-                    <div class="text-muted" style="font-size: 0.75rem; text-transform: capitalize;">${c.role}</div>
+                <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0; flex: 1;">
+                    <div class="contact-avatar role-avatar-${escapeHtml(c.role)}">${initial}</div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div class="contact-name">${escapeHtml(c.name)}</div>
+                        <div style="font-size: 0.725rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem;">
+                            <span class="role-badge-pill role-badge-${escapeHtml(c.role)}" style="font-size: 0.65rem; padding: 0.05rem 0.35rem;">${escapeHtml(c.role)}</span>
+                            ${c.email ? `<span class="text-muted" style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">&bull; ${escapeHtml(c.email)}</span>` : ''}
+                        </div>
+                    </div>
                 </div>
                 ${c.unread > 0 ? `<span class="unread-badge">${c.unread}</span>` : ''}
             `;
@@ -261,16 +447,42 @@
         });
     }
 
+    function clearSearch() {
+        const input = document.getElementById('contactSearchInput');
+        const clearBtn = document.getElementById('clearSearchBtn');
+        input.value = '';
+        currentSearchTerm = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+        renderContactList();
+        input.focus();
+    }
+
     async function selectContact(id, name, role) {
         activeContactId = id;
+        activeContactName = name;
+        activeContactRole = role;
 
         // UI Updates
         document.getElementById('emptyState').style.display = 'none';
         document.getElementById('chatMain').style.display = 'flex';
-        document.getElementById('chatHeader').innerText = `${name} (${role})`;
+        
+        const initial = (name || 'U')[0].toUpperCase();
+        document.getElementById('chatHeader').innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div class="contact-avatar role-avatar-${escapeHtml(role)}" style="width: 34px; height: 34px; font-size: 0.8rem;">${initial}</div>
+                <div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">${escapeHtml(name)}</div>
+                    <span class="role-badge-pill role-badge-${escapeHtml(role)}" style="font-size: 0.65rem; padding: 0.05rem 0.35rem;">${escapeHtml(role)}</span>
+                </div>
+            </div>
+        `;
 
-        // Reload contacts to highlight active and clear badge
-        await loadContacts();
+        // Clear local unread count
+        const contact = allContacts.find(c => c.id === id);
+        if (contact) {
+            contact.unread = 0;
+        }
+        renderContactList();
 
         // Fetch history
         await loadMessages();
@@ -286,7 +498,7 @@
         messagesEl.innerHTML = '';
 
         if (messages.length === 0) {
-            messagesEl.innerHTML = '<div style="text-align: center; color: #94a3b8; margin-top: auto; margin-bottom: auto;">No messages yet. Send a message to start the conversation!</div>';
+            messagesEl.innerHTML = '<div style="text-align: center; color: #94a3b8; margin-top: auto; margin-bottom: auto; font-size: 0.85rem;">No messages yet. Send a message to start the conversation!</div>';
         } else {
             messages.forEach(m => {
                 const isSent = m.sender_id === currentUserId;
@@ -296,27 +508,26 @@
                 if (m.is_deleted) {
                     bubble.innerHTML = `
                         <div class="msg-deleted"><svg style="width: 12px; height:12px; vertical-align:middle; margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>This message was deleted</div>
-                        <div class="message-time">${m.created_at}</div>
+                        <div class="message-time">${escapeHtml(m.created_at)}</div>
                     `;
                 } else {
                     let controlsHtml = '';
                     if (isSent) {
                         controlsHtml = `
                         <div class="msg-controls">
-                            <button onclick="editMessage(${m.id}, \`${m.content.replace(/`/g, '\\`')}\`)">Edit</button>
+                            <button onclick="editMessage(${m.id}, \`${escapeHtml(m.content).replace(/`/g, '\\`')}\`)">Edit</button>
                             <button onclick="deleteMessage(${m.id})" style="color:var(--danger)">Delete</button>
                         </div>`;
                     }
 
                     bubble.innerHTML = `
                         ${controlsHtml}
-                        <div>${m.content} ${m.is_edited ? '<span style="font-size: 0.7rem; opacity: 0.7; margin-left: 0.5rem;">(edited)</span>' : ''}</div>
-                        <div class="message-time">${m.created_at}</div>
+                        <div>${escapeHtml(m.content)} ${m.is_edited ? '<span style="font-size: 0.7rem; opacity: 0.7; margin-left: 0.5rem;">(edited)</span>' : ''}</div>
+                        <div class="message-time">${escapeHtml(m.created_at)}</div>
                     `;
                 }
                 messagesEl.appendChild(bubble);
             });
-            // Scroll to bottom
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
     }
@@ -357,13 +568,62 @@
 
         if (res.ok) {
             await loadMessages();
+            // Refresh contacts to update sorting
+            loadContacts();
         }
     };
+
+    // Initialize search listener
+    const searchInput = document.getElementById('contactSearchInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            currentSearchTerm = e.target.value;
+            if (clearBtn) {
+                clearBtn.style.display = currentSearchTerm ? 'block' : 'none';
+            }
+            renderContactList();
+
+            // When user types 2+ characters, also search backend directory for any people not yet in list
+            if (currentSearchTerm.trim().length >= 2) {
+                fetch(`/api/messages/search?q=${encodeURIComponent(currentSearchTerm.trim())}`)
+                    .then(r => r.json())
+                    .then(serverResults => {
+                        if (serverResults && serverResults.length > 0) {
+                            const currentIds = new Set(allContacts.map(c => c.id));
+                            let added = false;
+                            serverResults.forEach(sc => {
+                                if (!currentIds.has(sc.id)) {
+                                    sc.unread = 0;
+                                    sc.latest_msg_time = 0;
+                                    allContacts.push(sc);
+                                    currentIds.add(sc.id);
+                                    added = true;
+                                }
+                            });
+                            if (added) renderContactList();
+                        }
+                    })
+                    .catch(() => {});
+            }
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearSearch();
+            }
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearSearch);
+    }
 
     // Initial Load
     loadContacts();
 
-    // Optional: Poll for new messages every 10 seconds
+    // Poll for new messages every 10 seconds without disrupting search state
     setInterval(() => {
         loadContacts();
         if (activeContactId) {
