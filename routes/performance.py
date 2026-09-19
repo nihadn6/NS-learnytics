@@ -94,11 +94,11 @@ def performance_report():
         return "Unauthorized", 403
         
     class_id = request.args.get('class_id')
+    selected_test = request.args.get('test_name', '').strip()
     
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Dropdowns logic (same as add_marks)
             teachers = []
             classes = []
             if session['role'] in ('moderator', 'superadmin'):
@@ -106,12 +106,48 @@ def performance_report():
                 teachers = cursor.fetchall()
                 cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
                 classes = cursor.fetchall()
+                # Fetch all distinct exams grouped by class for client-side dropdown switching
+                cursor.execute("""
+                    SELECT DISTINCT class_id, test_name, date_recorded, max_marks 
+                    FROM marks 
+                    ORDER BY date_recorded DESC, test_name ASC
+                """)
+                test_rows = cursor.fetchall()
             else:
-                cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s", (session['user_id'],))
+                cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s ORDER BY subject", (session['user_id'],))
                 classes = cursor.fetchall()
+                cursor.execute("""
+                    SELECT DISTINCT m.class_id, m.test_name, m.date_recorded, m.max_marks
+                    FROM marks m
+                    JOIN classes c ON m.class_id = c.id
+                    WHERE c.teacher_id = %s
+                    ORDER BY m.date_recorded DESC, m.test_name ASC
+                """, (session['user_id'],))
+                test_rows = cursor.fetchall()
+
+            # Map tests by class_id for instant client-side dropdown reactivity
+            tests_by_class = {}
+            for r in test_rows:
+                cid = str(r['class_id'])
+                if cid not in tests_by_class:
+                    tests_by_class[cid] = []
+                tests_by_class[cid].append({
+                    'test_name': r['test_name'],
+                    'date_recorded': str(r['date_recorded']) if r.get('date_recorded') else '',
+                    'max_marks': float(r['max_marks']) if r.get('max_marks') else 100.0
+                })
 
             if not class_id:
-                return render_template('performance_report.html', teachers=teachers, classes=classes, report_data=None)
+                return render_template(
+                    'performance_report.html', 
+                    teachers=teachers, 
+                    classes=classes, 
+                    tests_by_class=tests_by_class,
+                    class_tests=[],
+                    selected_class=None,
+                    selected_test='',
+                    report_data=None
+                )
 
             # Security check for teachers
             if session['role'] == 'teacher':
@@ -123,9 +159,21 @@ def performance_report():
             cursor.execute("SELECT subject FROM classes WHERE id = %s", (class_id,))
             class_info = cursor.fetchone()
 
-            # Fetch all tests in this class to build columns
-            cursor.execute("SELECT DISTINCT test_name FROM marks WHERE class_id = %s ORDER BY date_recorded", (class_id,))
-            test_columns = [r['test_name'] for r in cursor.fetchall()]
+            # Fetch distinct tests conducted for this specific class
+            cursor.execute("""
+                SELECT DISTINCT test_name, date_recorded, max_marks
+                FROM marks 
+                WHERE class_id = %s 
+                ORDER BY date_recorded ASC, test_name ASC
+            """, (class_id,))
+            class_tests = cursor.fetchall()
+
+            # Determine columns to display based on exam filter
+            if selected_test:
+                matched_tests = [t['test_name'] for t in class_tests if t['test_name'] == selected_test]
+                test_columns = matched_tests if matched_tests else [selected_test]
+            else:
+                test_columns = [t['test_name'] for t in class_tests]
 
             # Fetch Student Roster
             cursor.execute("""
@@ -137,29 +185,76 @@ def performance_report():
             """, (class_id,))
             students = cursor.fetchall()
 
-            # Fetch all marks for this class
-            cursor.execute("""
-                SELECT student_id, test_name, marks_obtained, max_marks
-                FROM marks WHERE class_id = %s
-            """, (class_id,))
+            # Fetch marks for this class (filtered by exam if requested)
+            if selected_test:
+                cursor.execute("""
+                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    FROM marks 
+                    WHERE class_id = %s AND test_name = %s
+                """, (class_id, selected_test))
+            else:
+                cursor.execute("""
+                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    FROM marks 
+                    WHERE class_id = %s
+                """, (class_id,))
             all_marks = cursor.fetchall()
 
-            # Transpose marks data for table: {student_id: {test_name: marks}}
+            # Transpose marks data for table: {student_id: {test_name: {'display': '85 / 100', 'obtained': 85, 'max': 100, 'pct': 85.0}}}
             marks_map = {}
             for m in all_marks:
                 sid = m['student_id']
+                tname = m['test_name']
                 if sid not in marks_map:
                     marks_map[sid] = {}
-                marks_map[sid][m['test_name']] = f"{m['marks_obtained']} / {m['max_marks']}"
+                obt = float(m['marks_obtained'])
+                mx = float(m['max_marks']) if m.get('max_marks') else 100.0
+                pct = (obt / mx * 100.0) if mx > 0 else 0.0
+                marks_map[sid][tname] = {
+                    'display': f"{obt:g} / {mx:g}",
+                    'obtained': obt,
+                    'max_marks': mx,
+                    'pct': round(pct, 1)
+                }
 
-            return render_template('performance_report.html', 
-                                   teachers=teachers, 
-                                   classes=classes, 
-                                   class_info=class_info,
-                                   test_columns=test_columns,
-                                   students=students,
-                                   marks_map=marks_map,
-                                   selected_class=int(class_id))
+            # Calculate Exam Analytics when a specific exam is chosen
+            exam_stats = None
+            if selected_test and all_marks:
+                scores = [float(m['marks_obtained']) for m in all_marks]
+                max_score = float(all_marks[0]['max_marks']) if all_marks[0].get('max_marks') else 100.0
+                pct_scores = [(s / max_score * 100.0) if max_score > 0 else 0.0 for s in scores]
+                pass_count = sum(1 for p in pct_scores if p >= 50.0)
+                exam_stats = {
+                    'test_name': selected_test,
+                    'date_recorded': str(all_marks[0]['date_recorded']) if all_marks[0].get('date_recorded') else '',
+                    'max_marks': max_score,
+                    'turnout': len(scores),
+                    'roster_count': len(students),
+                    'turnout_pct': round((len(scores) / len(students) * 100.0), 1) if students else 0,
+                    'avg_score': round(sum(scores) / len(scores), 2) if scores else 0,
+                    'avg_pct': round(sum(pct_scores) / len(pct_scores), 1) if pct_scores else 0,
+                    'highest_score': max(scores) if scores else 0,
+                    'highest_pct': round((max(scores) / max_score * 100.0), 1) if max_score > 0 else 0,
+                    'lowest_score': min(scores) if scores else 0,
+                    'lowest_pct': round((min(scores) / max_score * 100.0), 1) if max_score > 0 else 0,
+                    'pass_count': pass_count,
+                    'pass_rate': round((pass_count / len(scores) * 100.0), 1) if scores else 0
+                }
+
+            return render_template(
+                'performance_report.html', 
+                teachers=teachers, 
+                classes=classes, 
+                tests_by_class=tests_by_class,
+                class_info=class_info,
+                class_tests=class_tests,
+                test_columns=test_columns,
+                students=students,
+                marks_map=marks_map,
+                exam_stats=exam_stats,
+                selected_class=int(class_id),
+                selected_test=selected_test
+            )
     finally:
         conn.close()
 

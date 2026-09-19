@@ -8,15 +8,15 @@
 <div class="card">
     <div class="mb-4">
         <h1>Academic Performance Report</h1>
-        <p class="text-muted">View and analyze student examination results across all assessments.</p>
+        <p class="text-muted">View, filter, and analyze student examination results across assessments and individual tests.</p>
     </div>
 
     <!-- Filter Section -->
-    <form action="{{ url_for('performance.performance_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap; background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius);">
+    <form id="reportFilterForm" action="{{ url_for('performance.performance_report') }}" method="GET" class="flex gap-4 align-center mb-4" style="flex-wrap: wrap; background: var(--bg-main); padding: 1.5rem; border-radius: var(--radius);">
         {% if teachers %}
-        <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
-            <label>Instructor</label>
-            <select id="teacherFilter">
+        <div class="form-group mb-0" style="flex: 1; min-width: 180px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Instructor Filter</label>
+            <select id="teacherFilter" class="input-field" style="width: 100%;">
                 <option value="">-- All Teachers --</option>
                 {% for t in teachers %}
                 <option value="{{ t.id }}">{{ t.name }}</option>
@@ -26,8 +26,8 @@
         {% endif %}
 
         <div class="form-group mb-0" style="flex: 1; min-width: 200px;">
-            <label>Subject / Class</label>
-            <select id="classFilter" name="class_id" required>
+            <label style="font-weight: 600; font-size: 0.85rem;">Subject / Class <span style="color: var(--danger);">*</span></label>
+            <select id="classFilter" name="class_id" required class="input-field" style="width: 100%;">
                 <option value="">-- Select Class --</option>
                 {% for c in classes %}
                 <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" {% if selected_class == c.id %}selected{% endif %}>{{ c.subject }}</option>
@@ -35,58 +35,193 @@
             </select>
         </div>
 
-        <div style="margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary">Generate Report</button>
+        <div class="form-group mb-0" style="flex: 1.2; min-width: 230px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Assessment / Exam Filter</label>
+            <select id="testFilter" name="test_name" class="input-field" style="width: 100%;">
+                <option value="">-- All Assessments / Exams --</option>
+                {% if class_tests %}
+                    {% for t in class_tests %}
+                    <option value="{{ t.test_name }}" {% if selected_test == t.test_name %}selected{% endif %}>
+                        {{ t.test_name }}{% if t.date_recorded %} ({{ t.date_recorded }}){% endif %}
+                    </option>
+                    {% endfor %}
+                {% endif %}
+            </select>
+        </div>
+
+        <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; align-items: center;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.55rem 1.2rem;">Generate Report</button>
+            {% if selected_class or selected_test %}
+            <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.55rem 0.85rem;">Reset</a>
+            {% endif %}
         </div>
     </form>
 
     {% if class_info %}
-    <div class="mt-4">
-        <div class="flex justify-between align-center mb-4">
-            <h3>Grade Sheet for: {{ class_info.subject }}</h3>
-            <span class="text-muted" style="font-size: 0.875rem;">Total Assessments: {{ test_columns|length }}</span>
+        <!-- Exam Summary Metrics (shown when a specific exam is filtered) -->
+        {% if exam_stats %}
+        <div class="card mb-4" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #a7f3d0; padding: 1.25rem;">
+            <div class="flex justify-between align-center mb-3" style="flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid #d1fae5; padding-bottom: 0.6rem;">
+                <div>
+                    <h3 style="color: #065f46; margin: 0; font-size: 1.1rem; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <span>📋 {{ exam_stats.test_name }}</span>
+                        {% if exam_stats.date_recorded %}
+                        <span style="font-size: 0.75rem; background: #d1fae5; color: #047857; padding: 0.2rem 0.5rem; border-radius: 9999px; font-weight: 600;">
+                            Exam Date: {{ exam_stats.date_recorded }}
+                        </span>
+                        {% endif %}
+                    </h3>
+                </div>
+                <div style="font-size: 0.8rem; color: #065f46; font-weight: 600;">
+                    Max Possible Score: <span style="font-size: 0.95rem; font-weight: 800;">{{ exam_stats.max_marks }}</span>
+                </div>
+            </div>
+            <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                <div style="background: white; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Class Average</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #0f766e; margin-top: 0.2rem;">{{ exam_stats.avg_score }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ exam_stats.avg_pct }}%</div>
+                </div>
+                <div style="background: white; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Highest Score</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #16a34a; margin-top: 0.2rem;">{{ exam_stats.highest_score }}</div>
+                    <div style="font-size: 0.75rem; color: #16a34a; font-weight: 600;">{{ exam_stats.highest_pct }}%</div>
+                </div>
+                <div style="background: white; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Lowest Score</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #dc2626; margin-top: 0.2rem;">{{ exam_stats.lowest_score }}</div>
+                    <div style="font-size: 0.75rem; color: #dc2626; font-weight: 600;">{{ exam_stats.lowest_pct }}%</div>
+                </div>
+                <div style="background: white; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Pass Rate (&ge;50%)</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #0284c7; margin-top: 0.2rem;">{{ exam_stats.pass_rate }}%</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ exam_stats.pass_count }}/{{ exam_stats.turnout }} Passed</div>
+                </div>
+                <div style="background: white; padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; text-align: center;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Student Turnout</div>
+                    <div style="font-size: 1.25rem; font-weight: 800; color: #475569; margin-top: 0.2rem;">{{ exam_stats.turnout }}/{{ exam_stats.roster_count }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ exam_stats.turnout_pct }}% Attendance</div>
+                </div>
+            </div>
         </div>
+        {% endif %}
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="min-width: 200px;">Student Name</th>
-                        {% for col in test_columns %}
-                        <th class="text-center">{{ col }}</th>
+        <!-- Grade Sheet Table Container -->
+        <div class="mt-4">
+            <div class="flex justify-between align-center mb-3" style="flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem;">Grade Sheet: {{ class_info.subject }}</h3>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        {% if selected_test %}
+                            Displaying marks for assessment: <strong style="color: var(--primary);">{{ selected_test }}</strong>
+                        {% else %}
+                            Displaying all <strong>{{ test_columns|length }}</strong> assessments
+                        {% endif %}
+                        &bull; Enrolled Students: <strong>{{ students|length }}</strong>
+                    </div>
+                </div>
+                <div>
+                    <input type="text" id="studentSearch" placeholder="Search student name..." class="input-field" style="padding: 0.4rem 0.85rem; font-size: 0.85rem; width: 220px;">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="performanceTable">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 220px;">Student Name</th>
+                            {% for col in test_columns %}
+                            <th class="text-center" style="min-width: 130px;">
+                                <div>{{ col }}</div>
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="student-row">
+                            <td style="font-weight: 600;" class="student-name-cell">{{ student.name }}</td>
+                            {% for col in test_columns %}
+                            <td class="text-center">
+                                {% set m_info = marks_map.get(student.id, {}).get(col) %}
+                                {% if m_info %}
+                                    {% set pct = m_info.pct %}
+                                    <div style="font-weight: 700; color: {% if pct >= 75 %}#16a34a{% elif pct >= 50 %}#d97706{% else %}#dc2626{% endif %};">
+                                        {{ m_info.display }}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                                        {{ pct }}%
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted" style="font-size: 0.8rem; font-style: italic; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                        Not Taken
+                                    </span>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ test_columns|length + 1 }}" class="text-center text-muted" style="padding: 3rem;">
+                                No students currently enrolled in this class.
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr>
-                        <td style="font-weight: 600;">{{ student.name }}</td>
-                        {% for col in test_columns %}
-                        <td class="text-center">
-                            {% set mark = marks_map.get(student.id, {}).get(col, '-') %}
-                            <span style="{% if mark != '-' %}{% if mark|float >= 75 %}color: var(--success); font-weight: 700;{% elif mark|float < 50 %}color: var(--danger); font-weight: 700;{% endif %}{% endif %}">
-                                {{ mark }}
-                            </span>
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="{{ test_columns|length + 1 }}" class="text-center text-muted" style="padding: 2.5rem;">
+                                No matching student found.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
     {% elif selected_class %}
-    <div class="alert alert-error text-center mt-4">
-        No performance records found for this class.
-    </div>
+        <div class="alert alert-error text-center mt-4">
+            No performance records or enrolled students found for this class.
+        </div>
     {% endif %}
 </div>
 
 <script>
+    // JSON mapping of available exams for each class
+    const testsByClass = {{ tests_by_class|tojson }};
+    const currentlySelectedTest = {{ selected_test|tojson }};
+
     const teacherFilter = document.getElementById('teacherFilter');
     const classFilter = document.getElementById('classFilter');
+    const testFilter = document.getElementById('testFilter');
     const allClassOptions = Array.from(classFilter.querySelectorAll('option[data-teacher]'));
 
+    // Populate the exam dropdown based on selected class
+    function updateTestDropdown(classId, preserveSelected = false) {
+        if (!testFilter) return;
+        testFilter.innerHTML = '<option value="">-- All Assessments / Exams --</option>';
+        
+        if (!classId || !testsByClass[classId]) {
+            return;
+        }
+
+        const tests = testsByClass[classId];
+        tests.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.test_name;
+            opt.textContent = t.date_recorded ? `${t.test_name} (${t.date_recorded})` : t.test_name;
+            if (preserveSelected && t.test_name === currentlySelectedTest) {
+                opt.selected = true;
+            }
+            testFilter.appendChild(opt);
+        });
+    }
+
+    // When Class changes, instantly update the Exam dropdown
+    if (classFilter) {
+        classFilter.addEventListener('change', function () {
+            updateTestDropdown(this.value, false);
+        });
+    }
+
+    // Teacher dropdown logic (for admins/moderators)
     if (teacherFilter) {
         teacherFilter.addEventListener('change', function () {
             const selectedTeacher = this.value;
@@ -96,7 +231,45 @@
                     classFilter.appendChild(opt.cloneNode(true));
                 }
             });
+            // Reset exam filter
+            updateTestDropdown('', false);
         });
     }
+
+    // Real-time student search filter
+    const studentSearch = document.getElementById('studentSearch');
+    if (studentSearch) {
+        studentSearch.addEventListener('input', function () {
+            const query = this.value.trim().toLowerCase();
+            const rows = document.querySelectorAll('.student-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const nameCell = row.querySelector('.student-name-cell');
+                if (nameCell) {
+                    const name = nameCell.textContent.toLowerCase();
+                    if (name.includes(query)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+
+            const noResultsRow = document.getElementById('noResultsRow');
+            if (noResultsRow) {
+                noResultsRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+            }
+        });
+    }
+
+    // If a class is already selected on page load, populate exams if not already populated
+    document.addEventListener('DOMContentLoaded', function () {
+        if (classFilter && classFilter.value && testFilter && testFilter.options.length <= 1) {
+            updateTestDropdown(classFilter.value, true);
+        }
+    });
 </script>
 {% endblock %}
+
