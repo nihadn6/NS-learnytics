@@ -59,6 +59,123 @@ def check_paid_students():
     finally:
         conn.close()
 
+@finance_bp.route('/payments/scan', methods=['POST'])
+def scan_payment():
+    # Teachers, Moderators, Admins, Superadmins can scan student QR to collect fee
+    if session.get('role') not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+    data = request.get_json() or {}
+    token = data.get('token')
+    student_id = data.get('student_id')
+    class_id = data.get('class_id')
+    period = normalize_period(data.get('period'))
+    payment_date = data.get('payment_date') or datetime.date.today().isoformat()
+
+    if not class_id:
+        return jsonify({'success': False, 'error': 'Course / class is required'}), 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Permissions: teacher must own class
+            if session.get('role') == 'teacher':
+                cursor.execute("SELECT 1 FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+                if not cursor.fetchone():
+                    return jsonify({'success': False, 'error': 'Unauthorized for this class'}), 403
+
+            # Identify student
+            if token:
+                cursor.execute("""
+                    SELECT u.id as student_id, u.name, u.email 
+                    FROM student_profiles sp 
+                    JOIN users u ON sp.user_id = u.id 
+                    WHERE sp.qr_code = %s
+                """, (token.strip(),))
+                student_row = cursor.fetchone()
+                if not student_row:
+                    return jsonify({'success': False, 'error': 'Invalid QR token: student not found'}), 400
+                student_id = student_row['student_id']
+                student_name = student_row['name']
+                student_email = student_row['email']
+            elif student_id:
+                cursor.execute("SELECT id as student_id, name, email FROM users WHERE id = %s", (student_id,))
+                student_row = cursor.fetchone()
+                if not student_row:
+                    return jsonify({'success': False, 'error': 'Student not found'}), 400
+                student_name = student_row['name']
+                student_email = student_row['email']
+            else:
+                return jsonify({'success': False, 'error': 'QR token or student ID required'}), 400
+
+            # Verify enrollment in this class
+            cursor.execute("SELECT 1 FROM enrollments WHERE class_id = %s AND student_id = %s", (class_id, student_id))
+            if not cursor.fetchone():
+                return jsonify({
+                    'success': False, 
+                    'error': f"{student_name} is not enrolled in this course.",
+                    'student_name': student_name
+                }), 400
+
+            # Check duplicate payment for this period
+            cursor.execute("""
+                SELECT p.id, p.amount, p.payment_date, p.period
+                FROM payments p
+                WHERE p.class_id = %s AND p.student_id = %s AND p.period = %s
+            """, (class_id, student_id, period))
+            existing = cursor.fetchone()
+            if existing:
+                date_str = existing['payment_date'].isoformat() if hasattr(existing['payment_date'], 'isoformat') else str(existing['payment_date'])
+                return jsonify({
+                    'success': False,
+                    'already_paid': True,
+                    'error': f"Duplicate Blocked: {student_name} has already paid LKR {existing['amount']:,.2f} for {period} on {date_str}.",
+                    'student': {
+                        'id': student_id,
+                        'name': student_name,
+                        'email': student_email
+                    },
+                    'existing_payment': {
+                        'id': existing['id'],
+                        'amount': float(existing['amount']),
+                        'payment_date': date_str,
+                        'period': existing['period']
+                    }
+                }), 200
+
+            # Fetch class fee
+            cursor.execute("SELECT fee, subject FROM classes WHERE id = %s", (class_id,))
+            class_row = cursor.fetchone()
+            amount = class_row['fee'] if class_row else 0.0
+            subject = class_row['subject'] if class_row else 'Tuition'
+
+            # Record payment
+            cursor.execute("""
+                INSERT INTO payments (class_id, student_id, amount, payment_date, period)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (class_id, student_id, amount, payment_date, period))
+            conn.commit()
+            payment_id = cursor.lastrowid
+
+            return jsonify({
+                'success': True,
+                'payment_id': payment_id,
+                'amount': float(amount),
+                'period': period,
+                'payment_date': payment_date,
+                'subject': subject,
+                'student': {
+                    'id': student_id,
+                    'name': student_name,
+                    'email': student_email
+                },
+                'message': f"Tuition fee of LKR {amount:,.2f} successfully recorded for {student_name} ({period})."
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f"Server error: {str(e)}"}), 500
+    finally:
+        conn.close()
+
 @finance_bp.route('/payments/record', methods=['POST'])
 def record_payment():
     # This endpoint is left for direct teacher submissions; prefer using /payments/manual for broader roles

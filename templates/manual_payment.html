@@ -1,91 +1,156 @@
 {% extends 'base.html' %}
 
-{% block title %}Record Payment - NS Learnytics{% endblock %}
+{% block title %}Tuition Fee Collection Hub - NS Learnytics{% endblock %}
 
 {% block content %}
 <div class="mb-4">
 </div>
+
+<!-- Cloudflare CDN for HTML5 QR Code Scanner Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" 
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <div style="display: flex; justify-content: center; align-items: flex-start; min-height: 80vh;">
-    <div class="card" style="width: 100%; max-width: 650px;">
+    <div class="card" style="width: 100%; max-width: 750px;">
         <div class="mb-4">
-            <h1>Record Tuition Payment</h1>
-            <p class="text-muted">Process physical fee payments for a specific teacher and course.</p>
+            <h1>Tuition Fee Collection Hub</h1>
+            <p class="text-muted">Process course fee payments using student QR passes or manual entry.</p>
         </div>
 
-        <form action="{{ url_for('finance.manual_payment') }}" method="POST">
-            {% if session.role in ['superadmin', 'admin', 'moderator'] %}
-            <div class="form-group">
-                <label style="font-weight: 600;">Instructor (Teacher)</label>
-                <select name="teacher_id" id="teacherSelect">
-                    <option value="">-- All Teachers --</option>
-                    {% for t in teachers %}
-                    <option value="{{ t.id }}" {% if selected_teacher_id and selected_teacher_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
+        <!-- Mode Toggle Tabs (Academic Aesthetic, No Emojis) -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 0.75rem;">
+            <button type="button" id="tabQrBtn" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 20px;">QR Pass Scanner</button>
+            <button type="button" id="tabManualBtn" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 20px;">Manual Selection</button>
+        </div>
 
-            <div class="form-group">
-                <label style="font-weight: 600;">Target Course (Class)</label>
-                <select name="class_id" id="classSelect" required>
-                    <option value="">-- Select Course / Class --</option>
-                    {% for c in classes %}
-                    <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" data-fee="{{ c.fee }}" data-teacher-name="{{ c.teacher_name }}" {% if selected_class_id and selected_class_id|string == c.id|string %}selected{% endif %}>
-                        {{ c.subject }}{% if c.fee %} (Fee: LKR {{ "{:,.2f}".format(c.fee) }}){% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
+        <!-- Shared Controls: Instructor, Course, Date & Billing Month -->
+        {% if session.role in ['superadmin', 'admin', 'moderator'] %}
+        <div class="form-group">
+            <label style="font-weight: 600;">Instructor (Teacher)</label>
+            <select name="teacher_id" id="teacherSelect">
+                <option value="">-- All Teachers --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}" {% if selected_teacher_id and selected_teacher_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
 
-            <!-- Course Fee Summary Callout -->
-            <div id="courseFeeInfo" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                    <div>
-                        <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Selected Course</span>
-                        <div id="courseSummaryTitle" style="font-size: 0.95rem; font-weight: 700; color: #14532d;"></div>
-                        <div id="courseSummaryTeacher" style="font-size: 0.8rem; color: #15803d;"></div>
-                    </div>
-                    <div style="text-align: right;">
-                        <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Monthly Fee</span>
-                        <div id="courseSummaryFee" style="font-size: 1.15rem; font-weight: 800; color: #15803d;"></div>
-                    </div>
+        <div class="form-group">
+            <label style="font-weight: 600;">Target Course (Class)</label>
+            <select name="class_id" id="classSelect" required>
+                <option value="">-- Select Course / Class --</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id }}" data-fee="{{ c.fee }}" data-teacher-name="{{ c.teacher_name }}" {% if selected_class_id and selected_class_id|string == c.id|string %}selected{% endif %}>
+                    {{ c.subject }}{% if c.fee %} (Fee: LKR {{ "{:,.2f}".format(c.fee) }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Course Fee Summary Callout -->
+        <div id="courseFeeInfo" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Selected Course</span>
+                    <div id="courseSummaryTitle" style="font-size: 0.95rem; font-weight: 700; color: #14532d;"></div>
+                    <div id="courseSummaryTeacher" style="font-size: 0.8rem; color: #15803d;"></div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #166534; font-weight: 700;">Monthly Fee</span>
+                    <div id="courseSummaryFee" style="font-size: 1.15rem; font-weight: 800; color: #15803d;"></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Date and Billing Month Period -->
-            <div class="grid gap-4 mb-3" style="grid-template-columns: 1fr 1fr;">
-                <div class="form-group mb-0">
-                    <label style="font-weight: 600;">Payment Date</label>
-                    <input type="date" name="payment_date" id="paymentDateInput" value="{{ today }}" required />
-                </div>
-                <div class="form-group mb-0">
-                    <label style="font-weight: 600;">Billing Month</label>
-                    <input type="month" name="period" id="periodInput" value="{{ default_period }}" required />
-                </div>
+        <!-- Date and Billing Month Period -->
+        <div class="grid gap-4 mb-3" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-group mb-0">
+                <label style="font-weight: 600;">Payment Date</label>
+                <input type="date" name="payment_date" id="paymentDateInput" value="{{ today }}" required />
             </div>
-
-            <!-- Student Selection with Live Search and Duplicate Paid Guard -->
-            <div class="form-group mb-3">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                    <label style="font-weight: 600; margin-bottom: 0;">Enrolled Student</label>
+            <div class="form-group mb-0">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label style="font-weight: 600; margin-bottom: 0;">Billing Month</label>
                     <span id="studentCountBadge" style="font-size: 0.72rem; font-weight: 600; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; display: none;"></span>
                 </div>
-                <div style="position: relative; margin-bottom: 0.5rem;">
-                    <input type="text" id="studentSearchInput" placeholder="Search student name or email..." class="input-field" style="width: 100%; font-size: 0.85rem;" autocomplete="off" disabled>
+                <input type="month" name="period" id="periodInput" value="{{ default_period }}" required />
+            </div>
+        </div>
+
+        <!-- ==================== MODE 1: QR PASS SCANNER ==================== -->
+        <div id="qrSection" style="display: block;">
+            <div class="card mb-4" style="background: var(--bg-main); border: 1px solid var(--border); padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h3 style="font-size: 1rem; margin-bottom: 0.2rem;">QR Camera Scanner</h3>
+                        <p class="text-muted mb-0" style="font-size: 0.8rem;">Point camera at student QR Digital Pass to collect fee.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="startScanBtn" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Start Camera</button>
+                        <button type="button" id="stopScanBtn" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;" disabled>Stop</button>
+                    </div>
                 </div>
-                <select name="student_id" id="studentSelect" required disabled>
-                    <option value="">-- Select Course First --</option>
-                </select>
-                <div id="studentSearchStatus" style="font-size: 0.75rem; margin-top: 4px; color: var(--text-muted); min-height: 1.2em;"></div>
+
+                <div id="qrReader" style="width: 100%; max-width: 380px; margin: 0 auto; border-radius: var(--radius-sm); overflow: hidden;"></div>
+
+                <!-- Scanner Status & Receipt Feedback -->
+                <div id="scanResult" class="text-center mt-3" style="padding: 0.85rem; border-radius: var(--radius-sm); font-weight: 600; background: white; border: 1px solid var(--border); min-height: 54px; display: flex; align-items: center; justify-content: center; font-size: 0.88rem; color: var(--text-muted);">
+                    Select a course and click 'Start Camera' to begin scanning passes.
+                </div>
             </div>
 
-            <!-- Duplicate Payment Alert Banner -->
-            <div id="duplicateAlert" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; color: #991b1b; font-size: 0.85rem;">
-                <strong>Duplicate Warning:</strong> Tuition fee for this student in the selected billing month has already been recorded and cannot be collected twice.
+            <!-- Scanned in this Session Log -->
+            <div id="sessionLogCard" style="display: none; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0;">Collections in this Session</h4>
+                    <span id="sessionTotalBadge" style="font-size: 0.75rem; font-weight: 700; color: #166534; background: #dcfce7; padding: 2px 8px; border-radius: 10px;">0 Payments</span>
+                </div>
+                <div style="overflow-x: auto; max-height: 180px;">
+                    <table style="width: 100%; font-size: 0.82rem; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+                                <th style="padding: 4px 6px;">Time</th>
+                                <th style="padding: 4px 6px;">Student Name</th>
+                                <th style="padding: 4px 6px;">Receipt #</th>
+                                <th style="padding: 4px 6px; text-align: right;">Amount (LKR)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sessionLogBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
+        </div>
 
-            <button type="submit" id="submitPaymentBtn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; background: var(--success);">Confirm & Record Payment</button>
-        </form>
+        <!-- ==================== MODE 2: MANUAL SELECTION ==================== -->
+        <div id="manualSection" style="display: none;">
+            <form id="manualForm" action="{{ url_for('finance.manual_payment') }}" method="POST">
+                <input type="hidden" name="teacher_id" id="hiddenTeacherId" value="{{ selected_teacher_id or '' }}" />
+                <input type="hidden" name="class_id" id="hiddenClassId" value="{{ selected_class_id or '' }}" />
+                <input type="hidden" name="payment_date" id="hiddenPaymentDate" value="{{ today }}" />
+                <input type="hidden" name="period" id="hiddenPeriod" value="{{ default_period }}" />
+
+                <!-- Student Selection with Live Search -->
+                <div class="form-group mb-3">
+                    <label style="font-weight: 600; margin-bottom: 0.4rem; display: block;">Enrolled Student</label>
+                    <div style="position: relative; margin-bottom: 0.5rem;">
+                        <input type="text" id="studentSearchInput" placeholder="Search student name or email..." class="input-field" style="width: 100%; font-size: 0.85rem;" autocomplete="off" disabled>
+                    </div>
+                    <select name="student_id" id="studentSelect" required disabled>
+                        <option value="">-- Select Course First --</option>
+                    </select>
+                    <div id="studentSearchStatus" style="font-size: 0.75rem; margin-top: 4px; color: var(--text-muted); min-height: 1.2em;"></div>
+                </div>
+
+                <!-- Duplicate Payment Alert Banner -->
+                <div id="duplicateAlert" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; color: #991b1b; font-size: 0.85rem;">
+                    <strong>Duplicate Warning:</strong> Tuition fee for this student in the selected billing month has already been recorded and cannot be collected twice.
+                </div>
+
+                <button type="submit" id="submitPaymentBtn" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem; background: var(--success);">Confirm & Record Payment</button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -93,25 +158,85 @@
     const enrollments = {{ enrollments | tojson }};
     const role = "{{ session.role }}";
 
+    // Navigation and Mode Elements
+    const tabQrBtn = document.getElementById('tabQrBtn');
+    const tabManualBtn = document.getElementById('tabManualBtn');
+    const qrSection = document.getElementById('qrSection');
+    const manualSection = document.getElementById('manualSection');
+
+    // Shared Form Controls
     const teacherSelect = document.getElementById('teacherSelect');
     const classSelect = document.getElementById('classSelect');
-    const studentSelect = document.getElementById('studentSelect');
-    const studentSearchInput = document.getElementById('studentSearchInput');
+    const paymentDateInput = document.getElementById('paymentDateInput');
+    const periodInput = document.getElementById('periodInput');
     const studentCountBadge = document.getElementById('studentCountBadge');
-    const studentSearchStatus = document.getElementById('studentSearchStatus');
     const courseFeeInfo = document.getElementById('courseFeeInfo');
     const courseSummaryTitle = document.getElementById('courseSummaryTitle');
     const courseSummaryTeacher = document.getElementById('courseSummaryTeacher');
     const courseSummaryFee = document.getElementById('courseSummaryFee');
-    const periodInput = document.getElementById('periodInput');
+
+    // Manual Form Elements
+    const manualForm = document.getElementById('manualForm');
+    const hiddenTeacherId = document.getElementById('hiddenTeacherId');
+    const hiddenClassId = document.getElementById('hiddenClassId');
+    const hiddenPaymentDate = document.getElementById('hiddenPaymentDate');
+    const hiddenPeriod = document.getElementById('hiddenPeriod');
+    const studentSelect = document.getElementById('studentSelect');
+    const studentSearchInput = document.getElementById('studentSearchInput');
+    const studentSearchStatus = document.getElementById('studentSearchStatus');
     const duplicateAlert = document.getElementById('duplicateAlert');
     const submitPaymentBtn = document.getElementById('submitPaymentBtn');
+
+    // QR Scanner Elements
+    const startScanBtn = document.getElementById('startScanBtn');
+    const stopScanBtn = document.getElementById('stopScanBtn');
+    const scanResult = document.getElementById('scanResult');
+    const sessionLogCard = document.getElementById('sessionLogCard');
+    const sessionLogBody = document.getElementById('sessionLogBody');
+    const sessionTotalBadge = document.getElementById('sessionTotalBadge');
 
     const allClassOptions = Array.from(classSelect.querySelectorAll('option[data-teacher]'));
     let currentClassStudents = [];
     let paidStudentIds = new Set();
     let paidDetails = {};
 
+    let html5QrcodeScanner = null;
+    let isScanningActive = false;
+    let isProcessingScan = false;
+    let lastScannedToken = null;
+    let sessionScannedCount = 0;
+    let sessionScannedTotal = 0;
+
+    // --- MODE TOGGLE LOGIC ---
+    tabQrBtn.addEventListener('click', () => switchMode('qr'));
+    tabManualBtn.addEventListener('click', () => switchMode('manual'));
+
+    function switchMode(mode) {
+        if (mode === 'qr') {
+            qrSection.style.display = 'block';
+            manualSection.style.display = 'none';
+            tabQrBtn.className = 'btn btn-primary';
+            tabManualBtn.className = 'btn btn-outline';
+        } else {
+            stopScanner();
+            qrSection.style.display = 'none';
+            manualSection.style.display = 'block';
+            tabManualBtn.className = 'btn btn-primary';
+            tabQrBtn.className = 'btn btn-outline';
+            syncManualHiddenFields();
+        }
+    }
+
+    function syncManualHiddenFields() {
+        if (hiddenTeacherId && teacherSelect) hiddenTeacherId.value = teacherSelect.value;
+        if (hiddenClassId) hiddenClassId.value = classSelect.value;
+        if (hiddenPaymentDate) hiddenPaymentDate.value = paymentDateInput.value;
+        if (hiddenPeriod) hiddenPeriod.value = periodInput.value;
+    }
+
+    paymentDateInput.addEventListener('change', syncManualHiddenFields);
+
+    // --- FETCH PAID STUDENTS (FOR BADGES & DUPLICATE CHECKS) ---
     async function fetchPaidStudents() {
         const classId = classSelect.value;
         const period = periodInput.value;
@@ -145,6 +270,7 @@
         filterStudents();
         updateStudentCountBadge();
         checkDuplicateSelection();
+        syncManualHiddenFields();
     }
 
     function updateStudentCountBadge() {
@@ -158,7 +284,7 @@
         const pendingCount = totalCount - paidCount;
 
         if (pendingCount === 0) {
-            studentCountBadge.textContent = `All ${totalCount} Students Paid`;
+            studentCountBadge.textContent = `All ${totalCount} Paid`;
             studentCountBadge.style.background = '#dcfce7';
             studentCountBadge.style.color = '#166534';
         } else {
@@ -169,6 +295,7 @@
         studentCountBadge.style.display = 'inline-block';
     }
 
+    // --- MANUAL SELECTION HELPERS ---
     function renderStudentOptions(students, query = '') {
         studentSelect.innerHTML = '';
         if (!students || students.length === 0) {
@@ -207,7 +334,6 @@
         });
 
         if (query) {
-            // Pick first unpaid match
             const firstUnpaid = students.find(s => !paidStudentIds.has(String(s.student_id)));
             if (firstUnpaid) {
                 studentSelect.value = firstUnpaid.student_id;
@@ -257,8 +383,12 @@
 
     studentSearchInput.addEventListener('input', filterStudents);
     studentSelect.addEventListener('change', checkDuplicateSelection);
-    periodInput.addEventListener('change', fetchPaidStudents);
+    periodInput.addEventListener('change', () => {
+        syncManualHiddenFields();
+        fetchPaidStudents();
+    });
 
+    // Cascading Teachers & Classes
     if (teacherSelect) {
         teacherSelect.addEventListener('change', function () {
             const selectedTeacher = this.value;
@@ -278,6 +408,8 @@
                     classSelect.appendChild(opt.cloneNode(true));
                 }
             });
+
+            syncManualHiddenFields();
         });
     }
 
@@ -303,6 +435,10 @@
             studentSearchInput.disabled = false;
             currentClassStudents = enrollments.filter(e => e.class_id == selectedClass);
             fetchPaidStudents();
+            scanResult.innerText = "Class selected. Click 'Start Camera' to scan passes.";
+            scanResult.style.color = "var(--text-muted)";
+            scanResult.style.borderColor = "var(--border)";
+            scanResult.style.background = "white";
         } else {
             courseFeeInfo.style.display = 'none';
             studentSearchInput.disabled = true;
@@ -314,8 +450,197 @@
             paidStudentIds.clear();
             paidDetails = {};
             checkDuplicateSelection();
+            scanResult.innerText = "Select a course and click 'Start Camera' to begin scanning passes.";
+            scanResult.style.color = "var(--text-muted)";
+            scanResult.style.borderColor = "var(--border)";
+            scanResult.style.background = "white";
         }
+        syncManualHiddenFields();
     });
+
+    // --- QR CAMERA SCANNER IMPLEMENTATION ---
+    startScanBtn.addEventListener('click', startScanner);
+    stopScanBtn.addEventListener('click', stopScanner);
+
+    async function startScanner() {
+        if (typeof Html5Qrcode === 'undefined') {
+            alert("The scanner library is loading. Please check your network and try again.");
+            return;
+        }
+
+        const classId = classSelect.value;
+        if (!classId) {
+            alert("Please select a target course first.");
+            classSelect.focus();
+            return;
+        }
+
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            alert("Camera access requires HTTPS or localhost.");
+            return;
+        }
+
+        try {
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("qrReader");
+            }
+
+            startScanBtn.disabled = true;
+            stopScanBtn.disabled = false;
+            isScanningActive = true;
+            scanResult.innerText = "Camera active. Present student QR pass to scan.";
+            scanResult.style.color = "var(--primary)";
+            scanResult.style.borderColor = "var(--primary)";
+            scanResult.style.background = "#eff6ff";
+
+            await html5QrcodeScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: 240 },
+                onQrScanSuccess,
+                () => {} // silent on frame errors
+            );
+        } catch (err) {
+            console.error("Scanner Error:", err);
+            alert("Camera access error: " + err);
+            startScanBtn.disabled = false;
+            stopScanBtn.disabled = true;
+            isScanningActive = false;
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrcodeScanner && isScanningActive) {
+            try {
+                if (html5QrcodeScanner.getState() > 1) {
+                    await html5QrcodeScanner.stop();
+                }
+                html5QrcodeScanner.clear();
+            } catch (e) {
+                console.warn("Stop scanner warning:", e);
+            }
+        }
+        html5QrcodeScanner = null;
+        isScanningActive = false;
+        startScanBtn.disabled = false;
+        stopScanBtn.disabled = true;
+        scanResult.innerText = "Scanner stopped.";
+        scanResult.style.color = "var(--text-muted)";
+        scanResult.style.borderColor = "var(--border)";
+        scanResult.style.background = "white";
+    }
+
+    async function onQrScanSuccess(token) {
+        if (isProcessingScan || token === lastScannedToken) return;
+
+        isProcessingScan = true;
+        lastScannedToken = token;
+
+        if (html5QrcodeScanner) {
+            try { html5QrcodeScanner.pause(); } catch (e) {}
+        }
+
+        scanResult.innerText = "Verifying QR token and processing payment...";
+        scanResult.style.color = "var(--primary)";
+        scanResult.style.borderColor = "var(--primary)";
+        scanResult.style.background = "#eff6ff";
+
+        const payload = {
+            token: token,
+            class_id: classSelect.value,
+            period: periodInput.value,
+            payment_date: paymentDateInput.value
+        };
+
+        try {
+            const res = await fetch('/payments/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Payment Recorded Successfully
+                scanResult.innerHTML = `
+                    <div style="color: #166534;">
+                        <div style="font-size: 1.05rem; font-weight: 800;">Payment Recorded Successfully</div>
+                        <div>${data.student.name} - <b>LKR ${data.amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</b> (${data.period})</div>
+                        <div style="font-size: 0.75rem; color: #15803d; margin-top: 2px;">Receipt #${data.payment_id} | Date: ${data.payment_date}</div>
+                    </div>
+                `;
+                scanResult.style.borderColor = "#86efac";
+                scanResult.style.background = "#f0fdf4";
+
+                // Update session log
+                addSessionLog(data.student.name, data.payment_id, data.amount);
+
+                // Refresh paid students state
+                fetchPaidStudents();
+            } else if (data.already_paid) {
+                // Duplicate Blocked
+                scanResult.innerHTML = `
+                    <div style="color: #991b1b;">
+                        <div style="font-size: 1rem; font-weight: 800;">Duplicate Payment Blocked</div>
+                        <div>${data.error}</div>
+                    </div>
+                `;
+                scanResult.style.borderColor = "#fca5a5";
+                scanResult.style.background = "#fef2f2";
+            } else {
+                // General error (not enrolled, invalid token, etc.)
+                scanResult.innerHTML = `
+                    <div style="color: #991b1b;">
+                        <div style="font-size: 0.95rem; font-weight: 700;">Scan Rejected</div>
+                        <div>${data.error || 'Unable to process payment'}</div>
+                    </div>
+                `;
+                scanResult.style.borderColor = "#fca5a5";
+                scanResult.style.background = "#fef2f2";
+            }
+        } catch (err) {
+            console.error("Payment scan request failed:", err);
+            scanResult.innerText = "Network connection error while recording payment.";
+            scanResult.style.borderColor = "#fca5a5";
+            scanResult.style.background = "#fef2f2";
+            scanResult.style.color = "#991b1b";
+        }
+
+        // Resume scanner automatically after 2.2 seconds for next student
+        setTimeout(() => {
+            isProcessingScan = false;
+            lastScannedToken = null;
+            if (isScanningActive && html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.resume();
+                    scanResult.innerText = "Ready for next pass. Point camera at student QR.";
+                    scanResult.style.color = "var(--primary)";
+                    scanResult.style.borderColor = "var(--primary)";
+                    scanResult.style.background = "#eff6ff";
+                } catch (e) {}
+            }
+        }, 2200);
+    }
+
+    function addSessionLog(studentName, paymentId, amount) {
+        sessionScannedCount++;
+        sessionScannedTotal += amount;
+
+        sessionLogCard.style.display = 'block';
+        sessionTotalBadge.textContent = `${sessionScannedCount} Payment${sessionScannedCount > 1 ? 's' : ''} (LKR ${sessionScannedTotal.toLocaleString('en-US', {minimumFractionDigits: 2})})`;
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        tr.innerHTML = `
+            <td style="padding: 6px 6px; color: var(--text-muted);">${timeStr}</td>
+            <td style="padding: 6px 6px; font-weight: 600; color: var(--text);">${studentName}</td>
+            <td style="padding: 6px 6px; font-family: monospace; color: var(--text-muted);">#${paymentId}</td>
+            <td style="padding: 6px 6px; text-align: right; font-weight: 700; color: #166534;">${amount.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+        `;
+        sessionLogBody.insertBefore(tr, sessionLogBody.firstChild);
+    }
 
     // Handle initial state if preselected or teacher role
     if (teacherSelect && teacherSelect.value) {
