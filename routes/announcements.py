@@ -76,14 +76,21 @@ def feed():
                     ORDER BY a.created_at DESC LIMIT 50
                 """)
                 announcements = cursor.fetchall()
-                return render_template('announcements.html', announcements=announcements)
+
+                # Pass all classes so superadmin can create announcements
+                all_classes = []
+                if role == 'superadmin':
+                    cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+                    all_classes = cursor.fetchall()
+
+                return render_template('announcements.html', announcements=announcements, classes=all_classes)
     finally:
         conn.close()
 
 
 @announcements_bp.route('/announcements/create', methods=['POST'])
 def create_announcement():
-    if session.get('role') != 'teacher':
+    if session.get('role') not in ('teacher', 'superadmin'):
         return "Unauthorized", 403
 
     class_id = request.form.get('class_id')
@@ -95,20 +102,28 @@ def create_announcement():
         flash('Class, Title, and Content are required.', 'error')
         return redirect(url_for('announcements.feed'))
 
-    teacher_id = session['user_id']
+    # Superadmin posts as themselves; teacher posts as themselves
+    poster_id = session['user_id']
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Verify ownership
-            cursor.execute("SELECT subject FROM classes WHERE id = %s AND teacher_id = %s", (class_id, teacher_id))
-            class_row = cursor.fetchone()
-            if not class_row:
-                return "Unauthorized class", 403
+            if session.get('role') == 'teacher':
+                # Verify teacher owns the class
+                cursor.execute("SELECT subject FROM classes WHERE id = %s AND teacher_id = %s", (class_id, poster_id))
+                class_row = cursor.fetchone()
+                if not class_row:
+                    return "Unauthorized class", 403
+            else:
+                # Superadmin can post to any class
+                cursor.execute("SELECT subject FROM classes WHERE id = %s", (class_id,))
+                class_row = cursor.fetchone()
+                if not class_row:
+                    return "Class not found", 404
 
             cursor.execute("""
                 INSERT INTO announcements (class_id, teacher_id, title, content, target_audience)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (class_id, teacher_id, title, content, target_audience))
+            """, (class_id, poster_id, title, content, target_audience))
             conn.commit()
 
             # Dispatch Notifications
@@ -142,7 +157,7 @@ def create_announcement():
     finally:
         conn.close()
 
-    return redirect(url_for('announcements.feed', class_id=class_id))
+    return redirect(url_for('announcements.feed'))
 
 
 @announcements_bp.route('/announcements/<int:announcement_id>/edit', methods=['POST'])

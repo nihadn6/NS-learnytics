@@ -10,7 +10,7 @@
         <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">Broadcast Announcements</h1>
         <p class="text-muted" style="margin-bottom: 0;">Important class updates, exam alerts, and general notices.</p>
     </div>
-    {% if session.role == 'teacher' %}
+    {% if session.role in ('teacher', 'superadmin') %}
         <button onclick="document.getElementById('announceModal').style.display='flex'" class="btn btn-primary" style="padding: 0.6rem 1.15rem;">+ New Announcement</button>
     {% endif %}
 </div>
@@ -88,10 +88,13 @@
 {% endif %}
 
 <!-- NEW ANNOUNCEMENT MODAL -->
-{% if session.role == 'teacher' %}
+{% if session.role in ('teacher', 'superadmin') %}
 <div id="announceModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="font-weight: 700; margin-bottom: 1.25rem; color: var(--text-main);">Create Broadcast Announcement</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-weight: 700; margin: 0; color: var(--text-main);">Create Broadcast Announcement</h3>
+            <span style="cursor: pointer; font-size: 1.5rem; color: var(--text-muted);" onclick="document.getElementById('announceModal').style.display='none'">&times;</span>
+        </div>
         <form action="{{ url_for('announcements.create_announcement') }}" method="POST">
             <div class="form-group">
                 <label>Select Class *</label>
@@ -104,7 +107,7 @@
             <div class="form-group">
                 <label>Target Audience</label>
                 <select name="target_audience" class="input-field">
-                    <option value="all">Everyone (Students & Parents)</option>
+                    <option value="all">Everyone (Students &amp; Parents)</option>
                     <option value="students_only">Students Only</option>
                     <option value="parents_only">Parents Only</option>
                 </select>
