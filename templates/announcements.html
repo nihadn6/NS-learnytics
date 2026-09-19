@@ -96,14 +96,32 @@
             <span style="cursor: pointer; font-size: 1.5rem; color: var(--text-muted);" onclick="document.getElementById('announceModal').style.display='none'">&times;</span>
         </div>
         <form action="{{ url_for('announcements.create_announcement') }}" method="POST">
+
+            {% if session.role == 'superadmin' %}
             <div class="form-group">
-                <label>Select Class *</label>
-                <select name="class_id" required class="input-field">
-                    {% for c in classes %}
-                        <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>{{ c.subject }}</option>
+                <label>Post As Teacher *</label>
+                <select name="teacher_id" id="teacherSelect" required class="input-field" onchange="filterClassesByTeacher(this.value)">
+                    <option value="">— Select a teacher —</option>
+                    {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label>Select Class *</label>
+                <select name="class_id" id="classSelect" required class="input-field">
+                    {% if session.role == 'superadmin' %}
+                        <option value="">— Select a teacher first —</option>
+                    {% else %}
+                        {% for c in classes %}
+                            <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>{{ c.subject }}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+
             <div class="form-group">
                 <label>Target Audience</label>
                 <select name="target_audience" class="input-field">
@@ -127,6 +145,36 @@
         </form>
     </div>
 </div>
+
+{% if session.role == 'superadmin' %}
+<script>
+const allClasses = {{ classes | tojson }};
+
+function filterClassesByTeacher(teacherId) {
+    const classSelect = document.getElementById('classSelect');
+    classSelect.innerHTML = '';
+
+    if (!teacherId) {
+        classSelect.innerHTML = '<option value="">— Select a teacher first —</option>';
+        return;
+    }
+
+    const filtered = allClasses.filter(c => String(c.teacher_id) === String(teacherId));
+
+    if (filtered.length === 0) {
+        classSelect.innerHTML = '<option value="">No classes found for this teacher</option>';
+        return;
+    }
+
+    filtered.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.subject;
+        classSelect.appendChild(opt);
+    });
+}
+</script>
+{% endif %}
 {% endif %}
 
 {% if session.role == 'superadmin' %}

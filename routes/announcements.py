@@ -77,13 +77,19 @@ def feed():
                 """)
                 announcements = cursor.fetchall()
 
-                # Pass all classes so superadmin can create announcements
+                # Pass all classes and teachers so superadmin can create announcements
                 all_classes = []
+                all_teachers = []
                 if role == 'superadmin':
-                    cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+                    cursor.execute("SELECT id, subject, teacher_id FROM classes ORDER BY subject")
                     all_classes = cursor.fetchall()
+                    cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                    all_teachers = cursor.fetchall()
 
-                return render_template('announcements.html', announcements=announcements, classes=all_classes)
+                return render_template('announcements.html',
+                                       announcements=announcements,
+                                       classes=all_classes,
+                                       teachers=all_teachers)
     finally:
         conn.close()
 
@@ -102,8 +108,12 @@ def create_announcement():
         flash('Class, Title, and Content are required.', 'error')
         return redirect(url_for('announcements.feed'))
 
-    # Superadmin posts as themselves; teacher posts as themselves
-    poster_id = session['user_id']
+    # Superadmin can post as a selected teacher; teacher always posts as themselves
+    if session.get('role') == 'superadmin':
+        form_teacher_id = request.form.get('teacher_id', '').strip()
+        poster_id = int(form_teacher_id) if form_teacher_id else session['user_id']
+    else:
+        poster_id = session['user_id']
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
