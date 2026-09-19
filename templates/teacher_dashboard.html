@@ -56,73 +56,23 @@
 </div>
 
 <!-- Main 2-Column Operational Grid -->
-<div class="grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+<div class="grid" style="grid-template-columns: 60% 40%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
     
-    <!-- LEFT COLUMN: CLASSES SCHEDULE & ANALYTICS -->
+    <!-- LEFT COLUMN: ACADEMIC PERFORMANCE -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-        
-        <!-- Active Classes & Classroom Triggers -->
+        <!-- Academic Trends Chart -->
         <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <div>
-                    <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.2rem;">My Classes & Schedules</h2>
-                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Access classroom hubs, assignments, and student rosters.</p>
-                </div>
-                <a href="{{ url_for('classes.view_classes') }}" class="btn btn-outline" style="font-size: 0.775rem; padding: 0.35rem 0.75rem;">Manage All Classes &rarr;</a>
-            </div>
-
-            {% if classes_list %}
-                <div style="display: flex; flex-direction: column; gap: 0.85rem;">
-                    {% for c in classes_list %}
-                        <div class="schedule-card-item">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.65rem;">
-                                <div>
-                                    <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem;">
-                                        {{ c.subject }}
-                                    </h3>
-                                    <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
-                                        <span>Schedule: {{ c.schedule }}</span>
-                                        <span>Enrolled: <strong>{{ c.student_count }}</strong> Students</span>
-                                        <span>Fee: LKR {{ "{:,.0f}".format(c.fee) }}/mo</span>
-                                        <span>Join Code: <code style="background: var(--bg-main); padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">{{ c.join_code }}</code></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Clean Action Buttons -->
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border-light); padding-top: 0.65rem;">
-                                <a href="{{ url_for('lms.index', class_id=c.id) }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
-                                    Class Hub
-                                </a>
-                                <a href="{{ url_for('enrollment.view_students', class_id=c.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
-                                    Student Roster
-                                </a>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-                    <p>You haven't created any classes yet.</p>
-                    <a href="{{ url_for('classes.view_classes') }}" class="btn btn-primary">+ Create Your First Class</a>
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Academic Trends Chart (Single Focused Chart) -->
-        <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-                <div>
-                    <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.15rem;">Academic Score Progression</h3>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Academic Score Progression</h2>
                     <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Average student test performance across assessments.</p>
                 </div>
-                <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;">Full Report &rarr;</a>
+                <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">Full Report &rarr;</a>
             </div>
-            <div style="height: 240px;">
+            <div style="height: 300px;">
                 <canvas id="perfChart"></canvas>
             </div>
         </div>
-
     </div>
 
     <!-- RIGHT COLUMN: URGENT QUEUE, AI RADAR & NOTICES -->
