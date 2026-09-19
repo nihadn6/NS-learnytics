@@ -32,7 +32,7 @@
             {% endfor %}
         </div>
         {% if current_student %}
-            <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" target="_blank" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.8rem;">
+            <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.35rem 0.8rem;">
                 Download Official Report
             </a>
         {% endif %}
@@ -56,7 +56,7 @@
                 </div>
             </div>
             <div>
-                <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" target="_blank" class="btn" style="background: white; color: var(--primary); font-weight: 700; padding: 0.6rem 1.2rem; box-shadow: var(--shadow);">
+                <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" class="btn" style="background: white; color: var(--primary); font-weight: 700; padding: 0.6rem 1.2rem; box-shadow: var(--shadow);">
                     Printable Progress Report &rarr;
                 </a>
             </div>
