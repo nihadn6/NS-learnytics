@@ -13,23 +13,57 @@ def at_risk_dashboard():
     if role not in ('superadmin', 'admin', 'teacher', 'moderator'):
         return redirect(url_for('auth.login'))
 
+    teacher_id = request.args.get('teacher_id')
     class_id = request.args.get('class_id')
-    teacher_filter = user_id if role == 'teacher' else None
+    search_query = request.args.get('search', '').strip()
 
-    # Fetch classes for filter dropdown
+    teachers = []
+    classes = []
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             if role == 'teacher':
+                teacher_filter = user_id
                 cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
+                classes = cursor.fetchall()
             else:
-                cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
-            classes = cursor.fetchall()
+                teacher_filter = teacher_id
+                cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                teachers = cursor.fetchall()
+
+                if teacher_id:
+                    cursor.execute("""
+                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        FROM classes c 
+                        LEFT JOIN users u ON c.teacher_id = u.id 
+                        WHERE c.teacher_id = %s 
+                        ORDER BY c.subject
+                    """, (teacher_id,))
+                else:
+                    cursor.execute("""
+                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        FROM classes c 
+                        LEFT JOIN users u ON c.teacher_id = u.id 
+                        ORDER BY c.subject
+                    """)
+                classes = cursor.fetchall()
     finally:
         conn.close()
 
     # Predict risks for students
     student_risks = risk_predictor.get_all_student_risks(teacher_id=teacher_filter, class_id=class_id)
+
+    # Filter by search query if provided
+    if search_query:
+        sq = search_query.lower()
+        filtered = []
+        for s in student_risks:
+            name_match = sq in (s.get('name') or '').lower()
+            email_match = sq in (s.get('email') or '').lower()
+            factor_match = any(sq in f.lower() for f in s.get('risk_factors', []))
+            if name_match or email_match or factor_match:
+                filtered.append(s)
+        student_risks = filtered
 
     # Compute summary counters
     high_count = sum(1 for s in student_risks if s['risk_level'] == 'HIGH')
@@ -42,12 +76,16 @@ def at_risk_dashboard():
     return render_template('at_risk_students.html',
                            student_risks=student_risks,
                            classes=classes,
+                           teachers=teachers,
+                           selected_teacher_id=teacher_id,
                            selected_class_id=class_id,
+                           search_query=search_query,
                            high_count=high_count,
                            medium_count=medium_count,
                            low_count=low_count,
                            total_students=total_students,
-                           avg_risk_score=avg_risk_score)
+                           avg_risk_score=avg_risk_score,
+                           role=role)
 
 @ai_analytics_bp.route('/ai/grade-forecasting', methods=['GET'])
 def grade_forecasting_dashboard():

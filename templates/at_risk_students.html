@@ -40,23 +40,79 @@
 </div>
 
 <!-- Filter Control Card -->
-<div class="card mb-6" style="padding: 1rem 1.25rem;">
-    <form action="{{ url_for('ai_analytics.at_risk_dashboard') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <label style="font-weight: 600; font-size: 0.875rem; color: var(--text-main);">Filter Class:</label>
-            <select name="class_id" class="input-field" onchange="this.form.submit()" style="max-width: 240px; padding: 0.45rem 0.75rem;">
-                <option value="">All Classes</option>
-                {% for c in classes %}
-                    <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
-                {% endfor %}
-            </select>
+<div class="card mb-6" style="padding: 1.1rem 1.25rem;">
+    <form id="atRiskFilterForm" action="{{ url_for('ai_analytics.at_risk_dashboard') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        
+        <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; flex: 1; min-width: 280px;">
+            <!-- Live Search Bar -->
+            <div style="position: relative; flex: 1; min-width: 220px; max-width: 350px;">
+                <svg style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #94a3b8; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="11" cy="11" r="8" stroke-width="2"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <input type="text" 
+                       name="search" 
+                       id="riskSearchInput" 
+                       value="{{ search_query or '' }}" 
+                       placeholder="Search student, email, or risk factors..." 
+                       class="input-field" 
+                       style="padding: 0.5rem 1.85rem 0.5rem 2.25rem; font-size: 0.85rem; width: 100%; border-radius: 0.5rem;" 
+                       autocomplete="off">
+                <button type="button" 
+                        id="clearRiskSearchBtn" 
+                        onclick="clearRiskSearch()" 
+                        style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; font-size: 1.15rem; cursor: pointer; display: {% if search_query %}block{% else %}none{% endif %};" 
+                        title="Clear search">&times;</button>
+            </div>
+
+            <!-- Teacher Filter Dropdown (Super Admin / Admin) -->
+            {% if teachers %}
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <label for="teacherFilterSelect" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap;">Teacher:</label>
+                <select name="teacher_id" 
+                        id="teacherFilterSelect" 
+                        class="input-field" 
+                        onchange="this.form.submit()" 
+                        style="padding: 0.5rem 0.85rem; font-size: 0.85rem; min-width: 170px; max-width: 220px; border-radius: 0.5rem;">
+                    <option value="">All Teachers</option>
+                    {% for t in teachers %}
+                        <option value="{{ t.id }}" {% if selected_teacher_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Course / Class Filter Dropdown -->
+            {% if classes %}
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+                <label for="classFilterSelect" style="font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap;">Course:</label>
+                <select name="class_id" 
+                        id="classFilterSelect" 
+                        class="input-field" 
+                        onchange="this.form.submit()" 
+                        style="padding: 0.5rem 0.85rem; font-size: 0.85rem; min-width: 180px; max-width: 250px; border-radius: 0.5rem;">
+                    <option value="">All Classes</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>
+                            {{ c.subject }}{% if c.teacher_name and not selected_teacher_id %} ({{ c.teacher_name }}){% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.5rem 1rem;">Filter</button>
+
+            {% if search_query or selected_class_id or selected_teacher_id %}
+            <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.5rem 0.85rem;">Reset</a>
+            {% endif %}
         </div>
 
         <!-- Quick Tabs -->
-        <div style="display: flex; gap: 0.4rem;">
-            <button type="button" onclick="filterLevel('ALL')" id="tabALL" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">All ({{ total_students }})</button>
-            <button type="button" onclick="filterLevel('HIGH')" id="tabHIGH" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);">High Risk ({{ high_count }})</button>
-            <button type="button" onclick="filterLevel('MEDIUM')" id="tabMEDIUM" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; color: var(--warning); border-color: var(--warning);">Medium Risk ({{ medium_count }})</button>
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <button type="button" onclick="filterLevel('ALL')" id="tabALL" class="btn btn-primary" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">All ({{ total_students }})</button>
+            <button type="button" onclick="filterLevel('HIGH')" id="tabHIGH" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);">High Risk ({{ high_count }})</button>
+            <button type="button" onclick="filterLevel('MEDIUM')" id="tabMEDIUM" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; color: var(--warning); border-color: var(--warning);">Medium Risk ({{ medium_count }})</button>
         </div>
     </form>
 </div>
@@ -78,7 +134,11 @@
             </thead>
             <tbody>
                 {% for s in student_risks %}
-                <tr class="risk-row" data-risk="{{ s.risk_level }}">
+                <tr class="risk-row" 
+                    data-risk="{{ s.risk_level }}" 
+                    data-name="{{ (s.name or '')|lower }}" 
+                    data-email="{{ (s.email or '')|lower }}" 
+                    data-factors="{{ (s.risk_factors|join(' ')|lower) if s.risk_factors else '' }}">
                     <td style="font-weight: 600;">
                         {{ s.name }}
                         <div style="font-size: 0.775rem; color: var(--text-muted); font-weight: 400;">{{ s.email }}</div>
@@ -128,32 +188,91 @@
                     <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No student records found to analyze.</td>
                 </tr>
                 {% endfor %}
+                <tr id="noRiskRecordsRow" style="display: none;">
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No student records match your search and filter criteria.</td>
+                </tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <script>
+let currentRiskLevel = 'ALL';
+
 function filterLevel(level) {
-    const rows = document.querySelectorAll('.risk-row');
+    currentRiskLevel = level;
     const tabs = ['ALL', 'HIGH', 'MEDIUM'];
     
     tabs.forEach(t => {
         const btn = document.getElementById('tab' + t);
-        if (t === level) {
-            btn.className = 'btn btn-primary';
-        } else {
-            btn.className = 'btn btn-outline';
+        if (btn) {
+            if (t === level) {
+                btn.className = 'btn btn-primary';
+            } else {
+                btn.className = 'btn btn-outline';
+            }
         }
     });
 
+    applyLiveRiskFilters();
+}
+
+function clearRiskSearch() {
+    const input = document.getElementById('riskSearchInput');
+    const clearBtn = document.getElementById('clearRiskSearchBtn');
+    if (input) {
+        input.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+        applyLiveRiskFilters();
+        input.focus();
+    }
+}
+
+function applyLiveRiskFilters() {
+    const input = document.getElementById('riskSearchInput');
+    const clearBtn = document.getElementById('clearRiskSearchBtn');
+    const term = input ? input.value.trim().toLowerCase() : '';
+
+    if (clearBtn) {
+        clearBtn.style.display = term ? 'block' : 'none';
+    }
+
+    const rows = document.querySelectorAll('.risk-row');
+    const noRecordsRow = document.getElementById('noRiskRecordsRow');
+    let visibleCount = 0;
+
     rows.forEach(row => {
-        if (level === 'ALL' || row.getAttribute('data-risk') === level) {
+        const rowRisk = row.getAttribute('data-risk');
+        const name = row.getAttribute('data-name') || '';
+        const email = row.getAttribute('data-email') || '';
+        const factors = row.getAttribute('data-factors') || '';
+
+        const levelMatches = (currentRiskLevel === 'ALL' || rowRisk === currentRiskLevel);
+        const searchMatches = !term || name.includes(term) || email.includes(term) || factors.includes(term);
+
+        if (levelMatches && searchMatches) {
             row.style.display = '';
+            visibleCount++;
         } else {
             row.style.display = 'none';
         }
     });
+
+    if (noRecordsRow) {
+        noRecordsRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+    }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('riskSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', applyLiveRiskFilters);
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearRiskSearch();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

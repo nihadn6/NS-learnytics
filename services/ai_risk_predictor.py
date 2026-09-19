@@ -194,7 +194,16 @@ class StudentRiskPredictor:
                 query = "SELECT DISTINCT u.id FROM users u WHERE u.role = 'student'"
                 params = []
                 
-                if class_id:
+                if class_id and teacher_id:
+                    query = """
+                        SELECT DISTINCT u.id 
+                        FROM users u 
+                        JOIN enrollments e ON u.id = e.student_id 
+                        JOIN classes c ON e.class_id = c.id
+                        WHERE u.role = 'student' AND e.class_id = %s AND c.teacher_id = %s
+                    """
+                    params.extend([class_id, teacher_id])
+                elif class_id:
                     query = """
                         SELECT DISTINCT u.id 
                         FROM users u 
