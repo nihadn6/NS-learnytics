@@ -11,9 +11,9 @@ def check_auth():
 @messages_bp.route('/messages', methods=['GET'])
 def inbox():
     role = session.get('role')
-    if role not in ['teacher', 'student', 'parent']:
-        return "Unauthorized. Only teachers, students, and parents can use messaging.", 403
-    
+    if role not in ['teacher', 'student', 'parent', 'superadmin']:
+        return "Unauthorized. Only teachers, students, parents, and admins can use messaging.", 403
+
     return render_template('messages.html', current_user_id=session.get('user_id'))
 
 @messages_bp.route('/api/messages/contacts', methods=['GET'])
@@ -61,6 +61,17 @@ def get_contacts():
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s AND psl.status = 'approved'
                 """, (user_id, user_id))
+                contacts = cursor.fetchall()
+
+            elif role == 'superadmin':
+                # Admin can message all teachers and students
+                cursor.execute("""
+                    SELECT id, name, role
+                    FROM users
+                    WHERE role IN ('teacher', 'student')
+                    AND id != %s
+                    ORDER BY role, name
+                """, (user_id,))
                 contacts = cursor.fetchall()
 
             # For each contact, fetch the unread message count and latest message timestamp
