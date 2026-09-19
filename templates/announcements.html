@@ -51,8 +51,33 @@
                 <p style="font-size: 0.925rem; color: var(--text-main); line-height: 1.6; white-space: pre-line; margin-bottom: 0.5rem;">{{ a.content }}</p>
 
                 {% if a.teacher_name %}
-                    <div style="margin-top: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
-                        Posted by: <strong>{{ a.teacher_name }}</strong>
+                    <div style="margin-top: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                        <span>Posted by: <strong>{{ a.teacher_name }}</strong></span>
+                        {% if session.role == 'superadmin' %}
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button
+                                onclick="openEditModal({{ a.id }}, {{ a.title|tojson }}, {{ a.content|tojson }}, '{{ a.target_audience }}')"
+                                class="btn btn-outline"
+                                style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">
+                                ✏️ Edit
+                            </button>
+                            <form action="{{ url_for('announcements.delete_announcement', announcement_id=a.id) }}" method="POST" onsubmit="return confirm('Delete this announcement?')" style="display:inline;">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">🗑 Delete</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% elif session.role == 'superadmin' %}
+                    <div style="margin-top: 0.85rem; border-top: 1px solid var(--border); padding-top: 0.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <button
+                            onclick="openEditModal({{ a.id }}, {{ a.title|tojson }}, {{ a.content|tojson }}, '{{ a.target_audience }}')"
+                            class="btn btn-outline"
+                            style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">
+                            ✏️ Edit
+                        </button>
+                        <form action="{{ url_for('announcements.delete_announcement', announcement_id=a.id) }}" method="POST" onsubmit="return confirm('Delete this announcement?')" style="display:inline;">
+                            <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.65rem; font-size: 0.78rem;">🗑 Delete</button>
+                        </form>
                     </div>
                 {% endif %}
             </div>
@@ -99,5 +124,49 @@
         </form>
     </div>
 </div>
+{% endif %}
+
+{% if session.role == 'superadmin' %}
+<!-- EDIT ANNOUNCEMENT MODAL -->
+<div id="editAnnounceModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-weight: 700; color: var(--text-main); margin: 0;">Edit Announcement</h3>
+            <span style="cursor: pointer; font-size: 1.5rem; color: var(--text-muted);" onclick="document.getElementById('editAnnounceModal').style.display='none'">&times;</span>
+        </div>
+        <form id="editAnnounceForm" method="POST">
+            <div class="form-group">
+                <label>Announcement Title *</label>
+                <input type="text" id="editTitle" name="title" required class="input-field" placeholder="Title">
+            </div>
+            <div class="form-group">
+                <label>Target Audience</label>
+                <select id="editAudience" name="target_audience" class="input-field">
+                    <option value="all">Everyone (Students &amp; Parents)</option>
+                    <option value="students_only">Students Only</option>
+                    <option value="parents_only">Parents Only</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label>Announcement Message *</label>
+                <textarea id="editContent" name="content" rows="5" required class="input-field"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                <button type="button" onclick="document.getElementById('editAnnounceModal').style.display='none'" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, title, content, audience) {
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editContent').value = content;
+    document.getElementById('editAudience').value = audience;
+    document.getElementById('editAnnounceForm').action = '/announcements/' + id + '/edit';
+    document.getElementById('editAnnounceModal').style.display = 'flex';
+}
+</script>
 {% endif %}
 {% endblock %}

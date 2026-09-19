@@ -143,3 +143,48 @@ def create_announcement():
         conn.close()
 
     return redirect(url_for('announcements.feed', class_id=class_id))
+
+
+@announcements_bp.route('/announcements/<int:announcement_id>/edit', methods=['POST'])
+def edit_announcement(announcement_id):
+    if session.get('role') != 'superadmin':
+        return "Unauthorized", 403
+
+    title = request.form.get('title', '').strip()
+    content = request.form.get('content', '').strip()
+    target_audience = request.form.get('target_audience', 'all')
+
+    if not title or not content:
+        flash('Title and content are required.', 'error')
+        return redirect(url_for('announcements.feed'))
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE announcements SET title = %s, content = %s, target_audience = %s WHERE id = %s",
+                (title, content, target_audience, announcement_id)
+            )
+            conn.commit()
+        flash('Announcement updated successfully.', 'success')
+    finally:
+        conn.close()
+
+    return redirect(url_for('announcements.feed'))
+
+
+@announcements_bp.route('/announcements/<int:announcement_id>/delete', methods=['POST'])
+def delete_announcement(announcement_id):
+    if session.get('role') != 'superadmin':
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM announcements WHERE id = %s", (announcement_id,))
+            conn.commit()
+        flash('Announcement deleted.', 'success')
+    finally:
+        conn.close()
+
+    return redirect(url_for('announcements.feed'))
