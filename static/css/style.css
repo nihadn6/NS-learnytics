@@ -932,12 +932,19 @@ tr:hover td {
 
     /* Collapse all two-column dashboard grids to single column */
     .grid-2col,
+    .dashboard-operational-grid,
     div[style*="grid-template-columns: 1fr 1fr"],
     div[style*="grid-template-columns: 1fr 1.2fr"],
     div[style*="grid-template-columns: 2fr 1fr"],
     div[style*="grid-template-columns: 1.5fr 1fr"],
-    div[style*="grid-template-columns: 65% 35%"] {
+    div[style*="grid-template-columns: 65% 35%"],
+    div[style*="grid-template-columns: 60% 40%"] {
         grid-template-columns: 1fr !important;
+    }
+
+    /* Guarantee canvas charts scale smoothly within containers */
+    canvas {
+        max-width: 100% !important;
     }
 }
 
@@ -1021,6 +1028,12 @@ tr:hover td {
         align-items: flex-start !important;
     }
 
+    /* ---- Student report info grid ---- */
+    .student-info-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+
     /* ---- Tab pills: allow wrapping ---- */
     .tab-pill {
         padding: 0.4rem 0.85rem;
@@ -1033,7 +1046,20 @@ tr:hover td {
         max-width: 95vw;
     }
 
-    /* ---- Additional inline grid overrides for forms ---- */
+    /* ---- Filter form responsive flex wrapping ---- */
+    #atRiskFilterForm,
+    #forecasterFilterForm {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    #atRiskFilterForm > div,
+    #forecasterFilterForm > div {
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    /* ---- Additional inline grid overrides for forms & directories ---- */
     div[style*="grid-template-columns: 1fr 1.5fr"],
     div[style*="grid-template-columns: 1fr 1fr"],
     div[style*="grid-template-columns: 1fr 2fr"],
@@ -1045,6 +1071,13 @@ tr:hover td {
     /* ---- Topbar user capsule: hide text, keep avatar ---- */
     .user-name-text {
         display: none;
+    }
+
+    /* ---- Ensure horizontal scroll on any unwrapped card tables ---- */
+    .card:has(> table),
+    .card:has(> div > table) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -1061,7 +1094,7 @@ tr:hover td {
 
     /* ---- Stat grid: full width on tiny phones ---- */
     .stat-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         gap: 0.75rem;
         margin-bottom: 1.25rem;
     }
@@ -1076,7 +1109,7 @@ tr:hover td {
         border-radius: var(--radius);
     }
 
-    /* ---- Buttons: avoid forcing full width globally (breaks nav buttons) ---- */
+    /* ---- Buttons: avoid forcing full width globally ---- */
     .btn {
         font-size: 0.82rem;
         padding: 0.55rem 0.85rem;
@@ -1088,9 +1121,16 @@ tr:hover td {
         font-size: 0.78rem;
     }
 
-    /* ---- Quick action tiles: ensure they're readable ---- */
+    /* ---- Quick action tiles: full width single column ---- */
     .quick-action-tile {
         padding: 1rem 0.85rem;
+        width: 100%;
+    }
+
+    div[style*="grid-template-columns: repeat(auto-fit, minmax(240px"],
+    div[style*="grid-template-columns: repeat(auto-fit, minmax(280px"],
+    div[style*="grid-template-columns: repeat(auto-fit, minmax(300px"] {
+        grid-template-columns: 1fr !important;
     }
 
     /* ---- Dashboard hero: tighten spacing ---- */
@@ -1105,6 +1145,15 @@ tr:hover td {
     /* ---- Topbar role badge: hide on very small ---- */
     .role-badge-pill {
         display: none;
+    }
+
+    /* ---- Topbar logout button: icon only on tiny screens ---- */
+    .topbar-logout-btn span {
+        display: none;
+    }
+
+    .topbar-logout-btn {
+        padding: 0.4rem 0.55rem;
     }
 
     /* ---- Table: guarantee horizontal scroll ---- */

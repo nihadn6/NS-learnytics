@@ -56,7 +56,7 @@
 </div>
 
 <!-- Main 2-Column Operational Grid -->
-<div class="grid" style="grid-template-columns: 60% 40%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+<div class="grid dashboard-operational-grid" style="grid-template-columns: 60% 40%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
     
     <!-- LEFT COLUMN: ACADEMIC PERFORMANCE -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
@@ -119,7 +119,7 @@
             {% if todays_classes %}
                 <div style="display: flex; flex-direction: column; gap: 0.65rem;">
                     {% for c in todays_classes %}
-                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                             <div>
                                 <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">
                                     {{ c.subject }}
