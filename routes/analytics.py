@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session, render_template, redirec
 from database.db import get_db_connection
 from services.ai_risk_predictor import risk_predictor
 from services.ai_grade_forecaster import grade_forecaster
+from services.student_of_month import get_or_calculate_student_of_the_month
 import datetime
 
 analytics_bp = Blueprint('analytics', __name__)
@@ -192,6 +193,9 @@ def teacher_dashboard():
                 if perf_data[-1] < perf_data[-2]:
                     insights.append("Notice: Average class performance has dipped slightly compared to the previous test.")
             
+            # Student of the Month evaluation
+            students_of_month, som_month_label = get_or_calculate_student_of_the_month(conn)
+
             return render_template('teacher_dashboard.html', 
                                    total_classes=total_classes,
                                    total_students=total_students,
@@ -212,7 +216,9 @@ def teacher_dashboard():
                                    perf_data=perf_data,
                                    rev_labels=rev_labels,
                                    rev_data=rev_data,
-                                   insights=insights)
+                                   insights=insights,
+                                   students_of_month=students_of_month,
+                                   som_month_label=som_month_label)
     finally:
         conn.close()
 
@@ -307,6 +313,10 @@ def student_dashboard():
             profile = cursor.fetchone()
             qr_code = profile['qr_code'] if profile else None
             
+            # Student of the Month evaluation
+            students_of_month, som_month_label = get_or_calculate_student_of_the_month(conn)
+            my_som_awards = [som for som in students_of_month if som['student_id'] == user_id]
+
             return render_template('student_dashboard.html',
                                    attendance_pct=attendance_pct,
                                    total_classes=total_classes,
@@ -318,7 +328,10 @@ def student_dashboard():
                                    perf_labels=perf_labels,
                                    perf_data=perf_data,
                                    insights=insights,
-                                   qr_code=qr_code)
+                                   qr_code=qr_code,
+                                   students_of_month=students_of_month,
+                                   som_month_label=som_month_label,
+                                   my_som_awards=my_som_awards)
     finally:
         conn.close()
 

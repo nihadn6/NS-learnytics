@@ -178,3 +178,15 @@ CREATE TABLE IF NOT EXISTS announcements (
     FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS student_of_the_month (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    month_period VARCHAR(7) NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    student_id INT NOT NULL,
+    average_score DECIMAL(5,2) NOT NULL,
+    tests_count INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_month_subject (month_period, subject)
+);
+
