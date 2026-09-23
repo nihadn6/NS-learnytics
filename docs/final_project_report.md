@@ -451,13 +451,24 @@ The expected score for the impending evaluation ($x = k$) is computed and bounde
 $$\hat{y}_{k} = \max\left(0.0, \; \min\left(100.0, \; m \cdot k + c\right)\right)$$
 
 The projected percentage $\hat{y}_k$ is mapped to a standardized academic letter grade:
+
 $$\text{Grade}(\hat{y}_k) = \begin{cases} 
-\text{A} & \text{if } \hat{y}_k \ge 85.0\% \\
-\text{B} & \text{if } 75.0\% \le \hat{y}_k < 85.0\% \\
-\text{C} & \text{if } 65.0\% \le \hat{y}_k < 75.0\% \\
-\text{S (Simple Pass)} & \text{if } 50.0\% \le \hat{y}_k < 65.0\% \\
-\text{F (Fail)} & \text{if } \hat{y}_k < 50.0\%
+\text{A} & \text{for } \hat{y}_k \ge 85.0 \\
+\text{B} & \text{for } 75.0 \le \hat{y}_k \lt 85.0 \\
+\text{C} & \text{for } 65.0 \le \hat{y}_k \lt 75.0 \\
+\text{S} & \text{for } 50.0 \le \hat{y}_k \lt 65.0 \\
+\text{F} & \text{for } \hat{y}_k \lt 50.0
 \end{cases}$$
+
+The standardized grading translation thresholds are structured as follows:
+
+| Letter Grade | Percentage Range ($\hat{y}_k$) | Performance Classification |
+| :--- | :--- | :--- |
+| **A** | $\ge 85.0\%$ | Distinction |
+| **B** | $75.0\% - 84.9\%$ | Very Good Pass |
+| **C** | $65.0\% - 74.9\%$ | Credit Pass |
+| **S (Simple Pass)** | $50.0\% - 64.9\%$ | Ordinary / Simple Pass |
+| **F (Fail)** | $< 50.0\%$ | Failure / Remedial Required |
 
 The trajectory slope coefficient $m$ provides qualitative directional insight:
 - **Improving Trajectory:** $m > +1.5$ (indicates compounding academic mastery).
