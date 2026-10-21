@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, session, render_template, redirec
 from database.db import get_db_connection
 from werkzeug.security import generate_password_hash
 import uuid
+from services.ai_risk_predictor import risk_predictor
+from services.student_of_month import get_or_calculate_student_of_the_month
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -56,6 +58,56 @@ def dashboard():
             """)
             recent_payments = cursor.fetchall()
 
+            # Performance Trends (Institutional Average Score Progression)
+            cursor.execute("""
+                SELECT m.test_name, AVG(m.marks_obtained/m.max_marks * 100) as avg_score
+                FROM marks m
+                GROUP BY m.test_name
+                ORDER BY MIN(m.date_recorded) ASC
+            """)
+            perf_trends = cursor.fetchall()
+            perf_labels = [p['test_name'] for p in perf_trends]
+            perf_data = [round(float(p['avg_score']), 1) for p in perf_trends]
+
+            # Latest Test Grade Distribution (Institutional Grade Spread)
+            cursor.execute("""
+                SELECT m.test_name, c.subject, MAX(m.date_recorded) as test_date
+                FROM marks m
+                JOIN classes c ON m.class_id = c.id
+                GROUP BY m.test_name, c.subject
+                ORDER BY test_date DESC LIMIT 1
+            """)
+            latest_test = cursor.fetchone()
+
+            grade_dist = {'A': 0, 'B': 0, 'C': 0, 'Needs Support': 0}
+            latest_test_name = None
+            latest_test_subject = None
+            if latest_test:
+                latest_test_name = latest_test['test_name']
+                latest_test_subject = latest_test['subject']
+                cursor.execute("""
+                    SELECT (m.marks_obtained / m.max_marks * 100) as pct
+                    FROM marks m
+                    WHERE m.test_name = %s
+                """, (latest_test_name,))
+                m_rows = cursor.fetchall()
+                for r in m_rows:
+                    score = float(r['pct'] or 0)
+                    if score >= 75:
+                        grade_dist['A'] += 1
+                    elif score >= 65:
+                        grade_dist['B'] += 1
+                    elif score >= 50:
+                        grade_dist['C'] += 1
+                    else:
+                        grade_dist['Needs Support'] += 1
+
+            # Fetch Executive AI Risk Predictor Top 5 At-Risk Students (Institution-Wide)
+            top_5_at_risk = risk_predictor.get_all_student_risks()[:5]
+
+            # Student of the Month evaluation
+            students_of_month, som_month_label = get_or_calculate_student_of_the_month(conn)
+
             # Recent User Signups
             cursor.execute("SELECT id, name, email, role, created_at FROM users ORDER BY id DESC LIMIT 5")
             recent_users = cursor.fetchall()
@@ -69,6 +121,14 @@ def dashboard():
                                    today_attendance=today_attendance,
                                    today_fees=today_fees,
                                    recent_payments=recent_payments,
+                                   perf_labels=perf_labels,
+                                   perf_data=perf_data,
+                                   latest_test_name=latest_test_name,
+                                   latest_test_subject=latest_test_subject,
+                                   grade_dist=grade_dist,
+                                   top_5_at_risk=top_5_at_risk,
+                                   students_of_month=students_of_month,
+                                   som_month_label=som_month_label,
                                    pending_parent_requests_count=pending_parent_requests_count,
                                    total_classes_count=total_classes_count,
                                    recent_users=recent_users)

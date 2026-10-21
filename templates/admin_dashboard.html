@@ -2,6 +2,10 @@
 
 {% block title %}Super Admin Console - NS Learnytics{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
 <!-- Top Header Hero -->
 <div class="dashboard-hero-header">
@@ -97,6 +101,58 @@
     </div>
 </div>
 
+<!-- Students of the Month Honor Roll -->
+{% if students_of_month %}
+<div class="card mb-6" style="border-top: 4px solid var(--primary); padding: 1.35rem 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <svg style="width: 20px; height: 20px; color: #f59e0b;" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin: 0;">
+                    Students of the Month Honor Roll
+                </h2>
+            </div>
+            <p class="text-muted" style="font-size: 0.8rem; margin: 0.2rem 0 0 0;">
+                Campus-wide top academic performers recognized for the highest assessment average per subject &bull; {{ som_month_label }}
+            </p>
+        </div>
+        <span class="badge badge-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+            Institutional Achievers
+        </span>
+    </div>
+
+    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        {% for s in students_of_month %}
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--primary), #8b5cf6);"></div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span class="badge badge-purple" style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
+                            {{ s.subject }}
+                        </span>
+                        <svg style="width: 16px; height: 16px; color: #f59e0b;" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+                        {{ s.student_name }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                        Grade {{ s.grade }} &bull; Top Performer
+                    </div>
+                </div>
+                <div style="background: white; border-radius: var(--radius-sm); padding: 0.45rem 0.65rem; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Average Score</span>
+                    <span style="font-size: 0.95rem; font-weight: 800; color: var(--success);">{{ s.average_score }}%</span>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Main 2-Column Grid -->
 <div class="grid dashboard-operational-grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
     
@@ -171,6 +227,44 @@
             </div>
         </div>
 
+        <!-- Institutional Academic Telemetry & Grade Spread -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Institutional Academic Telemetry</h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Overall student score progression and examination performance brackets across all classes.</p>
+                </div>
+                <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">Exam Performance Report &rarr;</a>
+            </div>
+
+            <div class="grid gap-4" style="grid-template-columns: 58% 42%;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Score Progression Curve</span>
+                        <span style="font-size: 0.725rem; color: var(--text-muted);">Historical Assessments</span>
+                    </div>
+                    <div style="height: 240px;">
+                        <canvas id="adminPerfChart"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Latest Grade Spread</span>
+                        <span style="font-size: 0.725rem; color: var(--text-muted);">{{ latest_test_name or 'Latest Test' }}</span>
+                    </div>
+                    {% if latest_test_name %}
+                        <div style="height: 240px;">
+                            <canvas id="adminGradeDistChart"></canvas>
+                        </div>
+                    {% else %}
+                        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 0.8rem;">
+                            No examination data available.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
         <!-- Live Recent Payments Audit Ledger -->
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
@@ -235,6 +329,49 @@
     <!-- RIGHT COLUMN: QUICK PROVISIONING & USER AUDIT FEED -->
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
         
+        <!-- Executive AI Student Risk Radar Widget -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #6d28d9; margin-bottom: 0.1rem;">
+                        AI Student Risk Radar
+                    </h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Campus-Wide Dropout Detection</span>
+                </div>
+                <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="btn btn-primary" style="font-size: 0.7rem; padding: 0.25rem 0.55rem; background: #7c3aed; text-decoration: none;">Full Radar &rarr;</a>
+            </div>
+
+            {% if top_5_at_risk %}
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for s in top_5_at_risk %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-main);">
+                                    {{ s.name }}
+                                    {% if s.risk_level == 'HIGH' %}
+                                        <span class="badge badge-danger" style="font-size: 0.625rem; padding: 0.1rem 0.35rem;">HIGH</span>
+                                    {% else %}
+                                        <span class="badge badge-warning" style="font-size: 0.625rem; padding: 0.1rem 0.35rem;">MED</span>
+                                    {% endif %}
+                                </div>
+                                <div style="font-size: 0.725rem; color: var(--text-muted);">
+                                    {{ s.risk_factors[0] if s.risk_factors else 'Attendance / Grades' }}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-weight: 800; font-size: 0.85rem; color: {% if s.risk_pct >= 55 %}var(--danger){% else %}var(--warning){% endif %};">
+                                    {{ s.risk_pct }}% Risk
+                                </div>
+                                <a href="{{ url_for('messages.inbox') }}" style="font-size: 0.7rem; color: var(--primary); text-decoration: underline;">Intervene</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="font-size: 0.825rem; color: var(--success); margin: 0;">No high-risk students identified across campus.</p>
+            {% endif %}
+        </div>
+
         <!-- User Registration Launcher -->
         <div class="card" style="border-top: 4px solid var(--primary);">
             <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">Quick Account Provisioning</h3>
