@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cls.subject }} Roster - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="flex justify-between align-center mb-6" style="flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+        <a href="{{ url_for('admin.manage_classes') }}" class="text-muted" style="font-size: 0.85rem;">&larr; Back to Classes</a>
+        <h1 class="mt-2">{{ cls.subject }}</h1>
+        <p class="text-muted">
+            Teacher: <strong>{{ cls.teacher_name }}</strong> &middot; {{ cls.schedule }} &middot;
+            LKR {{ "{:,.2f}".format(cls.fee) }} / month &middot; Join code: <code>{{ cls.join_code }}</code>
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{{ url_for('attendance.attendance_report', class_id=cls.id) }}" class="btn btn-outline">Attendance</a>
+        <a href="{{ url_for('performance.performance_report', class_id=cls.id) }}" class="btn btn-outline">Marks</a>
+    </div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start;">
+    <div class="card" style="grid-column: span 2; min-width: 0;">
+        <h3 class="mb-4">Enrolled Students ({{ roster|length }})</h3>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Grade</th>
+                        <th>Joined</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in roster %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ s.name }}</td>
+                        <td class="text-muted">{{ s.email }}</td>
+                        <td>{{ s.grade or '-' }}</td>
+                        <td>{{ s.joined_at.strftime('%Y-%m-%d') if s.joined_at else '-' }}</td>
+                        <td style="text-align: right;">
+                            <form action="{{ url_for('admin.admin_unenroll_student', class_id=cls.id, student_id=s.id) }}" method="POST" style="display: inline;"
+                                  onsubmit="return confirm('Remove {{ s.name }} from {{ cls.subject }}?');">
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Unenroll</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted">No students enrolled yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="mb-4">Enroll a Student</h3>
+        <form action="{{ url_for('admin.admin_enroll_student', class_id=cls.id) }}" method="POST">
+            <div class="form-group">
+                <label>Student</label>
+                <select name="student_id" class="input-field" required>
+                    <option value="">Select a student</option>
+                    {% for s in available_students %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Enroll Student</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

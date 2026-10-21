@@ -253,3 +253,261 @@ def delete_user(user_id):
         conn.close()
 
 
+
+# ---------------------------------------------------------------------------
+# CLASS MANAGEMENT (Super Admin): view, create, edit, reassign, roster, delete
+# ---------------------------------------------------------------------------
+import random
+import string
+
+
+def _unique_join_code(cursor, length=8):
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = ''.join(random.choices(alphabet, k=length))
+        cursor.execute("SELECT id FROM classes WHERE join_code = %s", (code,))
+        if not cursor.fetchone():
+            return code
+
+
+def _admin_guard():
+    return session.get('role') == 'superadmin'
+
+
+@admin_bp.route('/admin/classes', methods=['GET'])
+def manage_classes():
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    search = (request.args.get('q') or '').strip()
+    teacher_filter = request.args.get('teacher_id') or ''
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT c.id, c.subject, c.schedule, c.fee, c.join_code, c.teacher_id,
+                       u.name AS teacher_name, u.email AS teacher_email,
+                       (SELECT COUNT(*) FROM enrollments e WHERE e.class_id = c.id) AS enrolled,
+                       (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.class_id = c.id) AS revenue
+                FROM classes c
+                JOIN users u ON c.teacher_id = u.id
+                WHERE 1=1
+            """
+            params = []
+            if search:
+                query += " AND (c.subject LIKE %s OR u.name LIKE %s)"
+                like = '%' + search + '%'
+                params.extend([like, like])
+            if teacher_filter.isdigit():
+                query += " AND c.teacher_id = %s"
+                params.append(int(teacher_filter))
+            query += " ORDER BY c.subject ASC, c.id ASC"
+            cursor.execute(query, tuple(params))
+            classes = cursor.fetchall()
+            for c in classes:
+                c['fee'] = float(c['fee'])
+                c['revenue'] = float(c['revenue'] or 0)
+
+            cursor.execute("SELECT id, name, email FROM users WHERE role = 'teacher' ORDER BY name")
+            teachers = cursor.fetchall()
+
+            return render_template('admin_classes.html', classes=classes, teachers=teachers,
+                                   search=search, teacher_filter=teacher_filter)
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/admin/classes/create', methods=['POST'])
+def admin_create_class():
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    f = request.form
+    teacher_id = f.get('teacher_id')
+    subject = (f.get('subject') or '').strip()
+    schedule = (f.get('schedule') or '').strip()
+    fee = f.get('fee')
+    if not (teacher_id and subject and schedule and fee):
+        return "Missing fields", 400
+    try:
+        fee_val = float(fee)
+        if fee_val < 0:
+            raise ValueError
+    except ValueError:
+        return "Invalid fee amount", 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher'", (teacher_id,))
+            if not cursor.fetchone():
+                return "Selected teacher does not exist", 400
+            code = _unique_join_code(cursor)
+            cursor.execute(
+                "INSERT INTO classes (teacher_id, subject, schedule, fee, join_code) VALUES (%s, %s, %s, %s, %s)",
+                (teacher_id, subject, schedule, fee_val, code))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(url_for('admin.manage_classes'))
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/edit', methods=['POST'])
+def admin_edit_class(class_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    f = request.form
+    teacher_id = f.get('teacher_id')
+    subject = (f.get('subject') or '').strip()
+    schedule = (f.get('schedule') or '').strip()
+    fee = f.get('fee')
+    if not (teacher_id and subject and schedule and fee):
+        return "Missing fields", 400
+    try:
+        fee_val = float(fee)
+        if fee_val < 0:
+            raise ValueError
+    except ValueError:
+        return "Invalid fee amount", 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s AND role = 'teacher'", (teacher_id,))
+            if not cursor.fetchone():
+                return "Selected teacher does not exist", 400
+            # Teacher reassignment keeps the class id, so enrollments, attendance and marks are preserved.
+            cursor.execute(
+                "UPDATE classes SET teacher_id = %s, subject = %s, schedule = %s, fee = %s WHERE id = %s",
+                (teacher_id, subject, schedule, fee_val, class_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(request.referrer or url_for('admin.manage_classes'))
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/regenerate_code', methods=['POST'])
+def admin_regenerate_join_code(class_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            code = _unique_join_code(cursor)
+            cursor.execute("UPDATE classes SET join_code = %s WHERE id = %s", (code, class_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(request.referrer or url_for('admin.manage_classes'))
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/delete', methods=['POST'])
+def admin_delete_class(class_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Foreign keys use ON DELETE CASCADE: enrollments, attendance, marks, payments,
+            # materials, assignments (and submissions) and announcements are removed with the class.
+            cursor.execute("DELETE FROM classes WHERE id = %s", (class_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(url_for('admin.manage_classes'))
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/roster', methods=['GET'])
+def admin_class_roster(class_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.fee, c.join_code, c.teacher_id,
+                       u.name AS teacher_name, u.email AS teacher_email
+                FROM classes c JOIN users u ON c.teacher_id = u.id
+                WHERE c.id = %s
+            """, (class_id,))
+            cls = cursor.fetchone()
+            if not cls:
+                return "Class not found", 404
+            cls['fee'] = float(cls['fee'])
+
+            cursor.execute("""
+                SELECT u.id, u.name, u.email, sp.grade, e.joined_at
+                FROM enrollments e
+                JOIN users u ON e.student_id = u.id
+                LEFT JOIN student_profiles sp ON sp.user_id = u.id
+                WHERE e.class_id = %s
+                ORDER BY u.name
+            """, (class_id,))
+            roster = cursor.fetchall()
+
+            cursor.execute("""
+                SELECT u.id, u.name, u.email
+                FROM users u
+                WHERE u.role = 'student'
+                  AND u.id NOT IN (SELECT student_id FROM enrollments WHERE class_id = %s)
+                ORDER BY u.name
+            """, (class_id,))
+            available_students = cursor.fetchall()
+
+            cursor.execute("SELECT id, name, email FROM users WHERE role = 'teacher' ORDER BY name")
+            teachers = cursor.fetchall()
+
+            return render_template('admin_class_roster.html', cls=cls, roster=roster,
+                                   available_students=available_students, teachers=teachers)
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/enroll', methods=['POST'])
+def admin_enroll_student(class_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    student_id = request.form.get('student_id')
+    if not student_id:
+        return "Select a student", 400
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM classes WHERE id = %s", (class_id,))
+            if not cursor.fetchone():
+                return "Class not found", 404
+            cursor.execute("SELECT id FROM users WHERE id = %s AND role = 'student'", (student_id,))
+            if not cursor.fetchone():
+                return "Student not found", 404
+            cursor.execute("SELECT id FROM enrollments WHERE class_id = %s AND student_id = %s",
+                           (class_id, student_id))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO enrollments (class_id, student_id) VALUES (%s, %s)",
+                               (class_id, student_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(url_for('admin.admin_class_roster', class_id=class_id))
+
+
+@admin_bp.route('/admin/classes/<int:class_id>/unenroll/<int:student_id>', methods=['POST'])
+def admin_unenroll_student(class_id, student_id):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM enrollments WHERE class_id = %s AND student_id = %s",
+                           (class_id, student_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(url_for('admin.admin_class_roster', class_id=class_id))

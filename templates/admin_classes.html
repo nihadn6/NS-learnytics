@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+
+{% block title %}Class Management - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="flex justify-between align-center mb-6" style="flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+        <h1 class="mt-2">Class Management</h1>
+        <p class="text-muted">View, create, edit, reassign and remove classes across all teachers.</p>
+    </div>
+    <div>
+        <button class="btn btn-primary" onclick="openCreateClass()">+ Add New Class</button>
+    </div>
+</div>
+
+<!-- Search and Filter -->
+<div class="card mb-4">
+    <form method="GET" action="{{ url_for('admin.manage_classes') }}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="flex: 2; min-width: 220px; margin-bottom: 0;">
+            <label>Search</label>
+            <input type="text" name="q" class="input-field" placeholder="Subject or teacher name" value="{{ search }}">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+            <label>Teacher</label>
+            <select name="teacher_id" class="input-field">
+                <option value="">All Teachers</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}" {% if teacher_filter|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="{{ url_for('admin.manage_classes') }}" class="btn btn-outline">Reset</a>
+    </form>
+</div>
+
+<div class="card">
+    <h3 class="mb-4">All Classes ({{ classes|length }})</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th>Schedule</th>
+                    <th>Fee (LKR)</th>
+                    <th>Join Code</th>
+                    <th>Students</th>
+                    <th>Revenue (LKR)</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in classes %}
+                <tr>
+                    <td style="font-weight: 600;">{{ c.subject }}</td>
+                    <td>
+                        {{ c.teacher_name }}
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ c.teacher_email }}</div>
+                    </td>
+                    <td>{{ c.schedule }}</td>
+                    <td>{{ "{:,.2f}".format(c.fee) }}</td>
+                    <td>
+                        <code id="code-{{ c.id }}" style="font-weight: 700;">{{ c.join_code }}</code>
+                        <button type="button" class="btn btn-outline" style="padding: 0.1rem 0.45rem; font-size: 0.7rem; margin-left: 0.3rem;" onclick="copyCode('code-{{ c.id }}', this)">Copy</button>
+                    </td>
+                    <td>{{ c.enrolled }}</td>
+                    <td>{{ "{:,.0f}".format(c.revenue) }}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <a href="{{ url_for('admin.admin_class_roster', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Roster</a>
+                        <button type="button" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;"
+                                data-id="{{ c.id }}" data-teacher="{{ c.teacher_id }}" data-subject="{{ c.subject }}"
+                                data-schedule="{{ c.schedule }}" data-fee="{{ c.fee }}" onclick="openEditClass(this)">Edit</button>
+                        <a href="{{ url_for('attendance.attendance_report', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Attendance</a>
+                        <a href="{{ url_for('performance.performance_report', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Marks</a>
+                        <form action="{{ url_for('admin.admin_delete_class', class_id=c.id) }}" method="POST" style="display: inline;"
+                              onsubmit="return confirm('Delete {{ c.subject }} ({{ c.teacher_name }})?\n\nThis permanently removes its enrollments, attendance, marks, payments, materials, assignments and announcements.');">
+                            <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted">No classes found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Class Modal -->
+<div id="createClassModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="flex justify-between align-center mb-4">
+            <h2 style="font-size: 1.25rem;">Add New Class</h2>
+            <span style="cursor:pointer; font-size:1.5rem; color:var(--text-muted);" onclick="closeModal('createClassModal')">&times;</span>
+        </div>
+        <form action="{{ url_for('admin.admin_create_class') }}" method="POST">
+            <div class="form-group">
+                <label>Assign Teacher</label>
+                <select name="teacher_id" class="input-field" required>
+                    <option value="">Select a teacher</option>
+                    {% for t in teachers %}
+                    <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Subject</label>
+                <input type="text" name="subject" class="input-field" placeholder="e.g. Combined Mathematics" required>
+            </div>
+            <div class="form-group">
+                <label>Weekly Schedule</label>
+                <input type="text" name="schedule" class="input-field" placeholder="e.g. Saturday 08:00 AM - 11:30 AM" required>
+            </div>
+            <div class="form-group">
+                <label>Monthly Fee (LKR)</label>
+                <input type="number" name="fee" class="input-field" min="0" step="0.01" required>
+            </div>
+            <p class="text-muted" style="font-size: 0.78rem;">A unique join code is generated automatically.</p>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Create Class</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Class Modal -->
+<div id="editClassModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 480px;">
+        <div class="flex justify-between align-center mb-4">
+            <h2 style="font-size: 1.25rem;">Edit Class</h2>
+            <span style="cursor:pointer; font-size:1.5rem; color:var(--text-muted);" onclick="closeModal('editClassModal')">&times;</span>
+        </div>
+        <form id="editClassForm" method="POST">
+            <div class="form-group">
+                <label>Assigned Teacher (reassign to transfer ownership)</label>
+                <select name="teacher_id" id="editTeacher" class="input-field" required>
+                    {% for t in teachers %}
+                    <option value="{{ t.id }}">{{ t.name }} ({{ t.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Subject</label>
+                <input type="text" name="subject" id="editSubject" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label>Weekly Schedule</label>
+                <input type="text" name="schedule" id="editSchedule" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label>Monthly Fee (LKR)</label>
+                <input type="number" name="fee" id="editFee" class="input-field" min="0" step="0.01" required>
+            </div>
+            <p class="text-muted" style="font-size: 0.78rem;">Reassigning a teacher keeps all enrollments, attendance and marks.</p>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Save Changes</button>
+        </form>
+        <form id="regenForm" method="POST" style="margin-top: 0.75rem;"
+              onsubmit="return confirm('Generate a new join code? The old code will stop working.');">
+            <button type="submit" class="btn btn-outline" style="width: 100%;">Regenerate Join Code</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openCreateClass() { document.getElementById('createClassModal').style.display = 'flex'; }
+    function openEditClass(btn) {
+        var id = btn.dataset.id;
+        document.getElementById('editTeacher').value = btn.dataset.teacher;
+        document.getElementById('editSubject').value = btn.dataset.subject;
+        document.getElementById('editSchedule').value = btn.dataset.schedule;
+        document.getElementById('editFee').value = btn.dataset.fee;
+        document.getElementById('editClassForm').action = '/admin/classes/' + id + '/edit';
+        document.getElementById('regenForm').action = '/admin/classes/' + id + '/regenerate_code';
+        document.getElementById('editClassModal').style.display = 'flex';
+    }
+    function copyCode(elId, btn) {
+        var text = document.getElementById(elId).textContent.trim();
+        var done = function () { var old = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = old; }, 1200); };
+        if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done); }
+        else {
+            var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+            ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+        }
+    }
+</script>
+{% endblock %}

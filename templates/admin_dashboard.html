@@ -54,11 +54,11 @@
         <span class="stat-value" style="color: var(--info);">{{ total_staff_count }}</span>
         <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Teachers & Clerks</span>
     </div>
-    <div class="stat-card" style="border-left: 4px solid var(--purple);">
+    <a href="{{ url_for('admin.manage_classes') }}" class="stat-card" style="border-left: 4px solid var(--purple); text-decoration: none; color: inherit;">
         <span class="stat-label">Class Sections</span>
         <span class="stat-value" style="color: var(--purple);">{{ total_classes_count }}</span>
-        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Active Schedules</span>
-    </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Manage Classes &rarr;</span>
+    </a>
     <div class="stat-card" style="border-left: 4px solid var(--success);">
         <span class="stat-label">Cumulative Revenue</span>
         <span class="stat-value" style="color: var(--success); font-size: 1.85rem;">
