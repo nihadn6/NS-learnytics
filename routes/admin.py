@@ -38,6 +38,24 @@ def dashboard():
             cursor.execute("SELECT COUNT(*) as cnt FROM classes")
             total_classes_count = cursor.fetchone()['cnt']
 
+            # Today's Check-in Count
+            cursor.execute("SELECT COUNT(*) as cnt FROM attendance WHERE date = CURDATE() AND status = 'present'")
+            today_attendance = cursor.fetchone()['cnt']
+
+            # Today's Total Fees Collected
+            cursor.execute("SELECT SUM(amount) as total FROM payments WHERE payment_date = CURDATE()")
+            today_fees = float(cursor.fetchone()['total'] or 0.0)
+
+            # Live Stream of Recent Fee Payments
+            cursor.execute("""
+                SELECT p.id, p.amount, p.payment_date, p.period, u.name as student_name, c.subject
+                FROM payments p
+                JOIN users u ON p.student_id = u.id
+                JOIN classes c ON p.class_id = c.id
+                ORDER BY p.id DESC LIMIT 6
+            """)
+            recent_payments = cursor.fetchall()
+
             # Recent User Signups
             cursor.execute("SELECT id, name, email, role, created_at FROM users ORDER BY id DESC LIMIT 5")
             recent_users = cursor.fetchall()
@@ -48,6 +66,9 @@ def dashboard():
                                    total_students_count=total_students_count,
                                    total_staff_count=total_staff_count,
                                    total_revenue=total_revenue,
+                                   today_attendance=today_attendance,
+                                   today_fees=today_fees,
+                                   recent_payments=recent_payments,
                                    pending_parent_requests_count=pending_parent_requests_count,
                                    total_classes_count=total_classes_count,
                                    recent_users=recent_users)

@@ -68,6 +68,35 @@
     </div>
 </div>
 
+<!-- Today's Campus Operational Pulse (Real-Time Telemetry) -->
+<div class="card mb-6" style="border-top: 3px solid var(--primary); padding: 1.15rem 1.35rem; background: #fafafa;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <span style="font-size: 0.725rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Real-Time Campus Telemetry</span>
+            <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0.1rem 0 0 0;">Today's Operational Pulse</h2>
+        </div>
+        <span class="badge badge-primary" style="font-size: 0.72rem; padding: 0.3rem 0.65rem;">Live Shift Tracking</span>
+    </div>
+    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+        <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; border-left: 4px solid var(--primary); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 0.25rem;">Students Checked-in Today</span>
+                <span style="font-size: 1.75rem; font-weight: 800; color: var(--primary);">{{ today_attendance }}</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">Verified QR & Manual Scans</span>
+            </div>
+            <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.35rem 0.65rem;">View Roster &rarr;</a>
+        </div>
+        <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; border-left: 4px solid var(--success); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 0.25rem;">Tuition Fees Collected Today</span>
+                <span style="font-size: 1.75rem; font-weight: 800; color: var(--success);">LKR {{ "{:,.0f}".format(today_fees) }}</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">Cash & Physical Counter Receipts</span>
+            </div>
+            <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.35rem 0.65rem;">Audit Ledger &rarr;</a>
+        </div>
+    </div>
+</div>
+
 <!-- Main 2-Column Grid -->
 <div class="grid dashboard-operational-grid" style="grid-template-columns: 65% 35%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
     
@@ -140,6 +169,65 @@
                 </div>
 
             </div>
+        </div>
+
+        <!-- Live Recent Payments Audit Ledger -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Recent Tuition Payments Ledger</h2>
+                    <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Real-time feed of physical and online tuition fee receipts across all classes.</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; background: var(--success); border-color: var(--success);">
+                        + Collect Fee
+                    </a>
+                    <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                        Full Ledger &rarr;
+                    </a>
+                </div>
+            </div>
+
+            {% if recent_payments %}
+                <div class="table-container" style="border: none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Receipt</th>
+                                <th>Student</th>
+                                <th>Class Subject</th>
+                                <th>Billing Period</th>
+                                <th>Payment Date</th>
+                                <th style="text-align: right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in recent_payments %}
+                            <tr>
+                                <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">#REC-{{ p.id }}</td>
+                                <td style="font-weight: 600; color: var(--text-main);">{{ p.student_name }}</td>
+                                <td><span class="badge badge-purple" style="font-size: 0.72rem;">{{ p.subject }}</span></td>
+                                <td class="text-muted" style="font-size: 0.8rem;">{{ p.period }}</td>
+                                <td class="text-muted" style="font-size: 0.8rem;">
+                                    {% if p.payment_date %}
+                                        {{ p.payment_date.strftime('%b %d, %Y') if p.payment_date.strftime is defined else p.payment_date }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="font-weight: 800; color: var(--success); text-align: right;">
+                                    LKR {{ "{:,.2f}".format(p.amount) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+                    <p style="font-size: 0.85rem; margin: 0;">No payment transactions recorded in the system yet.</p>
+                </div>
+            {% endif %}
         </div>
 
     </div>
