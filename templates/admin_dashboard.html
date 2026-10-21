@@ -372,6 +372,82 @@
             {% endif %}
         </div>
 
+        <!-- Urgent Daily Action & Institutional SLA Queue -->
+        <div class="card" style="border-top: 4px solid var(--warning);">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>Daily Operational SLA Queue</span>
+                <span class="badge badge-warning" style="font-size: 0.7rem;">Attention</span>
+            </h3>
+
+            {% if total_ungraded_submissions > 0 %}
+                <div class="task-item-card" style="border-left: 3px solid var(--warning);">
+                    <div>
+                        <strong style="font-size: 0.85rem; color: var(--text-main);">{{ total_ungraded_submissions }} Ungraded LMS Submissions</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Across teacher classes awaiting grade SLA turnaround</div>
+                    </div>
+                    <a href="{{ url_for('lms.index') }}" class="btn btn-primary" style="font-size: 0.725rem; padding: 0.25rem 0.6rem; background: var(--warning); border: none;">Review &rarr;</a>
+                </div>
+            {% endif %}
+
+            {% if low_attendance_count > 0 %}
+                <div class="task-item-card" style="border-left: 3px solid var(--danger);">
+                    <div>
+                        <strong style="font-size: 0.85rem; color: var(--danger);">Low Attendance Warning</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ low_attendance_count }} student(s) below 60% attendance</div>
+                    </div>
+                    <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-danger" style="font-size: 0.725rem; padding: 0.25rem 0.6rem;">Audit &rarr;</a>
+                </div>
+            {% endif %}
+
+            {% if total_ungraded_submissions == 0 and low_attendance_count == 0 %}
+                <p style="font-size: 0.85rem; color: var(--success); font-weight: 500; margin: 0; padding: 0.5rem 0;">
+                    All clear. No operational bottlenecks or attendance alerts.
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Today's Campus Running Classes -->
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.1rem;">
+                        Today's Campus Timetable
+                    </h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">{{ today_name }} &bull; Active Sessions</span>
+                </div>
+                <a href="{{ url_for('admin.manage_classes') }}" style="font-size: 0.75rem; color: var(--primary);">Manage &rarr;</a>
+            </div>
+
+            {% if todays_classes %}
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for c in todays_classes %}
+                        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">
+                                    {{ c.subject }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                    <span>Instructor: <strong>{{ c.teacher_name }}</strong></span> &bull;
+                                    <span>{{ c.schedule }}</span> &bull; 
+                                    <span>{{ c.student_count }} Students</span>
+                                </div>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('attendance.scan_attendance') }}?class_id={{ c.id }}" class="btn btn-primary" style="font-size: 0.725rem; padding: 0.3rem 0.65rem;">
+                                    Scan Pass
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 1.25rem 0.5rem; color: var(--text-muted); font-size: 0.825rem;">
+                    <p style="margin-bottom: 0.65rem;">No classes scheduled for today ({{ today_name }}).</p>
+                    <a href="{{ url_for('admin.manage_classes') }}" class="btn btn-outline" style="font-size: 0.725rem; padding: 0.25rem 0.6rem;">View All Classes &rarr;</a>
+                </div>
+            {% endif %}
+        </div>
+
         <!-- User Registration Launcher -->
         <div class="card" style="border-top: 4px solid var(--primary);">
             <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">Quick Account Provisioning</h3>

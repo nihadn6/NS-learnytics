@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session, render_template, redirec
 from database.db import get_db_connection
 from werkzeug.security import generate_password_hash
 import uuid
+import datetime
 from services.ai_risk_predictor import risk_predictor
 from services.student_of_month import get_or_calculate_student_of_the_month
 
@@ -108,6 +109,48 @@ def dashboard():
             # Student of the Month evaluation
             students_of_month, som_month_label = get_or_calculate_student_of_the_month(conn)
 
+            # Today's Scheduled Classes Across Campus
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.fee, u.name as teacher_name, COUNT(e.student_id) as student_count
+                FROM classes c
+                JOIN users u ON c.teacher_id = u.id
+                LEFT JOIN enrollments e ON c.id = e.class_id
+                GROUP BY c.id, c.subject, c.schedule, c.fee, u.name
+                ORDER BY c.subject
+            """)
+            all_classes = cursor.fetchall()
+
+            today_day_short = datetime.date.today().strftime('%a')
+            today_day_full = datetime.date.today().strftime('%A')
+            today_name = today_day_full
+
+            todays_classes = []
+            for c in all_classes:
+                sched = (c.get('schedule') or '').lower()
+                if today_day_short.lower() in sched or today_day_full.lower() in sched:
+                    todays_classes.append(c)
+
+            # Institutional Bottlenecks: Total Ungraded Submissions in LMS
+            cursor.execute("""
+                SELECT COUNT(*) as cnt
+                FROM assignment_submissions sub
+                WHERE sub.status = 'submitted'
+            """)
+            total_ungraded_submissions = cursor.fetchone()['cnt']
+
+            # Institutional Low Attendance Alert (<60%)
+            cursor.execute("""
+                SELECT e.student_id, u.name, 
+                       SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(a.id), 0) as attendance_pct
+                FROM enrollments e
+                JOIN users u ON e.student_id = u.id
+                LEFT JOIN attendance a ON e.class_id = a.class_id AND e.student_id = a.student_id
+                GROUP BY e.student_id, u.name
+                HAVING attendance_pct IS NOT NULL AND attendance_pct < 60
+            """)
+            low_attendance_students = cursor.fetchall()
+            low_attendance_count = len(low_attendance_students)
+
             # Recent User Signups
             cursor.execute("SELECT id, name, email, role, created_at FROM users ORDER BY id DESC LIMIT 5")
             recent_users = cursor.fetchall()
@@ -129,6 +172,10 @@ def dashboard():
                                    top_5_at_risk=top_5_at_risk,
                                    students_of_month=students_of_month,
                                    som_month_label=som_month_label,
+                                   todays_classes=todays_classes,
+                                   today_name=today_name,
+                                   total_ungraded_submissions=total_ungraded_submissions,
+                                   low_attendance_count=low_attendance_count,
                                    pending_parent_requests_count=pending_parent_requests_count,
                                    total_classes_count=total_classes_count,
                                    recent_users=recent_users)
