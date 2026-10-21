@@ -412,8 +412,28 @@ def admin_delete_class(class_id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Foreign keys use ON DELETE CASCADE: enrollments, attendance, marks, payments,
-            # materials, assignments (and submissions) and announcements are removed with the class.
+            # Delete dependents explicitly: MyISAM tables (e.g. MySQL 5.1 WAMP) ignore ON DELETE CASCADE.
+            from routes.lms import remove_upload
+            cursor.execute("SELECT file_path FROM materials WHERE class_id = %s", (class_id,))
+            for m in cursor.fetchall():
+                remove_upload(m['file_path'])
+            cursor.execute("SELECT attachment_path FROM assignments WHERE class_id = %s", (class_id,))
+            for a in cursor.fetchall():
+                remove_upload(a['attachment_path'])
+            cursor.execute("""
+                SELECT s.file_path FROM assignment_submissions s
+                JOIN assignments a ON s.assignment_id = a.id WHERE a.class_id = %s
+            """, (class_id,))
+            for s in cursor.fetchall():
+                remove_upload(s['file_path'])
+
+            cursor.execute("""
+                DELETE FROM assignment_submissions
+                WHERE assignment_id IN (SELECT id FROM assignments WHERE class_id = %s)
+            """, (class_id,))
+            for table in ('assignments', 'materials', 'announcements', 'marks',
+                          'attendance', 'payments', 'enrollments'):
+                cursor.execute("DELETE FROM " + table + " WHERE class_id = %s", (class_id,))
             cursor.execute("DELETE FROM classes WHERE id = %s", (class_id,))
         conn.commit()
     finally:

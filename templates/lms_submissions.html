@@ -12,7 +12,12 @@
             <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
                 Submission Roster: {{ assignment.title }}
             </h1>
-            <p class="text-muted" style="margin-bottom: 0;">Class: <strong>{{ assignment.subject }}</strong> | Max Score: <strong>{{ assignment.max_points }}</strong> | Due: <strong>{{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}</strong></p>
+            <p class="text-muted" style="margin-bottom: 0.5rem;">Class: <strong>{{ assignment.subject }}</strong>{% if session.role == 'superadmin' %} | Teacher: <strong>{{ assignment.teacher_name }}</strong>{% endif %} | Max Score: <strong>{{ assignment.max_points }}</strong> | Due: <strong>{{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}</strong></p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <span class="badge badge-primary">Submitted {{ counts.submitted }}/{{ counts.total }}</span>
+                <span class="badge badge-success">Graded {{ counts.graded }}</span>
+                <span class="badge badge-danger">Not submitted {{ counts.pending }}</span>
+            </div>
         </div>
     </div>
 </div>

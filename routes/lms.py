@@ -9,6 +9,10 @@ lms_bp = Blueprint('lms', __name__)
 # Use /tmp for Vercel (read-only filesystem) or static/uploads locally
 UPLOAD_FOLDER = '/tmp/lms_uploads' if os.environ.get('VERCEL') else os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads', 'lms')
 
+# Roles allowed to manage LMS content (teachers: own classes only, superadmin: every class)
+STAFF_ROLES = ('teacher', 'superadmin')
+
+
 def ensure_upload_folder():
     """Create upload folder lazily — only when actually needed."""
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -18,6 +22,75 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'ppt', 'pptx',
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_upload(file):
+    """Validate and store an uploaded file. Returns (stored_name, error_message)."""
+    if not file or not file.filename:
+        return None, None
+    if not allowed_file(file.filename):
+        return None, 'File format not allowed.'
+    ensure_upload_folder()
+    fname = secure_filename(file.filename)
+    stored = datetime.datetime.now().strftime('%Y%m%d%H%M%S_') + fname
+    file.save(os.path.join(UPLOAD_FOLDER, stored))
+    return stored, None
+
+
+def remove_upload(stored_name):
+    if not stored_name:
+        return
+    try:
+        os.remove(os.path.join(UPLOAD_FOLDER, stored_name))
+    except OSError:
+        pass
+
+
+def class_owner_if_manageable(cursor, class_id):
+    """Return the owning teacher_id of a class if the current user may manage it
+    (the owning teacher, or a superadmin for any class); otherwise None."""
+    role = session.get('role')
+    if role == 'teacher':
+        cursor.execute("SELECT teacher_id FROM classes WHERE id = %s AND teacher_id = %s",
+                       (class_id, session['user_id']))
+    elif role == 'superadmin':
+        cursor.execute("SELECT teacher_id FROM classes WHERE id = %s", (class_id,))
+    else:
+        return None
+    row = cursor.fetchone()
+    return row['teacher_id'] if row else None
+
+
+def build_overview(cursor, teacher_filter=None):
+    """Per-class LMS activity summary used by the admin oversight table."""
+    query = """
+        SELECT c.id, c.subject, u.name AS teacher_name,
+               (SELECT COUNT(*) FROM materials m WHERE m.class_id = c.id) AS materials_count,
+               (SELECT COUNT(*) FROM assignments a WHERE a.class_id = c.id) AS assignments_count,
+               (SELECT COUNT(*) FROM assignment_submissions s
+                  JOIN assignments a ON s.assignment_id = a.id WHERE a.class_id = c.id) AS submitted_count,
+               (SELECT COUNT(*) FROM assignment_submissions s
+                  JOIN assignments a ON s.assignment_id = a.id
+                  WHERE a.class_id = c.id AND s.status = 'graded') AS graded_count,
+               (SELECT COUNT(*) FROM assignment_submissions s
+                  JOIN assignments a ON s.assignment_id = a.id
+                  WHERE a.class_id = c.id AND s.status = 'submitted'
+                    AND s.submitted_at < DATE_SUB(NOW(), INTERVAL 7 DAY)) AS overdue_ungraded
+        FROM classes c
+        JOIN users u ON c.teacher_id = u.id
+    """
+    params = []
+    if teacher_filter:
+        query += " WHERE c.teacher_id = %s"
+        params.append(int(teacher_filter))
+    query += " ORDER BY c.subject, u.name"
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    for r in rows:
+        submitted = r['submitted_count'] or 0
+        r['graded_pct'] = int(round((r['graded_count'] or 0) * 100.0 / submitted)) if submitted else None
+    return rows
+
 
 @lms_bp.route('/lms', methods=['GET'])
 def index():
@@ -30,10 +103,38 @@ def index():
 
     try:
         with conn.cursor() as cursor:
-            if role == 'teacher':
-                cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
-                classes = cursor.fetchall()
-                selected_class_id = request.args.get('class_id') or (classes[0]['id'] if classes else None)
+            if role in STAFF_ROLES:
+                is_admin = role == 'superadmin'
+                teacher_filter = (request.args.get('teacher_id') or '').strip()
+                teacher_filter = teacher_filter if teacher_filter.isdigit() else ''
+                teachers = []
+                overview = []
+
+                if is_admin:
+                    query = """
+                        SELECT c.id, c.subject, c.teacher_id, u.name AS teacher_name
+                        FROM classes c JOIN users u ON c.teacher_id = u.id
+                    """
+                    params = []
+                    if teacher_filter:
+                        query += " WHERE c.teacher_id = %s"
+                        params.append(int(teacher_filter))
+                    query += " ORDER BY c.subject, u.name"
+                    cursor.execute(query, tuple(params))
+                    classes = cursor.fetchall()
+                    cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                    teachers = cursor.fetchall()
+                    overview = build_overview(cursor, teacher_filter or None)
+                else:
+                    cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
+                    classes = cursor.fetchall()
+
+                allowed_ids = [c['id'] for c in classes]
+                requested = (request.args.get('class_id') or '').strip()
+                if requested.isdigit() and int(requested) in allowed_ids:
+                    selected_class_id = int(requested)
+                else:
+                    selected_class_id = classes[0]['id'] if classes else None
 
                 materials = []
                 assignments = []
@@ -41,19 +142,20 @@ def index():
 
                 if selected_class_id:
                     cursor.execute("""
-                        SELECT m.*, c.subject 
-                        FROM materials m 
-                        JOIN classes c ON m.class_id = c.id 
-                        WHERE m.class_id = %s 
+                        SELECT m.*, c.subject, u.name AS teacher_name
+                        FROM materials m
+                        JOIN classes c ON m.class_id = c.id
+                        JOIN users u ON m.teacher_id = u.id
+                        WHERE m.class_id = %s
                         ORDER BY m.created_at DESC
                     """, (selected_class_id,))
                     materials = cursor.fetchall()
 
                     cursor.execute("""
-                        SELECT a.*, c.subject 
-                        FROM assignments a 
-                        JOIN classes c ON a.class_id = c.id 
-                        WHERE a.class_id = %s 
+                        SELECT a.*, c.subject
+                        FROM assignments a
+                        JOIN classes c ON a.class_id = c.id
+                        WHERE a.class_id = %s
                         ORDER BY a.created_at DESC
                     """, (selected_class_id,))
                     assignments = cursor.fetchall()
@@ -61,21 +163,29 @@ def index():
                     # Fetch submission counts per assignment
                     for a in assignments:
                         cursor.execute("""
-                            SELECT 
+                            SELECT
                                 COUNT(*) as total_sub,
                                 SUM(CASE WHEN status = 'graded' THEN 1 ELSE 0 END) as graded_sub
-                            FROM assignment_submissions 
+                            FROM assignment_submissions
                             WHERE assignment_id = %s
                         """, (a['id'],))
                         sub_row = cursor.fetchone()
+                        cursor.execute("SELECT COUNT(*) AS n FROM enrollments WHERE class_id = %s",
+                                       (selected_class_id,))
+                        sub_row['enrolled'] = cursor.fetchone()['n']
                         submissions_map[a['id']] = sub_row
 
-                return render_template('lms_teacher.html', 
-                                       classes=classes, 
-                                       selected_class_id=int(selected_class_id) if selected_class_id else None,
-                                       materials=materials, 
+                return render_template('lms_teacher.html',
+                                       classes=classes,
+                                       selected_class_id=selected_class_id,
+                                       materials=materials,
                                        assignments=assignments,
-                                       submissions_map=submissions_map)
+                                       submissions_map=submissions_map,
+                                       is_admin=is_admin,
+                                       teachers=teachers,
+                                       teacher_filter=teacher_filter,
+                                       overview=overview,
+                                       now=datetime.datetime.now())
 
             elif role in ('student', 'parent'):
                 target_student_id = user_id
@@ -140,11 +250,11 @@ def index():
 
 @lms_bp.route('/lms/material/upload', methods=['POST'])
 def upload_material():
-    if session.get('role') != 'teacher':
+    if session.get('role') not in STAFF_ROLES:
         return "Unauthorized", 403
 
     class_id = request.form.get('class_id')
-    title = request.form.get('title')
+    title = (request.form.get('title') or '').strip()
     description = request.form.get('description')
     file = request.files.get('file')
 
@@ -152,29 +262,24 @@ def upload_material():
         flash('Class and Title are required.', 'error')
         return redirect(url_for('lms.index'))
 
-    filename_saved = None
-    if file and file.filename:
-        if allowed_file(file.filename):
-            fname = secure_filename(file.filename)
-            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S_')
-            filename_saved = timestamp + fname
-            file.save(os.path.join(UPLOAD_FOLDER, filename_saved))
-        else:
-            flash('File format not allowed.', 'error')
-            return redirect(url_for('lms.index', class_id=class_id))
-
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Verify ownership
-            cursor.execute("SELECT 1 FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
-            if not cursor.fetchone():
+            # Teachers may only upload to their own classes; superadmin to any class.
+            owner_id = class_owner_if_manageable(cursor, class_id)
+            if not owner_id:
                 return "Unauthorized class", 403
 
+            filename_saved, err = save_upload(file)
+            if err:
+                flash(err, 'error')
+                return redirect(url_for('lms.index', class_id=class_id))
+
+            # Material is attributed to the class's teacher, even when uploaded by an admin.
             cursor.execute("""
                 INSERT INTO materials (class_id, teacher_id, title, description, file_path)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (class_id, session['user_id'], title, description, filename_saved))
+            """, (class_id, owner_id, title, description, filename_saved))
             conn.commit()
             flash('Study Material uploaded successfully!', 'success')
     finally:
@@ -185,20 +290,16 @@ def upload_material():
 
 @lms_bp.route('/lms/material/delete/<int:material_id>', methods=['POST'])
 def delete_material(material_id):
-    if session.get('role') != 'teacher':
+    if session.get('role') not in STAFF_ROLES:
         return "Unauthorized", 403
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT class_id, file_path FROM materials WHERE id = %s AND teacher_id = %s", (material_id, session['user_id']))
+            cursor.execute("SELECT class_id, file_path FROM materials WHERE id = %s", (material_id,))
             row = cursor.fetchone()
-            if row:
-                if row['file_path']:
-                    try:
-                        os.remove(os.path.join(UPLOAD_FOLDER, row['file_path']))
-                    except OSError:
-                        pass
+            if row and class_owner_if_manageable(cursor, row['class_id']):
+                remove_upload(row['file_path'])
                 cursor.execute("DELETE FROM materials WHERE id = %s", (material_id,))
                 conn.commit()
                 flash('Material deleted successfully.', 'success')
@@ -213,39 +314,44 @@ def delete_material(material_id):
 
 @lms_bp.route('/lms/assignment/create', methods=['POST'])
 def create_assignment():
-    if session.get('role') != 'teacher':
+    if session.get('role') not in STAFF_ROLES:
         return "Unauthorized", 403
 
     class_id = request.form.get('class_id')
-    title = request.form.get('title')
+    title = (request.form.get('title') or '').strip()
     description = request.form.get('description')
     due_date = request.form.get('due_date')
-    max_points = request.form.get('max_points', 100.0)
+    max_points = request.form.get('max_points') or 100.0
     file = request.files.get('file')
 
     if not class_id or not title or not due_date:
         flash('Class, Title, and Due Date are required.', 'error')
         return redirect(url_for('lms.index'))
 
-    filename_saved = None
-    if file and file.filename:
-        if allowed_file(file.filename):
-            fname = secure_filename(file.filename)
-            timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S_')
-            filename_saved = timestamp + fname
-            file.save(os.path.join(UPLOAD_FOLDER, filename_saved))
+    try:
+        max_points = float(max_points)
+        if max_points <= 0:
+            raise ValueError
+    except ValueError:
+        flash('Max Points must be a positive number.', 'error')
+        return redirect(url_for('lms.index', class_id=class_id))
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
-            if not cursor.fetchone():
+            owner_id = class_owner_if_manageable(cursor, class_id)
+            if not owner_id:
                 return "Unauthorized class", 403
+
+            filename_saved, err = save_upload(file)
+            if err:
+                flash(err, 'error')
+                return redirect(url_for('lms.index', class_id=class_id))
 
             cursor.execute("""
                 INSERT INTO assignments (class_id, teacher_id, title, description, due_date, max_points, attachment_path)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (class_id, session['user_id'], title, description, due_date, max_points, filename_saved))
+            """, (class_id, owner_id, title, description, due_date, max_points, filename_saved))
             conn.commit()
 
             # Notify enrolled students
@@ -265,22 +371,107 @@ def create_assignment():
     return redirect(url_for('lms.index', class_id=class_id))
 
 
+@lms_bp.route('/lms/assignment/<int:assignment_id>/edit', methods=['POST'])
+def edit_assignment(assignment_id):
+    if session.get('role') not in STAFF_ROLES:
+        return "Unauthorized", 403
+
+    title = (request.form.get('title') or '').strip()
+    description = request.form.get('description')
+    due_date = request.form.get('due_date')
+    max_points = request.form.get('max_points') or 100.0
+    file = request.files.get('file')
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT class_id, attachment_path FROM assignments WHERE id = %s", (assignment_id,))
+            row = cursor.fetchone()
+            if not row or not class_owner_if_manageable(cursor, row['class_id']):
+                return "Assignment not found or unauthorized", 404
+            class_id = row['class_id']
+
+            if not title or not due_date:
+                flash('Title and Due Date are required.', 'error')
+                return redirect(url_for('lms.index', class_id=class_id))
+            try:
+                max_points = float(max_points)
+                if max_points <= 0:
+                    raise ValueError
+            except ValueError:
+                flash('Max Points must be a positive number.', 'error')
+                return redirect(url_for('lms.index', class_id=class_id))
+
+            new_attachment, err = save_upload(file)
+            if err:
+                flash(err, 'error')
+                return redirect(url_for('lms.index', class_id=class_id))
+
+            if new_attachment:
+                remove_upload(row['attachment_path'])
+                cursor.execute("""
+                    UPDATE assignments
+                    SET title = %s, description = %s, due_date = %s, max_points = %s, attachment_path = %s
+                    WHERE id = %s
+                """, (title, description, due_date, max_points, new_attachment, assignment_id))
+            else:
+                cursor.execute("""
+                    UPDATE assignments
+                    SET title = %s, description = %s, due_date = %s, max_points = %s
+                    WHERE id = %s
+                """, (title, description, due_date, max_points, assignment_id))
+            conn.commit()
+            flash('Assignment updated successfully!', 'success')
+            return redirect(url_for('lms.index', class_id=class_id))
+    finally:
+        conn.close()
+
+
+@lms_bp.route('/lms/assignment/<int:assignment_id>/delete', methods=['POST'])
+def delete_assignment(assignment_id):
+    if session.get('role') not in STAFF_ROLES:
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT class_id, attachment_path FROM assignments WHERE id = %s", (assignment_id,))
+            row = cursor.fetchone()
+            if not row or not class_owner_if_manageable(cursor, row['class_id']):
+                return "Assignment not found or unauthorized", 404
+
+            cursor.execute("SELECT file_path FROM assignment_submissions WHERE assignment_id = %s", (assignment_id,))
+            for sub in cursor.fetchall():
+                remove_upload(sub['file_path'])
+            remove_upload(row['attachment_path'])
+
+            # Delete children explicitly: MyISAM tables (e.g. MySQL 5.1 WAMP) do not enforce ON DELETE CASCADE
+            cursor.execute("DELETE FROM assignment_submissions WHERE assignment_id = %s", (assignment_id,))
+            cursor.execute("DELETE FROM assignments WHERE id = %s", (assignment_id,))
+            conn.commit()
+            flash('Assignment and its submissions were deleted.', 'success')
+            return redirect(url_for('lms.index', class_id=row['class_id']))
+    finally:
+        conn.close()
+
+
 @lms_bp.route('/lms/assignment/<int:assignment_id>/submissions', methods=['GET'])
 def view_submissions(assignment_id):
-    if session.get('role') != 'teacher':
+    if session.get('role') not in STAFF_ROLES:
         return "Unauthorized", 403
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT a.*, c.subject 
+                SELECT a.*, c.subject, u.name AS teacher_name
                 FROM assignments a 
                 JOIN classes c ON a.class_id = c.id 
-                WHERE a.id = %s AND a.teacher_id = %s
-            """, (assignment_id, session['user_id']))
+                JOIN users u ON c.teacher_id = u.id
+                WHERE a.id = %s
+            """, (assignment_id,))
             assignment = cursor.fetchone()
-            if not assignment:
+            if not assignment or not class_owner_if_manageable(cursor, assignment['class_id']):
                 return "Assignment not found or unauthorized", 404
 
             cursor.execute("""
@@ -295,7 +486,14 @@ def view_submissions(assignment_id):
             """, (assignment_id, assignment['class_id']))
             roster = cursor.fetchall()
 
-            return render_template('lms_submissions.html', assignment=assignment, roster=roster)
+            counts = {
+                'total': len(roster),
+                'submitted': sum(1 for r in roster if r['submission_id']),
+                'graded': sum(1 for r in roster if r['status'] == 'graded'),
+                'pending': sum(1 for r in roster if not r['submission_id']),
+            }
+
+            return render_template('lms_submissions.html', assignment=assignment, roster=roster, counts=counts)
     finally:
         conn.close()
 
@@ -312,6 +510,7 @@ def submit_assignment():
     filename_saved = None
     if file and file.filename:
         if allowed_file(file.filename):
+            ensure_upload_folder()
             fname = secure_filename(file.filename)
             timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S_')
             filename_saved = timestamp + fname
@@ -342,7 +541,7 @@ def submit_assignment():
 
 @lms_bp.route('/lms/submission/<int:submission_id>/grade', methods=['POST'])
 def grade_submission(submission_id):
-    if session.get('role') != 'teacher':
+    if session.get('role') not in STAFF_ROLES:
         return "Unauthorized", 403
 
     marks_obtained = request.form.get('marks_obtained')
@@ -352,26 +551,35 @@ def grade_submission(submission_id):
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT sub.assignment_id, sub.student_id, a.title as assign_title
+                SELECT sub.assignment_id, sub.student_id, a.title as assign_title,
+                       a.class_id, a.max_points
                 FROM assignment_submissions sub
                 JOIN assignments a ON sub.assignment_id = a.id
-                WHERE sub.id = %s AND a.teacher_id = %s
-            """, (submission_id, session['user_id']))
+                WHERE sub.id = %s
+            """, (submission_id,))
             row = cursor.fetchone()
-            if not row:
+            if not row or not class_owner_if_manageable(cursor, row['class_id']):
                 return "Submission not found or unauthorized", 404
+
+            try:
+                marks_val = float(marks_obtained)
+                if marks_val < 0 or marks_val > float(row['max_points']):
+                    raise ValueError
+            except (TypeError, ValueError):
+                flash(f"Marks must be a number between 0 and {row['max_points']}.", 'error')
+                return redirect(url_for('lms.view_submissions', assignment_id=row['assignment_id']))
 
             cursor.execute("""
                 UPDATE assignment_submissions 
                 SET marks_obtained = %s, feedback = %s, status = 'graded'
                 WHERE id = %s
-            """, (marks_obtained, feedback, submission_id))
+            """, (marks_val, feedback, submission_id))
 
             # Send notification to student
             cursor.execute("""
                 INSERT INTO notifications (user_id, message, type)
                 VALUES (%s, %s, 'grade')
-            """, (row['student_id'], f"Your assignment '{row['assign_title']}' has been graded: {marks_obtained} marks."))
+            """, (row['student_id'], f"Your assignment '{row['assign_title']}' has been graded: {marks_val:g} marks."))
             conn.commit()
 
             flash('Grade and feedback saved successfully!', 'success')
