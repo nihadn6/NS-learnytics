@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Assessment - {{ test_name }} - NS Learnytics{% endblock %}
+
+{% block content %}
+<!-- Top Header Hero & Breadcrumb -->
+<div class="dashboard-hero-header">
+    <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+            <a href="{{ url_for('admin.dashboard') }}" style="color: var(--text-muted); text-decoration: none;">Admin Console</a>
+            <span>&rsaquo;</span>
+            <a href="{{ url_for('admin.manage_exams') }}" style="color: var(--text-muted); text-decoration: none;">Exam Registry</a>
+            <span>&rsaquo;</span>
+            <span style="color: var(--text-main); font-weight: 600;">Edit Assessment</span>
+        </div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Edit Assessment: {{ test_name }}
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">
+            Class: <strong>{{ class_info.subject }}</strong> &bull; Instructor: <strong>{{ teacher.name }}</strong> &bull; {{ class_info.schedule }}
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('admin.manage_exams') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            &larr; Back to Registry
+        </a>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('admin.edit_exam', class_id=class_info.id, test_name=test_name) }}" id="editExamForm">
+    
+    <!-- Assessment Configuration Card -->
+    <div class="card mb-6" style="border-top: 4px solid var(--primary); padding: 1.35rem 1.5rem;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.25rem;">Assessment Configuration</h2>
+        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">Modify assessment title, conducted date, or maximum scale points.</p>
+
+        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+            <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+                    Assessment Title <span style="color: var(--danger);">*</span>
+                </label>
+                <input type="text" name="new_test_name" value="{{ test_name }}" required
+                       style="width: 100%; padding: 0.55rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+                    Date Conducted <span style="color: var(--danger);">*</span>
+                </label>
+                <input type="date" name="date_recorded" value="{{ date_recorded }}" required
+                       style="width: 100%; padding: 0.55rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+                    Maximum Marks <span style="color: var(--danger);">*</span>
+                </label>
+                <input type="number" id="maxMarksInput" name="max_marks" value="{{ '{:g}'.format(max_marks|float) }}" step="0.5" min="1" max="1000" required
+                       oninput="recalcAllPercentages()"
+                       style="width: 100%; padding: 0.55rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Roster Scores Card -->
+    <div class="card mb-6">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Student Examination Scores Roster</h2>
+                <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Update individual student scores. Clear the box or check exclude to remove a score record.</p>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                Roster: <strong>{{ roster|length }}</strong> enrolled students
+            </div>
+        </div>
+
+        {% if roster %}
+            <div class="table-container" style="border: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Student Name & Contact</th>
+                            <th style="width: 25%;">Marks Awarded</th>
+                            <th style="width: 20%;">Calculated Score</th>
+                            <th style="width: 20%; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in roster %}
+                        {% set obt = s.marks_obtained %}
+                        {% set pct = (obt / max_marks * 100) if (obt is not none and max_marks > 0) else None %}
+                        <tr>
+                            <td>
+                                <strong style="color: var(--text-main); font-size: 0.9rem;">{{ s.student_name }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ s.student_email }}</div>
+                            </td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <input type="number" 
+                                           name="mark_{{ s.student_id }}" 
+                                           id="mark_input_{{ s.student_id }}" 
+                                           value="{{ '{:g}'.format(obt) if obt is not none else '' }}" 
+                                           step="0.1" 
+                                           min="0" 
+                                           placeholder="Not entered"
+                                           oninput="recalcRow({{ s.student_id }})"
+                                           style="width: 120px; padding: 0.45rem 0.65rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-weight: 700;">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">/ <span class="max-marks-label">{{ '{:g}'.format(max_marks|float) }}</span></span>
+                                </div>
+                            </td>
+                            <td>
+                                <span id="pct_badge_{{ s.student_id }}" 
+                                      class="badge {% if pct is not none %}{% if pct >= 75 %}badge-success{% elif pct >= 50 %}badge-warning{% else %}badge-danger{% endif %}{% else %}badge-secondary{% endif %}" 
+                                      style="font-size: 0.8rem;">
+                                    {% if pct is not none %}{{ "%.1f"|format(pct) }}%{% else %}Unassigned{% endif %}
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <label style="font-size: 0.75rem; color: var(--danger); cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    <input type="checkbox" name="delete_{{ s.student_id }}" value="1" onchange="toggleClearRow(this, {{ s.student_id }})">
+                                    <span>Exclude</span>
+                                </label>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="text-align: center; color: var(--text-muted); padding: 2rem; margin: 0;">No enrolled students found in this class section.</p>
+        {% endif %}
+    </div>
+
+    <!-- Submission Control Footer -->
+    <div class="card" style="padding: 1.15rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Changes will update institutional analytics and student report cards immediately.</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{{ url_for('admin.manage_exams') }}" class="btn btn-outline" style="font-size: 0.85rem;">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.55rem 1.25rem;">
+                Save Assessment & Scores
+            </button>
+        </div>
+    </div>
+
+</form>
+
+<script>
+    function getMaxMarks() {
+        const val = parseFloat(document.getElementById('maxMarksInput').value);
+        return (!isNaN(val) && val > 0) ? val : 100.0;
+    }
+
+    function recalcRow(studentId) {
+        const maxMarks = getMaxMarks();
+        const input = document.getElementById('mark_input_' + studentId);
+        const badge = document.getElementById('pct_badge_' + studentId);
+        const val = parseFloat(input.value);
+
+        if (isNaN(val) || input.value.trim() === '') {
+            badge.textContent = 'Unassigned';
+            badge.className = 'badge badge-secondary';
+            input.style.borderColor = 'var(--border)';
+            return;
+        }
+
+        if (val < 0 || val > maxMarks) {
+            badge.textContent = 'Over Limit!';
+            badge.className = 'badge badge-danger';
+            input.style.borderColor = 'var(--danger)';
+            return;
+        }
+
+        input.style.borderColor = 'var(--border)';
+        const pct = (val / maxMarks) * 100.0;
+        badge.textContent = pct.toFixed(1) + '%';
+        if (pct >= 75) {
+            badge.className = 'badge badge-success';
+        } else if (pct >= 50) {
+            badge.className = 'badge badge-warning';
+        } else {
+            badge.className = 'badge badge-danger';
+        }
+    }
+
+    function recalcAllPercentages() {
+        const maxMarks = getMaxMarks();
+        document.querySelectorAll('.max-marks-label').forEach(el => {
+            el.textContent = maxMarks;
+        });
+
+        document.querySelectorAll('input[id^="mark_input_"]').forEach(input => {
+            const sid = input.id.replace('mark_input_', '');
+            recalcRow(sid);
+        });
+    }
+
+    function toggleClearRow(checkbox, studentId) {
+        const input = document.getElementById('mark_input_' + studentId);
+        if (checkbox.checked) {
+            input.dataset.prevVal = input.value;
+            input.value = '';
+            input.disabled = true;
+            recalcRow(studentId);
+        } else {
+            input.disabled = false;
+            if (input.dataset.prevVal) {
+                input.value = input.dataset.prevVal;
+            }
+            recalcRow(studentId);
+        }
+    }
+
+    // Client-side form submission validation
+    document.getElementById('editExamForm').addEventListener('submit', function(e) {
+        const maxMarks = getMaxMarks();
+        let hasError = false;
+        let errorMsg = '';
+
+        document.querySelectorAll('input[id^="mark_input_"]').forEach(input => {
+            if (input.disabled || input.value.trim() === '') return;
+            const val = parseFloat(input.value);
+            if (val < 0 || val > maxMarks) {
+                hasError = true;
+                errorMsg = 'A student mark (' + val + ') exceeds the Maximum Marks limit (' + maxMarks + ').';
+                input.focus();
+            }
+        });
+
+        if (hasError) {
+            e.preventDefault();
+            alert(errorMsg);
+        }
+    });
+</script>
+{% endblock %}

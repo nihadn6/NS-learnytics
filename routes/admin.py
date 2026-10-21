@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
+from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
 from database.db import get_db_connection
 from werkzeug.security import generate_password_hash
 import uuid
@@ -659,3 +659,250 @@ def admin_unenroll_student(class_id, student_id):
     finally:
         conn.close()
     return redirect(url_for('admin.admin_class_roster', class_id=class_id))
+
+
+@admin_bp.route('/admin/exams', methods=['GET'])
+def manage_exams():
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Query all distinct exams across all classes
+            cursor.execute("""
+                SELECT 
+                    m.class_id, 
+                    m.test_name, 
+                    c.subject, 
+                    c.schedule,
+                    u.id as teacher_id, 
+                    u.name as teacher_name, 
+                    MAX(m.max_marks) as max_marks, 
+                    MIN(m.date_recorded) as date_recorded,
+                    COUNT(m.student_id) as student_count,
+                    AVG(m.marks_obtained / m.max_marks * 100) as avg_pct
+                FROM marks m
+                JOIN classes c ON m.class_id = c.id
+                JOIN users u ON c.teacher_id = u.id
+                GROUP BY m.class_id, m.test_name, c.subject, c.schedule, u.id, u.name
+                ORDER BY MIN(m.date_recorded) DESC, m.test_name ASC
+            """)
+            exams = cursor.fetchall()
+
+            # Teachers for filter
+            cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+            teachers = cursor.fetchall()
+
+            # Classes for filter
+            cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+            classes = cursor.fetchall()
+
+            # Global summary stats
+            cursor.execute("SELECT COUNT(*) as cnt, AVG(marks_obtained / max_marks * 100) as avg_score FROM marks")
+            summary = cursor.fetchone()
+            total_records_count = summary['cnt'] if summary else 0
+            overall_avg_pct = float(summary['avg_score'] or 0.0) if summary else 0.0
+
+            return render_template('admin_exams.html',
+                                   exams=exams,
+                                   teachers=teachers,
+                                   classes=classes,
+                                   total_records_count=total_records_count,
+                                   overall_avg_pct=overall_avg_pct)
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/admin/exams/<int:class_id>/<path:test_name>/edit', methods=['GET', 'POST'])
+def edit_exam(class_id, test_name):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Fetch class details & instructor
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.teacher_id, u.name as teacher_name, u.email as teacher_email
+                FROM classes c
+                JOIN users u ON c.teacher_id = u.id
+                WHERE c.id = %s
+            """, (class_id,))
+            class_row = cursor.fetchone()
+            if not class_row:
+                return "Class not found", 404
+
+            class_info = {
+                'id': class_row['id'],
+                'subject': class_row['subject'],
+                'schedule': class_row['schedule']
+            }
+            teacher = {
+                'id': class_row['teacher_id'],
+                'name': class_row['teacher_name'],
+                'email': class_row['teacher_email']
+            }
+
+            if request.method == 'GET':
+                # Fetch exam metadata
+                cursor.execute("""
+                    SELECT MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded
+                    FROM marks
+                    WHERE class_id = %s AND test_name = %s
+                """, (class_id, test_name))
+                meta = cursor.fetchone()
+                if not meta or meta['max_marks'] is None:
+                    flash(f"Assessment '{test_name}' not found for this class.", "error")
+                    return redirect(url_for('admin.manage_exams'))
+
+                max_marks = float(meta['max_marks'] or 100.0)
+                date_recorded = str(meta['date_recorded']) if meta['date_recorded'] else ''
+
+                # Fetch enrolled students
+                cursor.execute("""
+                    SELECT u.id, u.name, u.email
+                    FROM enrollments e
+                    JOIN users u ON e.student_id = u.id
+                    WHERE e.class_id = %s
+                    ORDER BY u.name
+                """, (class_id,))
+                enrolled_students = cursor.fetchall()
+
+                # Fetch existing marks for this exam
+                cursor.execute("""
+                    SELECT id, student_id, marks_obtained
+                    FROM marks
+                    WHERE class_id = %s AND test_name = %s
+                """, (class_id, test_name))
+                existing_marks = cursor.fetchall()
+                marks_by_student = {m['student_id']: m for m in existing_marks}
+
+                roster = []
+                enrolled_ids = set()
+                for s in enrolled_students:
+                    enrolled_ids.add(s['id'])
+                    m = marks_by_student.get(s['id'])
+                    roster.append({
+                        'student_id': s['id'],
+                        'student_name': s['name'],
+                        'student_email': s['email'],
+                        'mark_id': m['id'] if m else None,
+                        'marks_obtained': float(m['marks_obtained']) if m else None,
+                        'has_mark': m is not None
+                    })
+
+                # Check if any unenrolled students still hold marks for this test
+                for m in existing_marks:
+                    if m['student_id'] not in enrolled_ids:
+                        cursor.execute("SELECT name, email FROM users WHERE id = %s", (m['student_id'],))
+                        u = cursor.fetchone()
+                        roster.append({
+                            'student_id': m['student_id'],
+                            'student_name': (u['name'] + ' (Unenrolled)') if u else f"Learner #{m['student_id']}",
+                            'student_email': u['email'] if u else '',
+                            'mark_id': m['id'],
+                            'marks_obtained': float(m['marks_obtained']),
+                            'has_mark': True
+                        })
+
+                return render_template('admin_exam_edit.html',
+                                       class_info=class_info,
+                                       teacher=teacher,
+                                       test_name=test_name,
+                                       max_marks=max_marks,
+                                       date_recorded=date_recorded,
+                                       roster=roster)
+
+            # POST: Save updates
+            data = request.form
+            new_test_name = (data.get('new_test_name') or '').strip()
+            date_recorded = (data.get('date_recorded') or '').strip()
+            max_marks_str = (data.get('max_marks') or '100').strip()
+
+            if not new_test_name:
+                flash('Assessment title cannot be empty.', 'error')
+                return redirect(url_for('admin.edit_exam', class_id=class_id, test_name=test_name))
+
+            try:
+                max_marks = float(max_marks_str)
+                if max_marks <= 0:
+                    raise ValueError()
+            except ValueError:
+                flash('Maximum marks must be a positive number.', 'error')
+                return redirect(url_for('admin.edit_exam', class_id=class_id, test_name=test_name))
+
+            # Fetch enrolled & existing student IDs
+            cursor.execute("SELECT student_id FROM enrollments WHERE class_id = %s", (class_id,))
+            all_sids = {r['student_id'] for r in cursor.fetchall()}
+            cursor.execute("SELECT student_id FROM marks WHERE class_id = %s AND test_name = %s", (class_id, test_name))
+            all_sids.update(r['student_id'] for r in cursor.fetchall())
+
+            # Validate all scores first
+            student_scores = {}
+            for sid in all_sids:
+                is_delete = data.get(f'delete_{sid}')
+                mark_val_str = (data.get(f'mark_{sid}') or '').strip()
+
+                if is_delete or mark_val_str == '':
+                    student_scores[sid] = None
+                else:
+                    try:
+                        m_val = float(mark_val_str)
+                        if m_val < 0 or m_val > max_marks:
+                            cursor.execute("SELECT name FROM users WHERE id = %s", (sid,))
+                            s_name = (cursor.fetchone() or {}).get('name', f"Student #{sid}")
+                            flash(f"Score for {s_name} ({m_val}) exceeds maximum marks ({max_marks}).", 'error')
+                            return redirect(url_for('admin.edit_exam', class_id=class_id, test_name=test_name))
+                        student_scores[sid] = m_val
+                    except ValueError:
+                        flash(f"Invalid score format entered for learner #{sid}.", 'error')
+                        return redirect(url_for('admin.edit_exam', class_id=class_id, test_name=test_name))
+
+            # Apply updates / deletions / insertions
+            for sid, m_val in student_scores.items():
+                if m_val is None:
+                    cursor.execute("DELETE FROM marks WHERE class_id = %s AND test_name = %s AND student_id = %s",
+                                   (class_id, test_name, sid))
+                else:
+                    cursor.execute("SELECT id FROM marks WHERE class_id = %s AND test_name = %s AND student_id = %s",
+                                   (class_id, test_name, sid))
+                    row = cursor.fetchone()
+                    if row:
+                        cursor.execute("""
+                            UPDATE marks
+                            SET marks_obtained = %s, max_marks = %s, date_recorded = %s, test_name = %s
+                            WHERE id = %s
+                        """, (m_val, max_marks, date_recorded, new_test_name, row['id']))
+                    else:
+                        cursor.execute("""
+                            INSERT INTO marks (class_id, student_id, test_name, marks_obtained, max_marks, date_recorded)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (class_id, sid, new_test_name, m_val, max_marks, date_recorded))
+
+            # If test_name changed, rename any remaining unedited records
+            if new_test_name != test_name:
+                cursor.execute("UPDATE marks SET test_name = %s WHERE class_id = %s AND test_name = %s",
+                               (new_test_name, class_id, test_name))
+
+            conn.commit()
+            flash(f"Assessment '{new_test_name}' and student scores successfully updated!", 'success')
+            return redirect(url_for('admin.manage_exams'))
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/admin/exams/<int:class_id>/<path:test_name>/delete', methods=['POST'])
+def delete_exam(class_id, test_name):
+    if not _admin_guard():
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM marks WHERE class_id = %s AND test_name = %s", (class_id, test_name))
+            conn.commit()
+            flash(f"Assessment '{test_name}' and all associated student scores have been permanently deleted.", 'success')
+            return redirect(url_for('admin.manage_exams'))
+    finally:
+        conn.close()

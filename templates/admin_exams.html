@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Examination Management - NS Learnytics{% endblock %}
+
+{% block content %}
+<!-- Top Header Hero -->
+<div class="dashboard-hero-header">
+    <div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Global Examination Registry
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Institutional assessment records, score corrections, and academic grading oversight.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{{ url_for('performance.add_marks') }}" class="btn btn-primary" style="padding: 0.55rem 1rem; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <span>+ Record Assessment</span>
+        </a>
+        <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            <span>Performance Sheets &rarr;</span>
+        </a>
+    </div>
+</div>
+
+<!-- Macro KPI Stat Grid -->
+<div class="stat-grid mb-6">
+    <div class="stat-card" style="border-left: 4px solid var(--primary);">
+        <span class="stat-label">Conducted Assessments</span>
+        <span class="stat-value" style="color: var(--primary);">{{ exams|length }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Total Exams Held</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--info);">
+        <span class="stat-label">Graded Learner Records</span>
+        <span class="stat-value" style="color: var(--info);">{{ total_records_count }}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Individual Test Papers</span>
+    </div>
+    <div class="stat-card" style="border-left: 4px solid var(--success);">
+        <span class="stat-label">Institutional Exam Average</span>
+        <span class="stat-value" style="color: var(--success); font-size: 1.85rem;">
+            {{ "%.1f"|format(overall_avg_pct) }}%
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Overall Student Mean</span>
+    </div>
+</div>
+
+<!-- Examination Roster Registry Card -->
+<div class="card mb-6">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700; margin-bottom: 0.2rem;">All Institutional Assessments</h2>
+            <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Comprehensive record of all tests recorded across every classroom and instructor.</p>
+        </div>
+        
+        <!-- Search and Filter Bar -->
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="examSearchInput" placeholder="Search assessment or class..." 
+                   onkeyup="filterExamsTable()" 
+                   style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 220px;">
+                   
+            <select id="teacherFilterSelect" onchange="filterExamsTable()" 
+                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <option value="">All Instructors</option>
+                {% for t in teachers %}
+                    <option value="{{ t.name }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+
+            <select id="classFilterSelect" onchange="filterExamsTable()" 
+                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                    <option value="{{ c.subject }}">{{ c.subject }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    {% if exams %}
+        <div class="table-container" style="border: none;">
+            <table id="examsTable">
+                <thead>
+                    <tr>
+                        <th>Class Section</th>
+                        <th>Instructor</th>
+                        <th>Assessment Title</th>
+                        <th>Date Conducted</th>
+                        <th>Max Marks</th>
+                        <th>Graded Turnout</th>
+                        <th>Class Average</th>
+                        <th style="text-align: right;">Administrative Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in exams %}
+                    {% set avg = (e.avg_pct or 0) | float %}
+                    <tr class="exam-row" 
+                        data-search="{{ (e.test_name ~ ' ' ~ e.subject ~ ' ' ~ e.teacher_name)|lower }}"
+                        data-teacher="{{ e.teacher_name }}"
+                        data-class="{{ e.subject }}">
+                        <td>
+                            <strong style="color: var(--text-main); font-size: 0.9rem;">{{ e.subject }}</strong>
+                            <div style="font-size: 0.725rem; color: var(--text-muted);">{{ e.schedule }}</div>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.85rem; color: var(--text-main); font-weight: 500;">{{ e.teacher_name }}</span>
+                        </td>
+                        <td>
+                            <span class="badge badge-purple" style="font-size: 0.78rem; font-weight: 700;">
+                                {{ e.test_name }}
+                            </span>
+                        </td>
+                        <td class="text-muted" style="font-size: 0.825rem;">
+                            {{ e.date_recorded.strftime('%b %d, %Y') if e.date_recorded.strftime is defined else e.date_recorded }}
+                        </td>
+                        <td style="font-weight: 600; font-size: 0.85rem;">
+                            {{ "{:g}".format(e.max_marks|float) }}
+                        </td>
+                        <td>
+                            <span style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">{{ e.student_count }}</span>
+                            <span style="font-size: 0.725rem; color: var(--text-muted);">Learners</span>
+                        </td>
+                        <td>
+                            <span class="badge {% if avg >= 75 %}badge-success{% elif avg >= 50 %}badge-warning{% else %}badge-danger{% endif %}" style="font-size: 0.78rem;">
+                                {{ "%.1f"|format(avg) }}%
+                            </span>
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
+                                <a href="{{ url_for('performance.performance_report', class_id=e.class_id, test_name=e.test_name) }}" 
+                                   class="btn btn-outline" 
+                                   style="font-size: 0.725rem; padding: 0.3rem 0.55rem;"
+                                   title="View Performance Analytics Sheet">
+                                    Report
+                                </a>
+                                <a href="{{ url_for('admin.edit_exam', class_id=e.class_id, test_name=e.test_name) }}" 
+                                   class="btn btn-primary" 
+                                   style="font-size: 0.725rem; padding: 0.3rem 0.55rem; background: var(--primary);"
+                                   title="Edit Assessment Details & Student Scores">
+                                    Edit
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-danger" 
+                                        style="font-size: 0.725rem; padding: 0.3rem 0.55rem;"
+                                        onclick="confirmDeleteExam({{ e.class_id }}, '{{ e.test_name | escape }}', '{{ e.subject | escape }}', {{ e.student_count }})"
+                                        title="Permanently Delete Assessment">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+            <p style="font-size: 0.95rem; margin-bottom: 0.75rem;">No examination records exist in the system yet.</p>
+            <a href="{{ url_for('performance.add_marks') }}" class="btn btn-primary" style="font-size: 0.85rem;">
+                + Record First Assessment
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal: Delete Confirmation -->
+<div id="deleteExamModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: var(--radius); width: 100%; max-width: 480px; padding: 1.75rem; box-shadow: var(--shadow-lg); border-top: 5px solid var(--danger);">
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--danger); margin-bottom: 0.5rem;">
+            Delete Assessment Record
+        </h3>
+        <p style="font-size: 0.875rem; color: var(--text-main); margin-bottom: 0.75rem;">
+            Are you sure you want to permanently delete assessment <strong id="deleteModalExamTitle"></strong> for class <strong id="deleteModalClassTitle"></strong>?
+        </p>
+        <div style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem;">
+            <p style="font-size: 0.8rem; color: #991b1b; margin: 0;">
+                <strong>Warning:</strong> This will delete all <span id="deleteModalStudentCount"></span> student score records recorded for this assessment. This action cannot be undone.
+            </p>
+        </div>
+
+        <form id="deleteExamForm" method="POST" action="">
+            <div style="display: flex; justify-content: flex-end; gap: 0.65rem;">
+                <button type="button" class="btn btn-outline" onclick="closeDeleteModal()" style="font-size: 0.825rem;">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-danger" style="font-size: 0.825rem;">
+                    Yes, Permanently Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function filterExamsTable() {
+        const search = document.getElementById('examSearchInput').value.toLowerCase().trim();
+        const teacher = document.getElementById('teacherFilterSelect').value;
+        const className = document.getElementById('classFilterSelect').value;
+        const rows = document.querySelectorAll('.exam-row');
+
+        rows.forEach(row => {
+            const rowSearch = row.getAttribute('data-search') || '';
+            const rowTeacher = row.getAttribute('data-teacher') || '';
+            const rowClass = row.getAttribute('data-class') || '';
+
+            const matchesSearch = !search || rowSearch.includes(search);
+            const matchesTeacher = !teacher || rowTeacher === teacher;
+            const matchesClass = !className || rowClass === className;
+
+            if (matchesSearch && matchesTeacher && matchesClass) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function confirmDeleteExam(classId, testName, subjectName, studentCount) {
+        document.getElementById('deleteModalExamTitle').textContent = testName;
+        document.getElementById('deleteModalClassTitle').textContent = subjectName;
+        document.getElementById('deleteModalStudentCount').textContent = studentCount;
+        
+        const form = document.getElementById('deleteExamForm');
+        form.action = `/admin/exams/${classId}/${encodeURIComponent(testName)}/delete`;
+
+        const modal = document.getElementById('deleteExamModal');
+        modal.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteExamModal').style.display = 'none';
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('deleteExamModal');
+        if (event.target === modal) {
+            closeDeleteModal();
+        }
+    };
+</script>
+{% endblock %}

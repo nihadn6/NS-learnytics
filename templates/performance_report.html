@@ -143,8 +143,17 @@
                         {% endif %}
                     </h3>
                 </div>
-                <div style="font-size: 0.8rem; color: #065f46; font-weight: 600;">
-                    Max Possible Score: <span style="font-size: 0.95rem; font-weight: 800;">{{ exam_stats.max_marks }}</span>
+                <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                    <div style="font-size: 0.8rem; color: #065f46; font-weight: 600;">
+                        Max Possible Score: <span style="font-size: 0.95rem; font-weight: 800;">{{ exam_stats.max_marks }}</span>
+                    </div>
+                    {% if session.role == 'superadmin' and selected_class and exam_stats.test_name %}
+                    <a href="{{ url_for('admin.edit_exam', class_id=selected_class, test_name=exam_stats.test_name) }}" 
+                       class="btn btn-primary" 
+                       style="font-size: 0.725rem; padding: 0.25rem 0.6rem; background: var(--primary);">
+                        Edit Exam &rarr;
+                    </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
