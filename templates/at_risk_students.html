@@ -201,7 +201,7 @@
                     <td style="text-align: right; white-space: nowrap;">
                         <button type="button" 
                                 class="btn btn-outline" 
-                                onclick="openStudentRecordsModal({{ s.student_id }}, {{ s.class_id or 'null' }}, '{{ s.name|replace("'", "\\'") }}', '{{ (s.class_name or '')|replace("'", "\\'") }}')" 
+                                onclick="openStudentRecordsModal({{ s.student_id }}, {{ s.class_id or 'null' }}, '{{ s.name|replace("'", "\\'") }}', '{{ (s.class_name or '')|replace("'", "\\'") }}', {{ s.teacher_id or selected_teacher_id or 'null' }})" 
                                 style="padding: 0.25rem 0.55rem; font-size: 0.75rem; border-color: var(--primary); color: var(--primary); font-weight: 600;" 
                                 title="View attendance, marks, and fee payment history">
                             <svg style="width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -432,10 +432,13 @@ function applyLiveRiskFilters() {
 }
 
 /* Modal Functions */
-function openStudentRecordsModal(studentId, classId, studentName, className) {
+let activeModalTeacherId = null;
+
+function openStudentRecordsModal(studentId, classId, studentName, className, teacherId) {
     activeModalStudentId = studentId;
     activeModalClassId = classId;
     activeModalClassName = className || '';
+    activeModalTeacherId = teacherId || null;
 
     const modal = document.getElementById('studentHistoryModal');
     const modalName = document.getElementById('modalStudentName');
@@ -447,7 +450,7 @@ function openStudentRecordsModal(studentId, classId, studentName, className) {
     const scopeLabel = document.getElementById('modalClassScopeLabel');
 
     modalName.textContent = studentName || 'Student Records';
-    modalSub.textContent = className ? `Class: ${className}` : 'All Enrolled Classes';
+    modalSub.textContent = className ? `Class: ${className}` : 'Loading student records...';
     
     if (classId) {
         scopeContainer.style.display = 'flex';
@@ -462,7 +465,7 @@ function openStudentRecordsModal(studentId, classId, studentName, className) {
     modal.style.display = 'flex';
 
     switchModalTab('att');
-    fetchStudentRecordsData(studentId, classId);
+    fetchStudentRecordsData(studentId, classId, teacherId);
 }
 
 function closeStudentHistoryModal() {
@@ -473,7 +476,7 @@ function closeStudentHistoryModal() {
 function toggleModalClassScope() {
     const scopeCheckbox = document.getElementById('modalClassScopeCheckbox');
     const useClass = scopeCheckbox && scopeCheckbox.checked;
-    fetchStudentRecordsData(activeModalStudentId, useClass ? activeModalClassId : null);
+    fetchStudentRecordsData(activeModalStudentId, useClass ? activeModalClassId : null, activeModalTeacherId);
 }
 
 function switchModalTab(tab) {
@@ -497,7 +500,7 @@ function switchModalTab(tab) {
     });
 }
 
-function fetchStudentRecordsData(studentId, classId) {
+function fetchStudentRecordsData(studentId, classId, teacherId) {
     const loadingState = document.getElementById('modalLoadingState');
     const contentContainer = document.getElementById('modalContentContainer');
     
@@ -505,9 +508,10 @@ function fetchStudentRecordsData(studentId, classId) {
     contentContainer.style.display = 'none';
 
     let url = `/api/ai/student-records/${studentId}`;
-    if (classId) {
-        url += `?class_id=${classId}`;
-    }
+    const params = [];
+    if (classId) params.push(`class_id=${classId}`);
+    if (teacherId) params.push(`teacher_id=${teacherId}`);
+    if (params.length > 0) url += '?' + params.join('&');
 
     fetch(url)
         .then(res => {
@@ -528,13 +532,22 @@ function renderStudentHistoryModal(data) {
     const student = data.student || {};
     const gradeBadge = document.getElementById('modalGradeBadge');
     const modalSub = document.getElementById('modalStudentSub');
+    const scopeLabel = document.getElementById('modalClassScopeLabel');
     
     if (gradeBadge) {
         gradeBadge.textContent = student.grade ? `Grade ${student.grade}` : 'Student';
     }
     if (modalSub) {
-        const className = data.class ? data.class.subject : 'All Classes';
-        modalSub.textContent = `${student.email || ''} • Scope: ${className}`;
+        if (data.class) {
+            modalSub.textContent = `${student.email || ''} • Filter: Only ${data.class.subject}`;
+            if (scopeLabel) scopeLabel.textContent = `Only ${data.class.subject}`;
+        } else if (data.is_teacher_scoped) {
+            modalSub.textContent = `${student.email || ''} • Scope: All classes by ${data.teacher_name || 'this instructor'}`;
+            if (scopeLabel) scopeLabel.textContent = `Only ${activeModalClassName || 'class'}`;
+        } else {
+            modalSub.textContent = `${student.email || ''} • Scope: All enrolled classes`;
+            if (scopeLabel) scopeLabel.textContent = `Only ${activeModalClassName || 'class'}`;
+        }
     }
 
     // 1. Attendance KPI & Table

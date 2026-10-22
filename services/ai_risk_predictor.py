@@ -71,7 +71,7 @@ class StudentRiskPredictor:
                 class_info = None
                 if class_id:
                     cursor.execute("""
-                        SELECT c.id, c.subject, u.name as teacher_name 
+                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
                         FROM classes c
                         LEFT JOIN users u ON c.teacher_id = u.id
                         WHERE c.id = %s
@@ -184,6 +184,7 @@ class StudentRiskPredictor:
                     'email': student['email'],
                     'class_id': class_info['id'] if class_info else None,
                     'class_name': class_info['subject'] if class_info else None,
+                    'teacher_id': class_info.get('teacher_id') if class_info else None,
                     'teacher_name': class_info.get('teacher_name') if class_info else None,
                     'attendance_pct': round(att_pct, 1),
                     'recent_attendance_pct': round(rec_att_pct, 1),

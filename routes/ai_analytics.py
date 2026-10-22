@@ -204,13 +204,22 @@ def predict_single_student(student_id):
 @ai_analytics_bp.route('/api/ai/student-records/<int:student_id>', methods=['GET'])
 def get_student_records(student_id):
     """Fetch consolidated attendance, marks, and fee payment history for a student."""
-    if session.get('role') not in ('superadmin', 'admin', 'teacher', 'moderator'):
+    role = session.get('role')
+    user_id = session.get('user_id')
+    if role not in ('superadmin', 'admin', 'teacher', 'moderator'):
         return jsonify({'error': 'Unauthorized'}), 403
 
     raw_class_id = request.args.get('class_id')
     class_id = None
     if raw_class_id and raw_class_id.isdigit():
         class_id = int(raw_class_id)
+
+    raw_teacher_id = request.args.get('teacher_id')
+    teacher_id = None
+    if role == 'teacher':
+        teacher_id = user_id
+    elif raw_teacher_id and raw_teacher_id.isdigit():
+        teacher_id = int(raw_teacher_id)
 
     conn = get_db_connection()
     try:
@@ -229,26 +238,34 @@ def get_student_records(student_id):
             # 2. Selected Class details if filtered
             selected_class = None
             if class_id:
-                cursor.execute("SELECT id, subject FROM classes WHERE id = %s", (class_id,))
+                cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE id = %s", (class_id,))
                 selected_class = cursor.fetchone()
 
-            # 3. Attendance history
+            # Teacher name if teacher-scoped
+            teacher_name = None
+            if teacher_id:
+                cursor.execute("SELECT name FROM users WHERE id = %s", (teacher_id,))
+                t_row = cursor.fetchone()
+                if t_row:
+                    teacher_name = t_row['name']
+
+            # 3. Attendance history (isolated by class and/or teacher)
+            att_conditions = ["a.student_id = %s"]
+            att_params = [student_id]
             if class_id:
-                cursor.execute("""
-                    SELECT a.id, a.date, a.status, c.subject as class_name, a.class_id
-                    FROM attendance a 
-                    JOIN classes c ON a.class_id = c.id 
-                    WHERE a.student_id = %s AND a.class_id = %s
-                    ORDER BY a.date DESC
-                """, (student_id, class_id))
-            else:
-                cursor.execute("""
-                    SELECT a.id, a.date, a.status, c.subject as class_name, a.class_id
-                    FROM attendance a 
-                    JOIN classes c ON a.class_id = c.id 
-                    WHERE a.student_id = %s
-                    ORDER BY a.date DESC
-                """, (student_id,))
+                att_conditions.append("a.class_id = %s")
+                att_params.append(class_id)
+            if teacher_id:
+                att_conditions.append("c.teacher_id = %s")
+                att_params.append(teacher_id)
+
+            cursor.execute(f"""
+                SELECT a.id, a.date, a.status, c.subject as class_name, a.class_id
+                FROM attendance a 
+                JOIN classes c ON a.class_id = c.id 
+                WHERE {' AND '.join(att_conditions)}
+                ORDER BY a.date DESC
+            """, tuple(att_params))
             attendance_rows = cursor.fetchall()
 
             for row in attendance_rows:
@@ -260,23 +277,23 @@ def get_student_records(student_id):
             absent_sessions = sum(1 for a in attendance_rows if a['status'] == 'absent')
             att_pct = round((present_sessions / total_sessions * 100), 1) if total_sessions > 0 else 100.0
 
-            # 4. Exam marks history
+            # 4. Exam marks history (isolated by class and/or teacher)
+            marks_conditions = ["m.student_id = %s"]
+            marks_params = [student_id]
             if class_id:
-                cursor.execute("""
-                    SELECT m.id, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject as class_name, m.class_id
-                    FROM marks m 
-                    JOIN classes c ON m.class_id = c.id 
-                    WHERE m.student_id = %s AND m.class_id = %s
-                    ORDER BY m.date_recorded DESC
-                """, (student_id, class_id))
-            else:
-                cursor.execute("""
-                    SELECT m.id, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject as class_name, m.class_id
-                    FROM marks m 
-                    JOIN classes c ON m.class_id = c.id 
-                    WHERE m.student_id = %s
-                    ORDER BY m.date_recorded DESC
-                """, (student_id,))
+                marks_conditions.append("m.class_id = %s")
+                marks_params.append(class_id)
+            if teacher_id:
+                marks_conditions.append("c.teacher_id = %s")
+                marks_params.append(teacher_id)
+
+            cursor.execute(f"""
+                SELECT m.id, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject as class_name, m.class_id
+                FROM marks m 
+                JOIN classes c ON m.class_id = c.id 
+                WHERE {' AND '.join(marks_conditions)}
+                ORDER BY m.date_recorded DESC
+            """, tuple(marks_params))
             marks_rows = cursor.fetchall()
 
             for row in marks_rows:
@@ -290,23 +307,23 @@ def get_student_records(student_id):
 
             avg_mark = round(sum(m['percentage'] for m in marks_rows) / len(marks_rows), 1) if marks_rows else None
 
-            # 5. Fee payments history
+            # 5. Fee payments history (isolated by class and/or teacher)
+            pmts_conditions = ["p.student_id = %s"]
+            pmts_params = [student_id]
             if class_id:
-                cursor.execute("""
-                    SELECT p.id, p.amount, p.payment_date, p.period, c.subject as class_name, p.class_id
-                    FROM payments p 
-                    JOIN classes c ON p.class_id = c.id 
-                    WHERE p.student_id = %s AND p.class_id = %s
-                    ORDER BY p.payment_date DESC
-                """, (student_id, class_id))
-            else:
-                cursor.execute("""
-                    SELECT p.id, p.amount, p.payment_date, p.period, c.subject as class_name, p.class_id
-                    FROM payments p 
-                    JOIN classes c ON p.class_id = c.id 
-                    WHERE p.student_id = %s
-                    ORDER BY p.payment_date DESC
-                """, (student_id,))
+                pmts_conditions.append("p.class_id = %s")
+                pmts_params.append(class_id)
+            if teacher_id:
+                pmts_conditions.append("c.teacher_id = %s")
+                pmts_params.append(teacher_id)
+
+            cursor.execute(f"""
+                SELECT p.id, p.amount, p.payment_date, p.period, c.subject as class_name, p.class_id
+                FROM payments p 
+                JOIN classes c ON p.class_id = c.id 
+                WHERE {' AND '.join(pmts_conditions)}
+                ORDER BY p.payment_date DESC
+            """, tuple(pmts_params))
             payments_rows = cursor.fetchall()
 
             for row in payments_rows:
@@ -319,6 +336,8 @@ def get_student_records(student_id):
             return jsonify({
                 'student': student,
                 'class': selected_class,
+                'teacher_name': teacher_name,
+                'is_teacher_scoped': bool(teacher_id),
                 'attendance': {
                     'total_sessions': total_sessions,
                     'present_sessions': present_sessions,
