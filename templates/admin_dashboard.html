@@ -229,7 +229,7 @@
                 <!-- Station 6: Exam Results Management -->
                 <div class="quick-action-tile" style="border-top: 3px solid #ec4899;">
                     <div>
-                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem;">Exam Results Registry</h3>
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem;">Exam Registry & Corrections</h3>
                         <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">View, correct, edit student marks, or delete assessment records.</p>
                     </div>
                     <div style="display: flex; gap: 0.35rem;">
@@ -250,9 +250,7 @@
                     <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Institutional Academic Telemetry</h2>
                     <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Overall student score progression and examination performance brackets across all classes.</p>
                 </div>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <a href="{{ url_for('admin.manage_exams') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; background: var(--primary);">Manage Exams</a>
-                    <a href="{{ url_for('performance.import_marks_view') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">Import Sheet</a>
+                <div>
                     <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">Performance Sheets &rarr;</a>
                 </div>
             </div>

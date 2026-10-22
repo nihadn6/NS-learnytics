@@ -71,54 +71,109 @@
             
             <!-- Subject Attendance Progress -->
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
                     <div>
                         <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.2rem;">Attendance by Subject</h3>
                         <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Verified session attendance records across enrolled courses.</p>
                     </div>
+                    {% if current_student %}
+                        <a href="{{ url_for('parent.progress_report', student_id=current_student.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                            Full Progress Report &rarr;
+                        </a>
+                    {% endif %}
                 </div>
 
                 {% if attendance_summary %}
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem;">
                         {% for item in attendance_summary %}
-                            {% set pct = (item.percentage or 0) | float %}
+                            {% set has_sessions = (item.total_sessions and item.total_sessions > 0) %}
+                            {% set pct = (item.percentage or 0) | float if has_sessions else 0 %}
                             {% set pct_clamped = [pct, 0] | max %}
                             {% set pct_clamped = [pct_clamped, 100] | min %}
-                            {% if pct_clamped >= 75 %}
-                                {% set bar_color = 'var(--success)' %}
-                                {% set label_color = 'var(--success)' %}
-                            {% elif pct_clamped >= 60 %}
-                                {% set bar_color = 'var(--warning)' %}
-                                {% set label_color = 'var(--warning)' %}
+                            {% if has_sessions %}
+                                {% if pct_clamped >= 75 %}
+                                    {% set bar_color = 'var(--success)' %}
+                                    {% set badge_class = 'badge-success' %}
+                                    {% set status_text = 'Good Standing' %}
+                                {% elif pct_clamped >= 60 %}
+                                    {% set bar_color = 'var(--warning)' %}
+                                    {% set badge_class = 'badge-warning' %}
+                                    {% set status_text = 'Needs Attention' %}
+                                {% else %}
+                                    {% set bar_color = 'var(--danger)' %}
+                                    {% set badge_class = 'badge-danger' %}
+                                    {% set status_text = 'Critically Low' %}
+                                {% endif %}
                             {% else %}
-                                {% set bar_color = 'var(--danger)' %}
-                                {% set label_color = 'var(--danger)' %}
+                                {% set bar_color = 'var(--border)' %}
+                                {% set badge_class = '' %}
+                                {% set status_text = 'No sessions recorded yet' %}
                             {% endif %}
-                            <div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; margin-bottom: 0.4rem;">
-                                    <strong style="color: var(--text-main);">{{ item.subject }}</strong>
-                                    <span style="font-weight: 800; color: {{ label_color }};">
-                                        {{ "%.1f" | format(pct_clamped) }}%
-                                    </span>
+                            
+                            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; transition: all 0.15s ease;">
+                                <!-- Header: Subject & Teacher + Percentage Badge -->
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                                    <div>
+                                        <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">
+                                            {{ item.subject }}
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+                                            Instructor: <strong>{{ item.teacher_name or 'Assigned Staff' }}</strong> 
+                                            {% if item.schedule %}&bull; {{ item.schedule }}{% endif %}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right; flex-shrink: 0;">
+                                        {% if has_sessions %}
+                                            <span class="badge {{ badge_class }}" style="font-size: 0.8rem; font-weight: 800; padding: 0.25rem 0.6rem;">
+                                                {{ "%.1f" | format(pct_clamped) }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 0.75rem;">
+                                                Upcoming
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div style="background: var(--border); height: 9px; border-radius: 5px; overflow: hidden;">
-                                    <div style="width: {{ pct_clamped }}%; height: 100%; background: {{ bar_color }}; border-radius: 5px; transition: width 0.4s ease;"></div>
+
+                                <!-- Progress Bar Track -->
+                                <div style="background: var(--border); height: 8px; border-radius: 999px; overflow: hidden; margin-bottom: 0.5rem;">
+                                    <div style="width: {{ pct_clamped if has_sessions else 0 }}%; height: 100%; background: {{ bar_color }}; border-radius: 999px; transition: width 0.4s ease;"></div>
                                 </div>
-                                <div style="margin-top: 0.25rem; font-size: 0.72rem; color: var(--text-muted);">
-                                    {% if pct_clamped >= 75 %}
-                                        Status: Good attendance standing
-                                    {% elif pct_clamped >= 60 %}
-                                        Status: Attendance needs attention
-                                    {% else %}
-                                        Status: Critically low — follow up required
-                                    {% endif %}
+
+                                <!-- Metrics Row: Attended, Absent, Total & Status -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                                        {% if has_sessions %}
+                                            <span style="color: var(--text-muted);">
+                                                Attended: <strong style="color: var(--success);">{{ item.present_sessions or 0 }}</strong> / {{ item.total_sessions }}
+                                            </span>
+                                            {% if (item.absent_sessions or 0) > 0 %}
+                                                <span style="color: var(--danger); font-weight: 600;">
+                                                    Absent: {{ item.absent_sessions }}
+                                                </span>
+                                            {% else %}
+                                                <span style="color: var(--success); font-weight: 600;">
+                                                    0 Absences
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">No attendance sessions recorded yet</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        {% if has_sessions %}
+                                            <span style="font-weight: 600; color: {% if pct_clamped >= 75 %}var(--success){% elif pct_clamped >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                                                Status: {{ status_text }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
                 {% else %}
                     <div style="text-align: center; padding: 2rem 1rem;">
-                        <p style="color: var(--text-muted); margin: 0; font-size: 0.875rem;">No attendance records available for this student yet.</p>
+                        <p style="color: var(--text-muted); margin: 0; font-size: 0.875rem;">No enrolled courses or attendance records available for this student yet.</p>
                     </div>
                 {% endif %}
             </div>

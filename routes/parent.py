@@ -60,21 +60,30 @@ def dashboard():
             child_forecast = None
             
             if selected_student_id:
-                # Attendance — COALESCE ensures percentage is never NULL
+                # Attendance by Enrolled Subject & Class with full session breakdown
                 cursor.execute("""
-                    SELECT c.subject, 
+                    SELECT c.id as class_id,
+                           c.subject, 
+                           c.schedule,
+                           u.name as teacher_name,
+                           COUNT(a.id) as total_sessions,
+                           SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_sessions,
+                           SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_sessions,
                            COALESCE(
-                               LEAST(100, GREATEST(0,
-                                   SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0)
+                               LEAST(100.0, GREATEST(0.0,
+                                   SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(a.id), 0)
                                ))
-                           , 0) as percentage
-                    FROM attendance a
-                    JOIN classes c ON a.class_id = c.id
-                    WHERE a.student_id = %s
-                    GROUP BY c.id
-                    HAVING COUNT(*) > 0
+                           , NULL) as percentage
+                    FROM enrollments e
+                    JOIN classes c ON e.class_id = c.id
+                    LEFT JOIN users u ON c.teacher_id = u.id
+                    LEFT JOIN attendance a ON a.class_id = c.id AND a.student_id = e.student_id
+                    WHERE e.student_id = %s
+                    GROUP BY c.id, c.subject, c.schedule, u.name
+                    ORDER BY c.subject, c.id
                 """, (selected_student_id,))
                 attendance_summary = cursor.fetchall()
+
 
                 # Overall Attendance %
                 cursor.execute("""
