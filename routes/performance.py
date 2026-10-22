@@ -797,8 +797,8 @@ def download_marks_template(class_id):
         conn.close()
 
 
-@performance_bp.route('/marks/import', methods=['POST'])
-@performance_bp.route('/marks/bulk-upload', methods=['POST'])
+@performance_bp.route('/marks/import', methods=['POST'], endpoint='import_marks_post')
+@performance_bp.route('/marks/bulk-upload', methods=['POST'], endpoint='bulk_upload_marks')
 def import_marks_post():
     role = session.get('role')
     if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
@@ -813,23 +813,29 @@ def import_marks_post():
     default_date = (request.form.get('date_recorded') or '').strip()
     send_notifications = bool(request.form.get('send_notifications'))
     update_existing = bool(request.form.get('update_existing', True))
+    redirect_dest = (request.form.get('redirect_to') or '').strip()
     file = request.files.get('file')
+
+    def _get_redirect():
+        if redirect_dest:
+            return redirect_dest
+        return url_for('performance.import_marks_view', class_id=class_id) if class_id else url_for('performance.import_marks_view')
 
     if not class_id:
         flash('Please select a valid class section.', 'error')
-        return redirect(url_for('performance.import_marks_view'))
+        return redirect(_get_redirect())
 
     if not default_date:
         default_date = datetime.date.today().isoformat()
 
     if not file or not file.filename:
         flash('Please select an Excel (.xlsx) or CSV (.csv) file to import.', 'error')
-        return redirect(url_for('performance.import_marks_view', class_id=class_id))
+        return redirect(_get_redirect())
 
     filename = file.filename.lower()
     if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
         flash('Unsupported file format. Please upload a .xlsx or .csv exam results file.', 'error')
-        return redirect(url_for('performance.import_marks_view', class_id=class_id))
+        return redirect(_get_redirect())
 
     conn = get_db_connection()
     try:
@@ -1043,10 +1049,10 @@ def import_marks_post():
                 msg_parts.append(f"{skipped_blank} blank score(s) skipped.")
 
             flash(" ".join(msg_parts), "success" if total_graded > 0 else "info")
-            return redirect(url_for('performance.import_marks_view', class_id=class_id))
+            return redirect(_get_redirect())
     except Exception as e:
         flash(f'An unexpected error occurred during marks import: {str(e)}', 'error')
-        return redirect(url_for('performance.import_marks_view', class_id=class_id))
+        return redirect(_get_redirect())
     finally:
         conn.close()
 

@@ -145,23 +145,25 @@
             });
     });
 
-    function downloadTemplate() {
+    function downloadTemplate(fmt) {
         const cid = document.getElementById('csvClassSelect').value;
         if (!cid) {
             alert('Please select a class first to download its student template.');
             return;
         }
-        window.location.href = `/marks/template/${cid}`;
+        fmt = fmt || 'csv';
+        window.location.href = `/marks/template/${cid}?format=${fmt}`;
     }
 </script>
 
-<!-- CSV UPLOAD MODAL -->
+<!-- CSV & EXCEL UPLOAD MODAL -->
 <div id="csvModal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="font-weight: 700; margin-bottom: 0.25rem; color: var(--text-main);">Bulk Upload Marks via CSV</h3>
+        <h3 style="font-weight: 700; margin-bottom: 0.25rem; color: var(--text-main);">Bulk Upload Marks (Excel / CSV)</h3>
         <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1.25rem;">Download the class student template, fill in the marks, and upload it back.</p>
         
         <form action="{{ url_for('performance.bulk_upload_marks') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="redirect_to" value="{{ url_for('performance.add_marks') }}">
             <div class="form-group">
                 <label>Select Class *</label>
                 <select name="class_id" id="csvClassSelect" required class="input-field">
@@ -170,8 +172,10 @@
                         <option value="{{ c.id }}">{{ c.subject }}</option>
                     {% endfor %}
                 </select>
-                <div style="margin-top: 0.4rem;">
-                    <a href="javascript:void(0)" onclick="downloadTemplate()" style="font-size: 0.8rem; font-weight: 500;">Download Student CSV Template for this Class</a>
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.75rem; font-size: 0.8rem;">
+                    <a href="javascript:void(0)" onclick="downloadTemplate('csv')" style="font-weight: 600;">Download CSV Template</a>
+                    <span style="color: var(--text-muted);">&bull;</span>
+                    <a href="javascript:void(0)" onclick="downloadTemplate('xlsx')" style="font-weight: 600;">Download Excel (.xlsx) Template</a>
                 </div>
             </div>
 
@@ -191,9 +195,18 @@
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-                <label>Upload Filled CSV File *</label>
-                <input type="file" name="file" accept=".csv" required class="input-field">
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label>Upload Filled Spreadsheet (.xlsx or .csv) *</label>
+                <input type="file" name="file" accept=".csv, .xlsx, .xls" required class="input-field">
+            </div>
+
+            <div class="form-group" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 500; cursor: pointer;">
+                    <input type="checkbox" name="update_existing" value="1" checked> Allow updating existing grades
+                </label>
+                <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 500; cursor: pointer;">
+                    <input type="checkbox" name="send_notifications" value="1"> Notify parents & students
+                </label>
             </div>
 
             <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
