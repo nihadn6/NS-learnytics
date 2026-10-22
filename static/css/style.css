@@ -304,6 +304,121 @@ a:hover {
     color: #78350f;
 }
 
+/* Sidebar Collapsible Menus */
+.sidebar-collapsible {
+    margin-bottom: 0.2rem;
+}
+
+.sidebar-collapsible-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.525rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.sidebar-collapsible-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-collapsible-btn.active,
+.sidebar-collapsible.open > .sidebar-collapsible-btn {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-collapsible-btn svg:first-child {
+    width: 17px;
+    height: 17px;
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+
+.sidebar-collapsible-btn .collapsible-title {
+    flex: 1;
+}
+
+.sidebar-collapsible-btn .chevron-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.sidebar-collapsible.open .sidebar-collapsible-btn .chevron-icon {
+    transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+    display: none;
+    padding-left: 0.65rem;
+    margin: 0.2rem 0 0.35rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.1);
+    margin-left: 1.15rem;
+}
+
+.sidebar-collapsible.open .sidebar-submenu {
+    display: block;
+    animation: submenuFadeIn 0.2s ease-out;
+}
+
+@keyframes submenuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sidebar-sublink {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.425rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    margin-bottom: 0.15rem;
+}
+
+.sidebar-sublink:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.07);
+    transform: translateX(2px);
+}
+
+.sidebar-sublink.active {
+    color: #ffffff;
+    background: var(--primary);
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
+}
+
+.sidebar-sublink svg {
+    width: 15px;
+    height: 15px;
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+
 /* App Main Content Area */
 .app-main-content {
     flex: 1;
