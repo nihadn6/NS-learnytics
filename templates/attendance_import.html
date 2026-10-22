@@ -6,25 +6,10 @@
 <!-- Top Header Hero -->
 <div class="dashboard-hero-header">
     <div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
-            <a href="{% if session.role == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.role == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% else %}{{ url_for('analytics.teacher_dashboard') }}{% endif %}" style="color: var(--text-muted); text-decoration: none;">Dashboard</a>
-            <span>&rsaquo;</span>
-            <a href="{{ url_for('attendance.attendance_report') }}" style="color: var(--text-muted); text-decoration: none;">Attendance</a>
-            <span>&rsaquo;</span>
-            <span style="color: var(--text-main); font-weight: 600;">Offline Sheet Import</span>
-        </div>
         <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
             Offline Attendance Sheet Import
         </h1>
         <p class="text-muted" style="margin-bottom: 0;">Upload Excel or CSV attendance spreadsheets recorded during offline sessions, network outages, or system downtime.</p>
-    </div>
-    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="{{ url_for('attendance.scan_attendance') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
-            &larr; Rapid QR Scanner
-        </a>
-        <a href="{{ url_for('attendance.attendance_report') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
-            Attendance Reports &rarr;
-        </a>
     </div>
 </div>
 
