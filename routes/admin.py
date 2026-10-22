@@ -341,17 +341,66 @@ def manage_users():
     if session.get('role') != 'superadmin':
         return "Unauthorized", 403
 
+    staff_q = request.args.get('staff_q', '').strip()
+    student_q = request.args.get('student_q', '').strip()
+    staff_role = request.args.get('staff_role', '').strip()
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Fetch staff (teachers and moderators)
-            cursor.execute("SELECT id, name, email, role FROM users WHERE role IN ('teacher', 'moderator') ORDER BY role, name")
+            # Fetch staff (teachers and moderators) with optional search filter
+            staff_conditions = ["u.role IN ('teacher', 'moderator')"]
+            staff_params = []
+            if staff_role in ('teacher', 'moderator'):
+                staff_conditions.append("u.role = %s")
+                staff_params.append(staff_role)
+            if staff_q:
+                staff_conditions.append("(u.name LIKE %s OR u.email LIKE %s OR CAST(u.id AS CHAR) LIKE %s OR tp.subjects LIKE %s)")
+                param = f"%{staff_q}%"
+                staff_params.extend([param, param, param, param])
+
+            cursor.execute(f"""
+                SELECT u.id, u.name, u.email, u.role, tp.subjects
+                FROM users u
+                LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
+                WHERE {' AND '.join(staff_conditions)}
+                ORDER BY u.role, u.name
+            """, tuple(staff_params))
             staff = cursor.fetchall()
-            # Fetch students
-            cursor.execute("SELECT id, name, email, role FROM users WHERE role = 'student' ORDER BY name")
+
+            # Fetch students with optional search filter
+            student_conditions = ["u.role = 'student'"]
+            student_params = []
+            if student_q:
+                student_conditions.append("(u.name LIKE %s OR u.email LIKE %s OR CAST(u.id AS CHAR) LIKE %s OR sp.grade LIKE %s)")
+                param = f"%{student_q}%"
+                student_params.extend([param, param, param, param])
+
+            cursor.execute(f"""
+                SELECT u.id, u.name, u.email, u.role, sp.grade
+                FROM users u
+                LEFT JOIN student_profiles sp ON u.id = sp.user_id
+                WHERE {' AND '.join(student_conditions)}
+                ORDER BY u.name
+            """, tuple(student_params))
             students = cursor.fetchall()
 
-            return render_template('admin_manage_users.html', staff=staff, students=students)
+            # Total counts for badge display
+            cursor.execute("SELECT COUNT(*) as c FROM users WHERE role IN ('teacher', 'moderator')")
+            total_staff_count = cursor.fetchone()['c']
+            cursor.execute("SELECT COUNT(*) as c FROM users WHERE role = 'student'")
+            total_students_count = cursor.fetchone()['c']
+
+            return render_template(
+                'admin_manage_users.html',
+                staff=staff,
+                students=students,
+                staff_q=staff_q,
+                student_q=student_q,
+                staff_role=staff_role,
+                total_staff_count=total_staff_count,
+                total_students_count=total_students_count
+            )
     finally:
         conn.close()
 

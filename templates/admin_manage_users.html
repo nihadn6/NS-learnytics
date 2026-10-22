@@ -13,76 +13,190 @@
     </div>
 </div>
 
-<div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));">
-    <!-- Staff Table -->
-    <div class="card">
-        <h3 class="mb-4">System Staff Operators (Teachers & Clerks)</h3>
-        <div class="table-container">
-            <table>
+<div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); align-items: start;">
+    <!-- Staff Table Card -->
+    <div class="card" style="border-top: 4px solid var(--primary);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">System Staff Operators</h3>
+                <p class="text-muted" style="margin: 0; font-size: 0.8rem;">Instructors, academic coordinators, and system moderators</p>
+            </div>
+            <span class="badge badge-primary" id="staffCountBadge" style="font-size: 0.75rem;">
+                {{ staff|length }} Staff
+            </span>
+        </div>
+
+        <!-- Dedicated Staff Search Toolbar -->
+        <form id="staffSearchForm" action="{{ url_for('admin.manage_users') }}" method="GET" style="margin-top: 1rem; margin-bottom: 0.75rem;">
+            <input type="hidden" name="student_q" value="{{ student_q }}">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <div style="position: relative; flex: 1; min-width: 180px;">
+                    <svg style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-muted); pointer-events: none;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" name="staff_q" id="staffSearchInput" value="{{ staff_q }}" placeholder="Search staff by name, email, ID..." class="input-field" style="padding-left: 2.2rem; font-size: 0.825rem; height: 38px;">
+                </div>
+                <select name="staff_role" id="staffRoleSelect" class="input-field" style="width: auto; font-size: 0.825rem; height: 38px;">
+                    <option value="">All Roles</option>
+                    <option value="teacher" {% if staff_role == 'teacher' %}selected{% endif %}>Teachers Only</option>
+                    <option value="moderator" {% if staff_role == 'moderator' %}selected{% endif %}>Moderators Only</option>
+                </select>
+                <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem; height: 38px;">Search</button>
+                {% if staff_q or staff_role %}
+                <a href="{{ url_for('admin.manage_users', student_q=student_q) }}" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; height: 38px;">Reset</a>
+                {% endif %}
+            </div>
+        </form>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+            <span id="staffFeedbackText">Showing {{ staff|length }} of {{ total_staff_count }} staff member(s)</span>
+            <span id="staffLiveBadge" style="display: none; color: var(--primary); font-weight: 600;">Live Filtering</span>
+        </div>
+
+        <div class="table-container" style="max-height: 480px; overflow-y: auto;">
+            <table id="staffTable">
                 <thead>
                     <tr>
+                        <th style="width: 55px;">ID</th>
                         <th>Name</th>
                         <th>Email</th>
                         <th>Role</th>
-                        <th style="text-align: right;">Action</th>
+                        <th style="text-align: right; width: 85px;">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="staffTableBody">
                     {% for s in staff %}
-                    <tr>
-                        <td style="font-weight: 600;">{{ s.name }}</td>
-                        <td class="text-muted">{{ s.email }}</td>
+                    <tr class="staff-row" data-search="{{ (s.id ~ ' ' ~ s.name ~ ' ' ~ s.email ~ ' ' ~ s.role ~ ' ' ~ (s.subjects or ''))|lower }}" data-role="{{ s.role }}">
+                        <td style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">#{{ s.id }}</td>
                         <td>
-                            <span class="badge {% if s.role == 'teacher' %}badge-primary{% else %}badge-success{% endif %}">
+                            <div style="font-weight: 600;">{{ s.name }}</div>
+                            {% if s.subjects %}
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">{{ s.subjects }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="font-size: 0.82rem;">{{ s.email }}</td>
+                        <td>
+                            <span class="badge {% if s.role == 'teacher' %}badge-primary{% else %}badge-success{% endif %}" style="font-size: 0.72rem; text-transform: capitalize;">
                                 {{ s.role }}
                             </span>
                         </td>
                         <td style="text-align: right;">
                             <form action="{{ url_for('admin.delete_user', user_id=s.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to remove {{ s.name }} ({{ s.role }})?');">
-                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Remove</button>
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.55rem; font-size: 0.725rem;">Remove</button>
                             </form>
                         </td>
                     </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">No staff accounts configured.</td>
+                    <tr id="staffServerEmptyRow">
+                        <td colspan="5" class="text-center text-muted" style="padding: 2rem 1rem;">
+                            {% if staff_q or staff_role %}
+                            No staff members match the query "{{ staff_q }}".
+                            <div style="margin-top: 0.5rem;">
+                                <a href="{{ url_for('admin.manage_users', student_q=student_q) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Clear Staff Filter</a>
+                            </div>
+                            {% else %}
+                            No staff accounts configured.
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
+                    <tr id="staffClientEmptyRow" style="display: none;">
+                        <td colspan="5" class="text-center text-muted" style="padding: 2rem 1rem;">
+                            No staff members matched your live search.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- Students Table -->
-    <div class="card">
-        <h3 class="mb-4">Registered Students</h3>
-        <div class="table-container">
-            <table>
+    <!-- Students Table Card -->
+    <div class="card" style="border-top: 4px solid var(--success);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Registered Students</h3>
+                <p class="text-muted" style="margin: 0; font-size: 0.8rem;">Active enrolled students eligible for attendance, fees, and marks</p>
+            </div>
+            <span class="badge badge-success" id="studentCountBadge" style="font-size: 0.75rem;">
+                {{ students|length }} Students
+            </span>
+        </div>
+
+        <!-- Dedicated Student Search Toolbar -->
+        <form id="studentSearchForm" action="{{ url_for('admin.manage_users') }}" method="GET" style="margin-top: 1rem; margin-bottom: 0.75rem;">
+            <input type="hidden" name="staff_q" value="{{ staff_q }}">
+            <input type="hidden" name="staff_role" value="{{ staff_role }}">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <div style="position: relative; flex: 1; min-width: 220px;">
+                    <svg style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-muted); pointer-events: none;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" name="student_q" id="studentSearchInput" value="{{ student_q }}" placeholder="Search students by name, email, grade, ID..." class="input-field" style="padding-left: 2.2rem; font-size: 0.825rem; height: 38px;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem; height: 38px;">Search</button>
+                {% if student_q %}
+                <a href="{{ url_for('admin.manage_users', staff_q=staff_q, staff_role=staff_role) }}" class="btn btn-outline" style="padding: 0.4rem 0.75rem; font-size: 0.8rem; height: 38px;">Reset</a>
+                {% endif %}
+            </div>
+        </form>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+            <span id="studentFeedbackText">Showing {{ students|length }} of {{ total_students_count }} student(s)</span>
+            <span id="studentLiveBadge" style="display: none; color: var(--primary); font-weight: 600;">Live Filtering</span>
+        </div>
+
+        <div class="table-container" style="max-height: 480px; overflow-y: auto;">
+            <table id="studentTable">
                 <thead>
                     <tr>
+                        <th style="width: 55px;">ID</th>
                         <th>Name</th>
-                        <th>Email</th>
+                        <th>Email / Grade</th>
                         <th>Status</th>
-                        <th style="text-align: right;">Action</th>
+                        <th style="text-align: right; width: 85px;">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="studentTableBody">
                     {% for s in students %}
-                    <tr>
+                    <tr class="student-row" data-search="{{ (s.id ~ ' ' ~ s.name ~ ' ' ~ s.email ~ ' ' ~ (s.grade or ''))|lower }}">
+                        <td style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">#{{ s.id }}</td>
                         <td style="font-weight: 600;">{{ s.name }}</td>
-                        <td class="text-muted">{{ s.email }}</td>
-                        <td><span style="color: var(--success); font-weight: 600;">● Active</span></td>
+                        <td>
+                            <div class="text-muted" style="font-size: 0.82rem;">{{ s.email }}</div>
+                            {% if s.grade %}
+                            <div style="font-size: 0.72rem; color: var(--primary); font-weight: 500;">{{ s.grade }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge badge-success" style="font-size: 0.7rem; font-weight: 600;">
+                                Active
+                            </span>
+                        </td>
                         <td style="text-align: right;">
                             <form action="{{ url_for('admin.delete_user', user_id=s.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to remove student {{ s.name }}?');">
-                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Remove</button>
+                                <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.55rem; font-size: 0.725rem;">Remove</button>
                             </form>
                         </td>
                     </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted">No students found.</td>
+                    <tr id="studentServerEmptyRow">
+                        <td colspan="5" class="text-center text-muted" style="padding: 2rem 1rem;">
+                            {% if student_q %}
+                            No students match the query "{{ student_q }}".
+                            <div style="margin-top: 0.5rem;">
+                                <a href="{{ url_for('admin.manage_users', staff_q=staff_q, staff_role=staff_role) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Clear Student Filter</a>
+                            </div>
+                            {% else %}
+                            No students registered.
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
+                    <tr id="studentClientEmptyRow" style="display: none;">
+                        <td colspan="5" class="text-center text-muted" style="padding: 2rem 1rem;">
+                            No students matched your live search.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -199,5 +313,97 @@
             tabParentBtn.classList.add('active');
         }
     }
+
+    // --- LIVE SEARCH: STAFF OPERATORS ---
+    const staffInput = document.getElementById('staffSearchInput');
+    const staffRole = document.getElementById('staffRoleSelect');
+    const staffRows = Array.from(document.querySelectorAll('.staff-row'));
+    const staffClientEmpty = document.getElementById('staffClientEmptyRow');
+    const staffServerEmpty = document.getElementById('staffServerEmptyRow');
+    const staffFeedback = document.getElementById('staffFeedbackText');
+    const staffLiveBadge = document.getElementById('staffLiveBadge');
+    const staffTotalCount = {{ total_staff_count }};
+
+    function filterStaffTable() {
+        const query = (staffInput ? staffInput.value : '').trim().toLowerCase();
+        const role = (staffRole ? staffRole.value : '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        staffRows.forEach(row => {
+            const rowSearch = row.getAttribute('data-search') || '';
+            const rowRole = (row.getAttribute('data-role') || '').toLowerCase();
+
+            const matchesQuery = !query || rowSearch.includes(query);
+            const matchesRole = !role || rowRole === role;
+
+            if (matchesQuery && matchesRole) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (staffClientEmpty) {
+            staffClientEmpty.style.display = (visibleCount === 0 && staffRows.length > 0) ? '' : 'none';
+        }
+        if (staffServerEmpty) {
+            staffServerEmpty.style.display = (staffRows.length === 0) ? '' : 'none';
+        }
+
+        if (query || role) {
+            if (staffLiveBadge) staffLiveBadge.style.display = 'inline';
+            if (staffFeedback) staffFeedback.textContent = `Showing ${visibleCount} of ${staffTotalCount} staff member(s)`;
+        } else {
+            if (staffLiveBadge) staffLiveBadge.style.display = 'none';
+            if (staffFeedback) staffFeedback.textContent = `Showing ${visibleCount} of ${staffTotalCount} staff member(s)`;
+        }
+    }
+
+    if (staffInput) staffInput.addEventListener('input', filterStaffTable);
+    if (staffRole) staffRole.addEventListener('change', filterStaffTable);
+
+    // --- LIVE SEARCH: REGISTERED STUDENTS ---
+    const studentInput = document.getElementById('studentSearchInput');
+    const studentRows = Array.from(document.querySelectorAll('.student-row'));
+    const studentClientEmpty = document.getElementById('studentClientEmptyRow');
+    const studentServerEmpty = document.getElementById('studentServerEmptyRow');
+    const studentFeedback = document.getElementById('studentFeedbackText');
+    const studentLiveBadge = document.getElementById('studentLiveBadge');
+    const studentTotalCount = {{ total_students_count }};
+
+    function filterStudentTable() {
+        const query = (studentInput ? studentInput.value : '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        studentRows.forEach(row => {
+            const rowSearch = row.getAttribute('data-search') || '';
+            const matches = !query || rowSearch.includes(query);
+
+            if (matches) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (studentClientEmpty) {
+            studentClientEmpty.style.display = (visibleCount === 0 && studentRows.length > 0) ? '' : 'none';
+        }
+        if (studentServerEmpty) {
+            studentServerEmpty.style.display = (studentRows.length === 0) ? '' : 'none';
+        }
+
+        if (query) {
+            if (studentLiveBadge) studentLiveBadge.style.display = 'inline';
+            if (studentFeedback) studentFeedback.textContent = `Showing ${visibleCount} of ${studentTotalCount} student(s)`;
+        } else {
+            if (studentLiveBadge) studentLiveBadge.style.display = 'none';
+            if (studentFeedback) studentFeedback.textContent = `Showing ${visibleCount} of ${studentTotalCount} student(s)`;
+        }
+    }
+
+    if (studentInput) studentInput.addEventListener('input', filterStudentTable);
 </script>
 {% endblock %}
