@@ -193,7 +193,8 @@ def predict_single_student(student_id):
     if session.get('role') not in ('superadmin', 'admin', 'teacher', 'moderator'):
         return jsonify({'error': 'Unauthorized'}), 403
 
-    analysis = risk_predictor.predict_student_risk(student_id)
+    class_id = request.args.get('class_id')
+    analysis = risk_predictor.predict_student_risk(student_id, class_id=class_id)
     if not analysis:
         return jsonify({'error': 'Student not found'}), 404
 

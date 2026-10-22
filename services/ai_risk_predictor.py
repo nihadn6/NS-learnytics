@@ -61,7 +61,7 @@ class StudentRiskPredictor:
         self.model.fit(X, y)
         self._is_trained = True
 
-    def predict_student_risk(self, student_id):
+    def predict_student_risk(self, student_id, class_id=None):
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -71,16 +71,37 @@ class StudentRiskPredictor:
                 if not student:
                     return None
 
-                # 2. Calculate Overall & Recent Attendance
-                cursor.execute("""
-                    SELECT 
-                        COUNT(*) as total_sessions,
-                        SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_sessions,
-                        SUM(CASE WHEN status = 'present' AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_present,
-                        SUM(CASE WHEN date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_total
-                    FROM attendance
-                    WHERE student_id = %s
-                """, (student_id,))
+                class_info = None
+                if class_id:
+                    cursor.execute("""
+                        SELECT c.id, c.subject, u.name as teacher_name 
+                        FROM classes c
+                        LEFT JOIN users u ON c.teacher_id = u.id
+                        WHERE c.id = %s
+                    """, (class_id,))
+                    class_info = cursor.fetchone()
+
+                # 2. Calculate Overall & Recent Attendance (Class-Isolated if class_id provided)
+                if class_id:
+                    cursor.execute("""
+                        SELECT 
+                            COUNT(*) as total_sessions,
+                            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_sessions,
+                            SUM(CASE WHEN status = 'present' AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_present,
+                            SUM(CASE WHEN date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_total
+                        FROM attendance
+                        WHERE student_id = %s AND class_id = %s
+                    """, (student_id, class_id))
+                else:
+                    cursor.execute("""
+                        SELECT 
+                            COUNT(*) as total_sessions,
+                            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_sessions,
+                            SUM(CASE WHEN status = 'present' AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_present,
+                            SUM(CASE WHEN date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as rec_total
+                        FROM attendance
+                        WHERE student_id = %s
+                    """, (student_id,))
                 att_data = cursor.fetchone()
 
                 total_sess = float(att_data['total_sessions'] or 0)
@@ -91,13 +112,21 @@ class StudentRiskPredictor:
                 rec_pres = float(att_data['rec_present'] or 0)
                 rec_att_pct = float(rec_pres / rec_total * 100.0) if rec_total > 0 else att_pct
 
-                # 3. Calculate Academic Performance & Trend
-                cursor.execute("""
-                    SELECT marks_obtained, max_marks, date_recorded
-                    FROM marks
-                    WHERE student_id = %s
-                    ORDER BY date_recorded ASC
-                """, (student_id,))
+                # 3. Calculate Academic Performance & Trend (Class-Isolated if class_id provided)
+                if class_id:
+                    cursor.execute("""
+                        SELECT marks_obtained, max_marks, date_recorded
+                        FROM marks
+                        WHERE student_id = %s AND class_id = %s
+                        ORDER BY date_recorded ASC
+                    """, (student_id, class_id))
+                else:
+                    cursor.execute("""
+                        SELECT marks_obtained, max_marks, date_recorded
+                        FROM marks
+                        WHERE student_id = %s
+                        ORDER BY date_recorded ASC
+                    """, (student_id,))
                 marks_rows = cursor.fetchall()
 
                 if marks_rows:
@@ -113,16 +142,26 @@ class StudentRiskPredictor:
                     avg_mark_pct = 75.0
                     mark_trend = 0.0
 
-                # 4. Check LMS Assignment Missed Ratio
-                cursor.execute("""
-                    SELECT 
-                        COUNT(DISTINCT a.id) as total_assignments,
-                        COUNT(DISTINCT s.assignment_id) as submitted_assignments
-                    FROM enrollments e
-                    JOIN assignments a ON e.class_id = a.class_id
-                    LEFT JOIN assignment_submissions s ON a.id = s.assignment_id AND s.student_id = e.student_id
-                    WHERE e.student_id = %s
-                """, (student_id,))
+                # 4. Check LMS Assignment Missed Ratio (Class-Isolated if class_id provided)
+                if class_id:
+                    cursor.execute("""
+                        SELECT 
+                            COUNT(DISTINCT a.id) as total_assignments,
+                            COUNT(DISTINCT s.assignment_id) as submitted_assignments
+                        FROM assignments a
+                        LEFT JOIN assignment_submissions s ON a.id = s.assignment_id AND s.student_id = %s
+                        WHERE a.class_id = %s
+                    """, (student_id, class_id))
+                else:
+                    cursor.execute("""
+                        SELECT 
+                            COUNT(DISTINCT a.id) as total_assignments,
+                            COUNT(DISTINCT s.assignment_id) as submitted_assignments
+                        FROM enrollments e
+                        JOIN assignments a ON e.class_id = a.class_id
+                        LEFT JOIN assignment_submissions s ON a.id = s.assignment_id AND s.student_id = e.student_id
+                        WHERE e.student_id = %s
+                    """, (student_id,))
                 lms_data = cursor.fetchone()
                 total_hw = float(lms_data['total_assignments'] or 0)
                 sub_hw = float(lms_data['submitted_assignments'] or 0)
@@ -149,31 +188,34 @@ class StudentRiskPredictor:
                 # 6. Generate Actionable Risk Factors
                 factors = []
                 if att_pct < 65:
-                    factors.append(f"Critical overall attendance ({att_pct:.1f}%)")
+                    factors.append(f"Critical attendance ({att_pct:.1f}%)")
                 elif att_pct < 75:
-                    factors.append(f"Low overall attendance ({att_pct:.1f}%)")
+                    factors.append(f"Low attendance ({att_pct:.1f}%)")
 
                 if rec_att_pct < att_pct - 10:
-                    factors.append(f"Recent attendance drop ({rec_att_pct:.1f}% in 30 days)")
+                    factors.append(f"Recent attendance drop ({rec_att_pct:.1f}% in 30d)")
 
                 if avg_mark_pct < 50:
-                    factors.append(f"Failing grade average ({avg_mark_pct:.1f}%)")
+                    factors.append(f"Failing grade avg ({avg_mark_pct:.1f}%)")
                 elif avg_mark_pct < 60:
-                    factors.append(f"Below average exam performance ({avg_mark_pct:.1f}%)")
+                    factors.append(f"Below avg marks ({avg_mark_pct:.1f}%)")
 
                 if mark_trend <= -10:
-                    factors.append(f"Declining score trend ({mark_trend:.1f}% trajectory)")
+                    factors.append(f"Declining score trend ({mark_trend:.1f}%)")
 
                 if missed_hw_ratio >= 0.4:
-                    factors.append(f"Missed {int(missed_hw_ratio*100)}% of LMS homework")
+                    factors.append(f"Missed {int(missed_hw_ratio*100)}% homework")
 
                 if not factors and risk_level == 'LOW':
-                    factors.append("Good academic & attendance track record")
+                    factors.append("Consistent performance & attendance")
 
                 return {
                     'student_id': student['id'],
                     'name': student['name'],
                     'email': student['email'],
+                    'class_id': class_info['id'] if class_info else None,
+                    'class_name': class_info['subject'] if class_info else None,
+                    'teacher_name': class_info.get('teacher_name') if class_info else None,
                     'attendance_pct': round(att_pct, 1),
                     'recent_attendance_pct': round(rec_att_pct, 1),
                     'avg_mark_pct': round(avg_mark_pct, 1),
@@ -187,46 +229,56 @@ class StudentRiskPredictor:
             conn.close()
 
     def get_all_student_risks(self, teacher_id=None, class_id=None):
-        """Fetch risk analytics for all active students (or filtered by teacher/class)"""
+        """Fetch risk analytics isolated per student-class enrollment"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
-                query = "SELECT DISTINCT u.id FROM users u WHERE u.role = 'student'"
                 params = []
-                
                 if class_id and teacher_id:
                     query = """
-                        SELECT DISTINCT u.id 
-                        FROM users u 
-                        JOIN enrollments e ON u.id = e.student_id 
+                        SELECT e.student_id, e.class_id, c.subject as class_name, u.name as teacher_name
+                        FROM enrollments e
                         JOIN classes c ON e.class_id = c.id
-                        WHERE u.role = 'student' AND e.class_id = %s AND c.teacher_id = %s
+                        LEFT JOIN users u ON c.teacher_id = u.id
+                        WHERE e.class_id = %s AND c.teacher_id = %s
+                        ORDER BY c.subject, e.student_id
                     """
                     params.extend([class_id, teacher_id])
                 elif class_id:
                     query = """
-                        SELECT DISTINCT u.id 
-                        FROM users u 
-                        JOIN enrollments e ON u.id = e.student_id 
-                        WHERE u.role = 'student' AND e.class_id = %s
+                        SELECT e.student_id, e.class_id, c.subject as class_name, u.name as teacher_name
+                        FROM enrollments e
+                        JOIN classes c ON e.class_id = c.id
+                        LEFT JOIN users u ON c.teacher_id = u.id
+                        WHERE e.class_id = %s
+                        ORDER BY c.subject, e.student_id
                     """
                     params.append(class_id)
                 elif teacher_id:
                     query = """
-                        SELECT DISTINCT u.id 
-                        FROM users u 
-                        JOIN enrollments e ON u.id = e.student_id 
+                        SELECT e.student_id, e.class_id, c.subject as class_name, u.name as teacher_name
+                        FROM enrollments e
                         JOIN classes c ON e.class_id = c.id
-                        WHERE u.role = 'student' AND c.teacher_id = %s
+                        LEFT JOIN users u ON c.teacher_id = u.id
+                        WHERE c.teacher_id = %s
+                        ORDER BY c.subject, e.student_id
                     """
                     params.append(teacher_id)
+                else:
+                    query = """
+                        SELECT e.student_id, e.class_id, c.subject as class_name, u.name as teacher_name
+                        FROM enrollments e
+                        JOIN classes c ON e.class_id = c.id
+                        LEFT JOIN users u ON c.teacher_id = u.id
+                        ORDER BY c.subject, e.student_id
+                    """
 
                 cursor.execute(query, tuple(params))
-                student_ids = [row['id'] for row in cursor.fetchall()]
+                enrollments = cursor.fetchall()
 
             results = []
-            for sid in student_ids:
-                analysis = self.predict_student_risk(sid)
+            for enr in enrollments:
+                analysis = self.predict_student_risk(enr['student_id'], class_id=enr['class_id'])
                 if analysis:
                     results.append(analysis)
 

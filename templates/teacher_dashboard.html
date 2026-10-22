@@ -256,7 +256,7 @@
                                     {% endif %}
                                 </div>
                                 <div style="font-size: 0.725rem; color: var(--text-muted);">
-                                    {{ s.risk_factors[0] if s.risk_factors else 'Attendance / Grades' }}
+                                    {% if s.class_name %}<span style="color: var(--primary); font-weight: 600;">{{ s.class_name }}</span> &bull; {% endif %}{{ s.risk_factors[0] if s.risk_factors else 'Attendance / Grades' }}
                                 </div>
                             </div>
                             <div style="text-align: right;">
