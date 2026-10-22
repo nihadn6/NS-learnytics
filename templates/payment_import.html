@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block title %}Offline Fee Sheet Import - NS Learnytics{% endblock %}
+
+{% block content %}
+<!-- Top Header Hero -->
+<div class="dashboard-hero-header">
+    <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+            <a href="{% if session.role == 'superadmin' %}{{ url_for('admin.dashboard') }}{% elif session.role == 'moderator' %}{{ url_for('analytics.moderator_dashboard') }}{% else %}{{ url_for('analytics.teacher_dashboard') }}{% endif %}" style="color: var(--text-muted); text-decoration: none;">Dashboard</a>
+            <span>&rsaquo;</span>
+            <a href="{{ url_for('finance.income_report') }}" style="color: var(--text-muted); text-decoration: none;">Finance</a>
+            <span>&rsaquo;</span>
+            <span style="color: var(--text-main); font-weight: 600;">Offline Fee Sheet Import</span>
+        </div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Tuition Fee Spreadsheet Import
+        </h1>
+        <p class="text-muted" style="margin-bottom: 0;">Batch-record monthly tuition payments from pre-filled Excel or CSV rosters recorded offline, during system downtime, or from bank slips.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            &larr; Rapid QR Scanner / Collect Fees
+        </a>
+        <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+            Financial Ledger &rarr;
+        </a>
+    </div>
+</div>
+
+<!-- Workflow Notice Banner -->
+<div class="card mb-6" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #a7f3d0; border-left: 5px solid var(--success); padding: 1.15rem 1.35rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <div style="color: var(--success); font-size: 1.35rem; line-height: 1; margin-top: 2px;">
+            <svg style="width: 22px; height: 22px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+        <div>
+            <strong style="color: #065f46; font-size: 0.95rem;">Offline Tuition & Batch Payment Protocol</strong>
+            <div style="color: #047857; font-size: 0.825rem; margin-top: 0.2rem; line-height: 1.45;">
+                Whenever cashier counters operate offline or reconcile bulk bank deposits, fees can be logged on spreadsheets. Download a pre-filled class roster template with all enrolled students and standard monthly fees. Mark paying students as <strong>Paid</strong>, then upload the file to synchronize ledger records instantly with automated duplicate payment protection.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2-Column Operational Grid -->
+<div class="grid dashboard-operational-grid" style="grid-template-columns: 48% 52%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+    
+    <!-- LEFT COLUMN: STEP 1 - DOWNLOAD PRE-FILLED TEMPLATE -->
+    <div class="card" style="border-top: 4px solid var(--primary); padding: 1.35rem 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Step 1: Download Fee Roster Template</h2>
+            <span class="badge badge-primary" style="font-size: 0.7rem;">Offline Tool</span>
+        </div>
+        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">
+            Generate a pre-filled spreadsheet containing student IDs, names, emails, and monthly tuition fee for the selected class.
+        </p>
+
+        {% if teachers %}
+        <div class="form-group mb-3">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Filter by Instructor</label>
+            <select id="templateTeacherSelect" onchange="filterTemplateClasses()" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <option value="">-- All Instructors --</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-group mb-3">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Target Class Section <span style="color: var(--danger);">*</span></label>
+            <select id="templateClassSelect" onchange="syncSelectedClass(this.value)" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <option value="">-- Select Class Section --</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" data-teacher="{{ c.teacher_id or '' }}" {% if selected_class_id == c.id %}selected{% endif %}>
+                    {{ c.subject }} (Fee: LKR {{ "{:,.2f}".format(c.fee) if c.fee else "0.00" }}) - {{ c.student_count }} Students
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+            <div class="form-group mb-0">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Billing Month (YYYY-MM)</label>
+                <input type="month" id="templatePeriodInput" value="{{ current_period }}" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            </div>
+            <div class="form-group mb-0">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Payment Date</label>
+                <input type="date" id="templateDateInput" value="{{ today_date }}" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            </div>
+        </div>
+
+        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.3rem;">Template Features:</div>
+            <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.775rem; color: var(--text-muted); line-height: 1.5;">
+                <li>Pre-populated with active enrolled students and verified student IDs.</li>
+                <li>Status defaults to <strong>Unpaid</strong> (for fast marking—staff only flips students who paid into <em>Paid</em>).</li>
+                <li>Excel file contains built-in <strong>Paid / Unpaid dropdown</strong> validation on every row.</li>
+                <li>Pre-fills standard course tuition amount and target billing period.</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 0.65rem;">
+            <button type="button" onclick="downloadTemplate('xlsx')" class="btn btn-primary" style="flex: 1; font-size: 0.825rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; background: var(--teal); border-color: var(--teal);">
+                <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>Excel (.xlsx)</span>
+            </button>
+            <button type="button" onclick="downloadTemplate('csv')" class="btn btn-outline" style="flex: 1; font-size: 0.825rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>CSV Template</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: STEP 2 - UPLOAD COMPLETED PAYMENT SHEET -->
+    <div class="card" style="border-top: 4px solid var(--success); padding: 1.35rem 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Step 2: Upload Completed Fee Sheet</h2>
+            <span class="badge badge-success" style="font-size: 0.7rem;">Batch Sync</span>
+        </div>
+        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">
+            Upload your completed Excel or CSV spreadsheet to record tuition payments and issue receipts into the ledger.
+        </p>
+
+        <form method="POST" action="{{ url_for('finance.import_payments_post') }}" enctype="multipart/form-data" id="importForm">
+            
+            <div class="form-group mb-3">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Class Section <span style="color: var(--danger);">*</span></label>
+                <select name="class_id" id="uploadClassSelect" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                    <option value="">-- Select Class Section --</option>
+                    {% for c in classes %}
+                    <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>
+                        {{ c.subject }} (Fee: LKR {{ "{:,.2f}".format(c.fee) if c.fee else "0.00" }}) - {{ c.student_count }} Students
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+                <div class="form-group mb-0">
+                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Default Billing Month <span style="color: var(--danger);">*</span></label>
+                    <input type="month" name="default_period" id="uploadPeriodInput" value="{{ current_period }}" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                </div>
+                <div class="form-group mb-0">
+                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Default Payment Date <span style="color: var(--danger);">*</span></label>
+                    <input type="date" name="default_payment_date" id="uploadDateInput" value="{{ today_date }}" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                </div>
+            </div>
+
+            <div class="form-group mb-4">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Spreadsheet File (.xlsx, .csv) <span style="color: var(--danger);">*</span></label>
+                <div style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 1.25rem 1rem; text-align: center; background: #fdfdfd; cursor: pointer;" onclick="document.getElementById('sheetFileInput').click()">
+                    <svg style="width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 0.4rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);" id="fileSelectedText">Click to select fee spreadsheet (.xlsx or .csv)</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Supports Microsoft Excel (.xlsx) and Comma-Separated Values (.csv)</div>
+                    <input type="file" name="file" id="sheetFileInput" accept=".csv, .xlsx, .xls" required style="display: none;" onchange="handleFileChosen(this)">
+                </div>
+            </div>
+
+            <!-- Import Options -->
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.65rem;">
+                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="send_notifications" value="1" checked style="margin-top: 3px;">
+                    <div>
+                        <strong>Send receipt notifications to students and parents</strong>
+                        <div style="font-size: 0.725rem; color: var(--text-muted);">Automatically generate in-app payment receipts for students and approved parents.</div>
+                    </div>
+                </label>
+                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="skip_duplicates" value="1" checked style="margin-top: 3px;">
+                    <div>
+                        <strong>Enforce duplicate payment protection (Recommended)</strong>
+                        <div style="font-size: 0.725rem; color: var(--text-muted);">Safely skip students who have already paid for this billing period without throwing errors.</div>
+                    </div>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.9rem; padding: 0.65rem 1rem; background: var(--success); border-color: var(--success);">
+                Import Fee Records &rarr;
+            </button>
+        </form>
+
+    </div>
+
+</div>
+
+<!-- Accepted File Format Guidelines Card -->
+<div class="card mb-6">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Accepted Fee Sheet Column Structure</h3>
+            <p class="text-muted" style="font-size: 0.8rem; margin: 0.15rem 0 0 0;">The importer automatically parses spreadsheets formatted with the following columns:</p>
+        </div>
+        <span class="badge badge-secondary" style="font-size: 0.72rem;">Flexible Parser</span>
+    </div>
+
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 20%;">Column Name</th>
+                    <th style="width: 20%;">Accepted Headers</th>
+                    <th style="width: 25%;">Valid Values</th>
+                    <th style="width: 35%;">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong style="color: var(--text-main);">student_id</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
+                    <td><code>student_id</code>, <code>id</code>, <code>reg no</code>, <code>student no</code></td>
+                    <td>Integer ID (e.g., <code>6</code>, <code>19</code>)</td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Unique student identifier matching registered user records.</td>
+                </tr>
+                <tr>
+                    <td><strong style="color: var(--text-main);">status</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
+                    <td><code>status</code>, <code>payment status</code>, <code>paid</code>, <code>fee status</code></td>
+                    <td><code>Paid</code>, <code>Unpaid</code>, <code>P</code>, <code>1</code>, <code>0</code>, <code>Yes</code>, <code>No</code></td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Payment status. Only rows marked <strong>Paid</strong> will create financial ledger entries.</td>
+                </tr>
+                <tr>
+                    <td><strong style="color: var(--text-main);">amount</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                    <td><code>amount</code>, <code>monthly fee</code>, <code>fee</code>, <code>payment amount</code></td>
+                    <td>Decimal number (e.g., <code>2500.00</code>)</td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Collected amount in LKR. Defaults to course tuition fee if blank or omitted.</td>
+                </tr>
+                <tr>
+                    <td><strong style="color: var(--text-main);">period</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                    <td><code>period</code>, <code>billing month</code>, <code>month</code></td>
+                    <td><code>YYYY-MM</code> (e.g. <code>2026-10</code>) or text (e.g. <code>October 2026</code>)</td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Billing period. Defaults to selected billing month if omitted.</td>
+                </tr>
+                <tr>
+                    <td><strong style="color: var(--text-main);">payment_date</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                    <td><code>payment_date</code>, <code>date</code>, <code>paid date</code></td>
+                    <td><code>YYYY-MM-DD</code> format</td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Transaction date. Defaults to selected payment date if omitted.</td>
+                </tr>
+                <tr>
+                    <td><strong style="color: var(--text-main);">student_name</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                    <td><code>student_name</code>, <code>name</code></td>
+                    <td>Text string</td>
+                    <td class="text-muted" style="font-size: 0.8rem;">Used for human-readable verification on paper sheets.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function syncSelectedClass(classId) {
+        if (!classId) return;
+        const uploadSelect = document.getElementById('uploadClassSelect');
+        if (uploadSelect) {
+            uploadSelect.value = classId;
+        }
+    }
+
+    function filterTemplateClasses() {
+        const teacherId = document.getElementById('templateTeacherSelect').value;
+        const classSelect = document.getElementById('templateClassSelect');
+        const options = classSelect.querySelectorAll('option');
+
+        options.forEach(opt => {
+            if (!opt.value) return;
+            const optTeacher = opt.getAttribute('data-teacher');
+            if (!teacherId || optTeacher === teacherId) {
+                opt.style.display = '';
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+
+        // Reset if selected option is now hidden
+        const selectedOpt = classSelect.options[classSelect.selectedIndex];
+        if (selectedOpt && selectedOpt.style.display === 'none') {
+            classSelect.value = '';
+        }
+    }
+
+    function downloadTemplate(format) {
+        const classId = document.getElementById('templateClassSelect').value;
+        const period = document.getElementById('templatePeriodInput').value;
+        const paymentDate = document.getElementById('templateDateInput').value;
+
+        if (!classId) {
+            alert('Please select a target class section first.');
+            document.getElementById('templateClassSelect').focus();
+            return;
+        }
+
+        const url = `/payments/template/${classId}?format=${format}&period=${encodeURIComponent(period)}&payment_date=${encodeURIComponent(paymentDate)}`;
+        window.location.href = url;
+    }
+
+    function handleFileChosen(input) {
+        const display = document.getElementById('fileSelectedText');
+        if (input.files && input.files[0]) {
+            display.textContent = 'Selected: ' + input.files[0].name + ' (' + (input.files[0].size / 1024).toFixed(1) + ' KB)';
+            display.style.color = 'var(--primary)';
+        } else {
+            display.textContent = 'Click to select fee spreadsheet (.xlsx or .csv)';
+            display.style.color = 'var(--text-main)';
+        }
+    }
+</script>
+{% endblock %}

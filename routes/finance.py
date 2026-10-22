@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash, Response
 from database.db import get_db_connection
 import datetime
 
@@ -726,5 +726,422 @@ def export_income_report():
                 )
             else:
                 return "Invalid export format", 400
+    finally:
+        conn.close()
+
+
+@finance_bp.route('/payments/import', methods=['GET'])
+def import_payments_view():
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if role == 'teacher':
+                cursor.execute("""
+                    SELECT c.id, c.subject, c.schedule, c.fee, COUNT(e.student_id) as student_count
+                    FROM classes c
+                    LEFT JOIN enrollments e ON c.id = e.class_id
+                    WHERE c.teacher_id = %s
+                    GROUP BY c.id, c.subject, c.schedule, c.fee
+                    ORDER BY c.subject
+                """, (session['user_id'],))
+                classes = cursor.fetchall()
+                teachers = []
+            else:
+                cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                teachers = cursor.fetchall()
+                cursor.execute("""
+                    SELECT c.id, c.subject, c.schedule, c.teacher_id, c.fee, u.name as teacher_name, COUNT(e.student_id) as student_count
+                    FROM classes c
+                    JOIN users u ON c.teacher_id = u.id
+                    LEFT JOIN enrollments e ON c.id = e.class_id
+                    GROUP BY c.id, c.subject, c.schedule, c.teacher_id, c.fee, u.name
+                    ORDER BY c.subject
+                """)
+                classes = cursor.fetchall()
+
+            today_date = datetime.date.today().isoformat()
+            current_period = datetime.date.today().strftime('%Y-%m')
+            selected_class_id = request.args.get('class_id', type=int)
+
+            return render_template('payment_import.html',
+                                   classes=classes,
+                                   teachers=teachers,
+                                   today_date=today_date,
+                                   current_period=current_period,
+                                   selected_class_id=selected_class_id)
+    finally:
+        conn.close()
+
+
+@finance_bp.route('/payments/template/<int:class_id>', methods=['GET'])
+def download_payment_template(class_id):
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    export_format = request.args.get('format', 'xlsx').lower()
+    period = normalize_period(request.args.get('period'))
+    payment_date = request.args.get('payment_date') or datetime.date.today().isoformat()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if role == 'teacher':
+                cursor.execute("SELECT id, subject, fee FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+            else:
+                cursor.execute("SELECT id, subject, fee FROM classes WHERE id = %s", (class_id,))
+            class_row = cursor.fetchone()
+            if not class_row:
+                return "Class not found or unauthorized", 404
+
+            class_fee = float(class_row['fee'] or 0.0)
+            subject_slug = "".join(c for c in class_row['subject'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+
+            # Fetch enrolled students
+            cursor.execute("""
+                SELECT u.id, u.name, u.email
+                FROM enrollments e
+                JOIN users u ON e.student_id = u.id
+                WHERE e.class_id = %s
+                ORDER BY u.name
+            """, (class_id,))
+            students = cursor.fetchall()
+
+            if export_format == 'csv':
+                import csv
+                import io
+                output = io.StringIO()
+                output.write('\ufeff')  # UTF-8 BOM
+                writer = csv.writer(output)
+                writer.writerow(['student_id', 'student_name', 'email', 'monthly_fee', 'billing_month', 'payment_date', 'status', 'remarks'])
+                for s in students:
+                    writer.writerow([s['id'], s['name'], s['email'] or '', f"{class_fee:.2f}", period, payment_date, 'Unpaid', ''])
+
+                resp = Response(output.getvalue(), mimetype='text/csv')
+                resp.headers['Content-Disposition'] = f'attachment; filename=fee_template_{subject_slug}_{period}.csv'
+                return resp
+
+            # Default: Excel .xlsx
+            import io
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.worksheet.datavalidation import DataValidation
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Class Fee Roster"
+
+            header_fill = PatternFill(start_color="0F766E", end_color="0F766E", fill_type="solid")
+            header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+            thin_border = Border(
+                left=Side(style='thin', color='E2E8F0'),
+                right=Side(style='thin', color='E2E8F0'),
+                top=Side(style='thin', color='E2E8F0'),
+                bottom=Side(style='thin', color='E2E8F0')
+            )
+
+            headers = ['Student ID', 'Student Name', 'Email', 'Monthly Fee (LKR)', 'Billing Month (YYYY-MM)', 'Payment Date', 'Status (Paid/Unpaid)', 'Remarks']
+            ws.append(headers)
+
+            for col_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            for s in students:
+                ws.append([s['id'], s['name'], s['email'] or '', class_fee, period, payment_date, 'Unpaid', ''])
+
+            # Apply cell styling
+            for row in ws.iter_rows(min_row=2, max_row=len(students) + 1, min_col=1, max_col=len(headers)):
+                for cell in row:
+                    cell.border = thin_border
+                    cell.font = Font(name="Arial", size=10)
+                    if cell.column == 1:
+                        cell.alignment = Alignment(horizontal="center")
+                    elif cell.column == 4:
+                        cell.alignment = Alignment(horizontal="right")
+                        cell.number_format = '#,##0.00'
+                    elif cell.column in (5, 6, 7):
+                        cell.alignment = Alignment(horizontal="center")
+
+            # Add dropdown validation for Status column (default Unpaid, change to Paid for paying students)
+            dv = DataValidation(type='list', formula1='"Paid,Unpaid"', allow_blank=True)
+            ws.add_data_validation(dv)
+            max_row = max(len(students) + 10, 50)
+            dv.add(f'G2:G{max_row}')
+
+            # Auto-fit column widths
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 5, 14)
+
+            ws.row_dimensions[1].height = 28
+
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+
+            resp = Response(buf.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            resp.headers['Content-Disposition'] = f'attachment; filename=fee_template_{subject_slug}_{period}.xlsx'
+            return resp
+    finally:
+        conn.close()
+
+
+@finance_bp.route('/payments/import', methods=['POST'])
+def import_payments_post():
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    class_id = request.form.get('class_id', type=int)
+    default_period = normalize_period(request.form.get('default_period'))
+    default_payment_date = (request.form.get('default_payment_date') or '').strip()
+    send_notifications = bool(request.form.get('send_notifications'))
+    file = request.files.get('file')
+
+    if not class_id:
+        flash('Please select a valid class section.', 'error')
+        return redirect(url_for('finance.import_payments_view'))
+
+    if not default_payment_date:
+        default_payment_date = datetime.date.today().isoformat()
+
+    if not file or not file.filename:
+        flash('Please select an Excel (.xlsx) or CSV (.csv) file to import.', 'error')
+        return redirect(url_for('finance.import_payments_view', class_id=class_id))
+
+    filename = file.filename.lower()
+    if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+        flash('Unsupported file format. Please upload a .xlsx or .csv fee spreadsheet.', 'error')
+        return redirect(url_for('finance.import_payments_view', class_id=class_id))
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Check teacher permission
+            if role == 'teacher':
+                cursor.execute("SELECT id, subject, fee FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+            else:
+                cursor.execute("SELECT id, subject, fee FROM classes WHERE id = %s", (class_id,))
+            class_row = cursor.fetchone()
+            if not class_row:
+                flash('Unauthorized or invalid class section.', 'error')
+                return redirect(url_for('finance.import_payments_view'))
+
+            class_subject = class_row['subject']
+            standard_fee = float(class_row['fee'] or 0.0)
+
+            # Enrolled students for validation
+            cursor.execute("SELECT student_id FROM enrollments WHERE class_id = %s", (class_id,))
+            enrolled_student_ids = {row['student_id'] for row in cursor.fetchall()}
+
+            # Parse file rows into raw_rows
+            if filename.endswith('.csv'):
+                import csv
+                import io
+                try:
+                    file_bytes = file.read()
+                    for enc in ('utf-8-sig', 'utf-8', 'latin-1'):
+                        try:
+                            text = file_bytes.decode(enc)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        text = file_bytes.decode('utf-8', errors='ignore')
+
+                    stream = io.StringIO(text, newline=None)
+                    reader = csv.reader(stream)
+                    raw_rows = list(reader)
+                except Exception as e:
+                    flash(f'Failed to parse CSV file: {str(e)}', 'error')
+                    return redirect(url_for('finance.import_payments_view', class_id=class_id))
+
+            else:
+                import io
+                import openpyxl
+                try:
+                    wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+                    ws = wb.active
+                    raw_rows = list(ws.iter_rows(values_only=True))
+                except Exception as e:
+                    flash(f'Failed to parse Excel workbook: {str(e)}', 'error')
+                    return redirect(url_for('finance.import_payments_view', class_id=class_id))
+
+            if not raw_rows:
+                flash('The uploaded file is empty.', 'error')
+                return redirect(url_for('finance.import_payments_view', class_id=class_id))
+
+            # Find header indices
+            header_row = [str(col or '').strip().lower() for col in raw_rows[0]]
+            id_idx = None
+            status_idx = None
+            amount_idx = None
+            period_idx = None
+            date_idx = None
+
+            for idx, h in enumerate(header_row):
+                clean_h = h.replace('_', ' ').replace('-', ' ').strip()
+                if clean_h in ('student id', 'studentid', 'id', 'student no', 'reg no'):
+                    id_idx = idx
+                elif clean_h in ('status', 'status (paid/unpaid)', 'payment status', 'fee status', 'paid'):
+                    status_idx = idx
+                elif clean_h in ('monthly fee (lkr)', 'monthly fee', 'amount', 'fee', 'payment amount', 'amount (lkr)'):
+                    amount_idx = idx
+                elif clean_h in ('billing month (yyyy mm)', 'billing month', 'period', 'month', 'billing period'):
+                    period_idx = idx
+                elif clean_h in ('payment date', 'date', 'paid date', 'transaction date'):
+                    date_idx = idx
+
+            # Fallbacks
+            if id_idx is None:
+                id_idx = 0
+            if status_idx is None:
+                if len(header_row) >= 7:
+                    status_idx = 6
+                elif len(header_row) >= 4:
+                    status_idx = 3
+                else:
+                    status_idx = 1
+
+            paid_count = 0
+            unpaid_count = 0
+            duplicates_skipped = 0
+            unregistered_skipped = 0
+            total_collected = 0.0
+
+            for row_num, row in enumerate(raw_rows[1:], start=2):
+                if not row or all(c is None or str(c).strip() == '' for c in row):
+                    continue
+
+                try:
+                    raw_id = row[id_idx] if len(row) > id_idx else None
+                    if raw_id is None or str(raw_id).strip() == '':
+                        continue
+
+                    # Extract integer student ID
+                    student_id = int(float(str(raw_id).strip()))
+
+                    # Verify enrollment in this class
+                    if student_id not in enrolled_student_ids:
+                        unregistered_skipped += 1
+                        continue
+
+                    # Extract status
+                    raw_status = str(row[status_idx] or '').strip().lower() if len(row) > status_idx else 'unpaid'
+                    if raw_status in ('paid', 'p', '1', 'true', 'yes', 'y'):
+                        is_paid = True
+                    else:
+                        is_paid = False
+
+                    if not is_paid:
+                        unpaid_count += 1
+                        continue
+
+                    # Extract amount
+                    amount = standard_fee
+                    if amount_idx is not None and len(row) > amount_idx and row[amount_idx] is not None:
+                        try:
+                            clean_amt_str = str(row[amount_idx]).replace(',', '').strip()
+                            parsed_amt = float(clean_amt_str)
+                            if parsed_amt > 0:
+                                amount = parsed_amt
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Extract period
+                    row_period = default_period
+                    if period_idx is not None and len(row) > period_idx and row[period_idx]:
+                        val_p = str(row[period_idx]).strip()
+                        if val_p:
+                            row_period = normalize_period(val_p)
+
+                    # Extract payment date
+                    row_date = default_payment_date
+                    if date_idx is not None and len(row) > date_idx and row[date_idx]:
+                        val_d = row[date_idx]
+                        if isinstance(val_d, (datetime.date, datetime.datetime)):
+                            row_date = val_d.strftime('%Y-%m-%d')
+                        elif isinstance(val_d, str) and val_d.strip():
+                            val_d_str = val_d.strip()
+                            for fmt in ('%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y'):
+                                try:
+                                    row_date = datetime.datetime.strptime(val_d_str, fmt).strftime('%Y-%m-%d')
+                                    break
+                                except ValueError:
+                                    pass
+
+                    # Check duplicate payment
+                    cursor.execute("""
+                        SELECT id, amount, payment_date FROM payments
+                        WHERE class_id = %s AND student_id = %s AND period = %s
+                    """, (class_id, student_id, row_period))
+                    existing = cursor.fetchone()
+
+                    if existing:
+                        duplicates_skipped += 1
+                        continue
+
+                    # Insert payment
+                    cursor.execute("""
+                        INSERT INTO payments (class_id, student_id, amount, payment_date, period)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (class_id, student_id, amount, row_date, row_period))
+                    paid_count += 1
+                    total_collected += amount
+
+                    # Notifications
+                    if send_notifications:
+                        # Fetch student name
+                        cursor.execute("SELECT name FROM users WHERE id = %s", (student_id,))
+                        s_name_row = cursor.fetchone()
+                        s_name = s_name_row['name'] if s_name_row else 'Student'
+
+                        # Student notification
+                        student_msg = f"Tuition Fee Receipt: LKR {amount:,.2f} recorded for {class_subject} ({row_period}) on {row_date}."
+                        cursor.execute("""
+                            INSERT INTO notifications (user_id, message, type)
+                            VALUES (%s, %s, 'fee_payment')
+                        """, (student_id, student_msg))
+
+                        # Parents notifications
+                        cursor.execute("""
+                            SELECT parent_id FROM parent_student_links
+                            WHERE student_id = %s AND status = 'approved'
+                        """, (student_id,))
+                        parent_links = cursor.fetchall()
+                        for pl in parent_links:
+                            parent_msg = f"Tuition Fee Receipt: LKR {amount:,.2f} recorded for {s_name} in {class_subject} ({row_period}) on {row_date}."
+                            cursor.execute("""
+                                INSERT INTO notifications (user_id, message, type)
+                                VALUES (%s, %s, 'fee_payment')
+                            """, (pl['parent_id'], parent_msg))
+
+                except Exception:
+                    continue
+
+            conn.commit()
+
+            # Construct flash feedback message
+            msg_parts = [f"Successfully recorded {paid_count} fee payment(s) totaling LKR {total_collected:,.2f} for {class_subject} ({default_period})."]
+            if duplicates_skipped > 0:
+                msg_parts.append(f"{duplicates_skipped} duplicate payment(s) safely prevented.")
+            if unpaid_count > 0:
+                msg_parts.append(f"{unpaid_count} student(s) remained marked Unpaid.")
+            if unregistered_skipped > 0:
+                msg_parts.append(f"{unregistered_skipped} unlisted ID(s) skipped.")
+
+            flash(" ".join(msg_parts), "success" if paid_count > 0 else "info")
+            return redirect(url_for('finance.import_payments_view', class_id=class_id))
+    except Exception as e:
+        flash(f'An unexpected error occurred during fee spreadsheet import: {str(e)}', 'error')
+        return redirect(url_for('finance.import_payments_view', class_id=class_id))
     finally:
         conn.close()

@@ -195,9 +195,10 @@
                         <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem;">Financial Audit</h3>
                         <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1rem;">Process physical fee payments or audit monthly income.</p>
                     </div>
-                    <div style="display: flex; gap: 0.4rem;">
-                        <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-primary" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem; background: var(--success);">Collect</a>
-                        <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="flex: 1; font-size: 0.75rem; padding: 0.35rem 0.5rem;">Reports</a>
+                    <div style="display: flex; gap: 0.35rem;">
+                        <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-primary" style="flex: 1; font-size: 0.725rem; padding: 0.35rem 0.4rem; background: var(--success); text-align: center;">Collect</a>
+                        <a href="{{ url_for('finance.import_payments_view') }}" class="btn btn-outline" style="flex: 1; font-size: 0.725rem; padding: 0.35rem 0.4rem; text-align: center;">Import</a>
+                        <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="flex: 1; font-size: 0.725rem; padding: 0.35rem 0.4rem; text-align: center;">Ledger</a>
                     </div>
                 </div>
 
@@ -289,9 +290,12 @@
                     <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem;">Recent Tuition Payments Ledger</h2>
                     <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Real-time feed of physical and online tuition fee receipts across all classes.</p>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <a href="{{ url_for('finance.manual_payment') }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem; background: var(--success); border-color: var(--success);">
                         + Collect Fee
+                    </a>
+                    <a href="{{ url_for('finance.import_payments_view') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                        Import Sheet
                     </a>
                     <a href="{{ url_for('finance.income_report') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
                         Full Ledger &rarr;
