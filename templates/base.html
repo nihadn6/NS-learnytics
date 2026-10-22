@@ -121,14 +121,24 @@
                             </a>
                         </div>
                     </div>
-                    <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span>Risk Radar</span>
-                    </a>
-                    <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
-                        <span>AI Grade Forecast</span>
-                    </a>
+                    {% set is_teacher_ai_active = request.endpoint in ('ai_analytics.at_risk_dashboard', 'ai_analytics.grade_forecasting_dashboard') %}
+                    <div class="sidebar-collapsible {% if is_teacher_ai_active %}open{% endif %}">
+                        <button type="button" class="sidebar-collapsible-btn {% if is_teacher_ai_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_teacher_ai_active %}true{% else %}false{% endif %}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <span class="collapsible-title">AI Analytics</span>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div class="sidebar-submenu">
+                            <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-sublink {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Risk Radar</span>
+                            </a>
+                            <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-sublink {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                                <span>Mark Predictor</span>
+                            </a>
+                        </div>
+                    </div>
 
                     <div class="nav-section-title">Communication</div>
                     <a href="{{ url_for('messages.inbox') }}" class="sidebar-link {% if request.endpoint == 'messages.inbox' %}active{% endif %}">
@@ -301,14 +311,24 @@
                             </a>
                         </div>
                     </div>
-                    <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span>Risk Radar</span>
-                    </a>
-                    <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
-                        <span>Grade Forecaster</span>
-                    </a>
+                    {% set is_admin_ai_active = request.endpoint in ('ai_analytics.at_risk_dashboard', 'ai_analytics.grade_forecasting_dashboard') %}
+                    <div class="sidebar-collapsible {% if is_admin_ai_active %}open{% endif %}">
+                        <button type="button" class="sidebar-collapsible-btn {% if is_admin_ai_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_admin_ai_active %}true{% else %}false{% endif %}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <span class="collapsible-title">AI Analytics</span>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div class="sidebar-submenu">
+                            <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-sublink {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                <span>Risk Radar</span>
+                            </a>
+                            <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" class="sidebar-sublink {% if request.endpoint == 'ai_analytics.grade_forecasting_dashboard' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                                <span>Mark Predictor</span>
+                            </a>
+                        </div>
+                    </div>
                     <div class="nav-section-title">Communication</div>
                     <a href="{{ url_for('announcements.feed') }}" class="sidebar-link {% if request.endpoint == 'announcements.feed' %}active{% endif %}">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
