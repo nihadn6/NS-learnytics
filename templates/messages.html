@@ -358,11 +358,13 @@
 
 <script>
     const currentUserId = {{ current_user_id }};
+    const targetUser = {{ target_user|tojson if target_user else 'null' }};
     let activeContactId = null;
     let activeContactName = '';
     let activeContactRole = '';
     let allContacts = [];
     let currentSearchTerm = '';
+    let hasAutoSelectedTarget = false;
 
     function escapeHtml(text) {
         if (!text) return '';
@@ -378,6 +380,22 @@
             
             // Preserve unread updates & merge with current contacts
             allContacts = data;
+
+            // If targetUser passed from URL (e.g. from clicking Message on a student), select them automatically
+            if (targetUser && targetUser.id && !hasAutoSelectedTarget) {
+                const found = allContacts.find(c => c.id === targetUser.id);
+                if (!found) {
+                    targetUser.unread = 0;
+                    targetUser.latest_msg_time = Date.now();
+                    allContacts.unshift(targetUser);
+                }
+                hasAutoSelectedTarget = true;
+                renderContactList();
+                const toSelect = found || targetUser;
+                await selectContact(toSelect.id, toSelect.name, toSelect.role);
+                return;
+            }
+
             renderContactList();
         } catch (err) {
             console.error('Failed to load contacts', err);
@@ -486,6 +504,8 @@
 
         // Fetch history
         await loadMessages();
+        const msgInput = document.getElementById('messageInput');
+        if (msgInput) msgInput.focus();
     }
 
     async function loadMessages() {

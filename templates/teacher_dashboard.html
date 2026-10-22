@@ -263,7 +263,7 @@
                                 <div style="font-weight: 800; font-size: 0.85rem; color: {% if s.risk_pct >= 55 %}var(--danger){% else %}var(--warning){% endif %};">
                                     {{ s.risk_pct }}% Risk
                                 </div>
-                                <a href="{{ url_for('messages.inbox') }}" style="font-size: 0.7rem; color: var(--primary); text-decoration: underline;">Message</a>
+                                <a href="{{ url_for('messages.inbox', user_id=s.student_id) }}" style="font-size: 0.7rem; color: var(--primary); text-decoration: underline;">Message</a>
                             </div>
                         </div>
                     {% endfor %}

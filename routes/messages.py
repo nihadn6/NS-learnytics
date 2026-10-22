@@ -14,7 +14,18 @@ def inbox():
     if role not in ['teacher', 'student', 'parent', 'superadmin', 'moderator']:
         return "Unauthorized. Only teachers, students, parents, admins, and staff can use messaging.", 403
 
-    return render_template('messages.html', current_user_id=session.get('user_id'))
+    raw_target_id = request.args.get('user_id') or request.args.get('student_id') or request.args.get('contact_id')
+    target_user = None
+    if raw_target_id and raw_target_id.isdigit():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT id, name, email, role FROM users WHERE id = %s", (int(raw_target_id),))
+                target_user = cursor.fetchone()
+        finally:
+            conn.close()
+
+    return render_template('messages.html', current_user_id=session.get('user_id'), target_user=target_user)
 
 @messages_bp.route('/api/messages/contacts', methods=['GET'])
 def get_contacts():
