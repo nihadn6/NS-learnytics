@@ -198,8 +198,16 @@
                             </div>
                         {% endif %}
                     </td>
-                    <td style="text-align: right;">
-                        <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.75rem; text-decoration: none;">Message</a>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" 
+                                class="btn btn-outline" 
+                                onclick="openStudentRecordsModal({{ s.student_id }}, {{ s.class_id or 'null' }}, '{{ s.name|replace("'", "\\'") }}', '{{ (s.class_name or '')|replace("'", "\\'") }}')" 
+                                style="padding: 0.25rem 0.55rem; font-size: 0.75rem; border-color: var(--primary); color: var(--primary); font-weight: 600;" 
+                                title="View attendance, marks, and fee payment history">
+                            <svg style="width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            History
+                        </button>
+                        <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; margin-left: 0.2rem;" title="Message Student">Message</a>
                     </td>
                 </tr>
                 {% else %}
@@ -215,8 +223,146 @@
     </div>
 </div>
 
+<!-- Student History Records Modal -->
+<div id="studentHistoryModal" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 1050; display: none; align-items: center; justify-content: center; padding: 1rem;">
+    <div style="background: var(--bg-card, #fff); border-radius: var(--radius-md); max-width: 860px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; border: 1px solid var(--border);">
+        
+        <!-- Modal Header -->
+        <div style="padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--bg-main);">
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <h3 id="modalStudentName" style="font-size: 1.25rem; font-weight: 800; margin: 0; color: var(--text-main);">Student Records</h3>
+                    <span id="modalGradeBadge" class="badge" style="background: #e2e8f0; color: #334155; font-size: 0.75rem; font-weight: 700;">Grade -</span>
+                </div>
+                <div id="modalStudentSub" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+                    Loading student details...
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <!-- Filter Scope Toggle -->
+                <div id="modalScopeToggleContainer" style="display: none; align-items: center; gap: 0.35rem; font-size: 0.775rem;">
+                    <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer; color: var(--text-muted);">
+                        <input type="checkbox" id="modalClassScopeCheckbox" onchange="toggleModalClassScope()">
+                        <span id="modalClassScopeLabel">Filter to this class</span>
+                    </label>
+                </div>
+                <button type="button" onclick="closeStudentHistoryModal()" style="background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-muted); cursor: pointer; padding: 0.25rem;" title="Close">&times;</button>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
+            
+            <!-- Loading Indicator -->
+            <div id="modalLoadingState" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                <div style="margin: 0 auto 0.75rem; width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                <div style="font-size: 0.875rem;">Loading student records...</div>
+            </div>
+
+            <!-- Content Container -->
+            <div id="modalContentContainer" style="display: none;">
+                <!-- 3 Quick KPI Stat Pills -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; margin-bottom: 1.25rem;">
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+                        <span style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Attendance Rate</span>
+                        <div id="modalKpiAttendance" style="font-size: 1.35rem; font-weight: 800; color: var(--success); margin: 0.15rem 0;">--%</div>
+                        <span id="modalKpiAttSub" style="font-size: 0.725rem; color: var(--text-muted);">0 / 0 Sessions</span>
+                    </div>
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+                        <span style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Exam Average</span>
+                        <div id="modalKpiMarks" style="font-size: 1.35rem; font-weight: 800; color: var(--primary); margin: 0.15rem 0;">--%</div>
+                        <span id="modalKpiMarksSub" style="font-size: 0.725rem; color: var(--text-muted);">0 Tests Recorded</span>
+                    </div>
+                    <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+                        <span style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Tuition Fees Paid</span>
+                        <div id="modalKpiFees" style="font-size: 1.35rem; font-weight: 800; color: #0284c7; margin: 0.15rem 0;">Rs. 0</div>
+                        <span id="modalKpiFeesSub" style="font-size: 0.725rem; color: var(--text-muted);">0 Payments Logged</span>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
+                    <button type="button" id="modalTabBtnAtt" onclick="switchModalTab('att')" style="padding: 0.5rem 1rem; font-size: 0.825rem; font-weight: 700; background: none; border: none; border-bottom: 2px solid var(--primary); color: var(--primary); cursor: pointer;">
+                        Attendance History (<span id="modalTabAttCount">0</span>)
+                    </button>
+                    <button type="button" id="modalTabBtnMarks" onclick="switchModalTab('marks')" style="padding: 0.5rem 1rem; font-size: 0.825rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); cursor: pointer;">
+                        Exam Marks (<span id="modalTabMarksCount">0</span>)
+                    </button>
+                    <button type="button" id="modalTabBtnFees" onclick="switchModalTab('fees')" style="padding: 0.5rem 1rem; font-size: 0.825rem; font-weight: 600; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); cursor: pointer;">
+                        Fee Payments (<span id="modalTabFeesCount">0</span>)
+                    </button>
+                </div>
+
+                <!-- Tab 1: Attendance Table -->
+                <div id="modalTabPaneAtt" style="display: block; max-height: 320px; overflow-y: auto;">
+                    <table class="table" style="width: 100%; font-size: 0.825rem; margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--bg-main); text-transform: uppercase; font-size: 0.725rem; letter-spacing: 0.04em;">
+                                <th>Date</th>
+                                <th>Class / Subject</th>
+                                <th style="text-align: right;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalAttTbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 2: Marks Table -->
+                <div id="modalTabPaneMarks" style="display: none; max-height: 320px; overflow-y: auto;">
+                    <table class="table" style="width: 100%; font-size: 0.825rem; margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--bg-main); text-transform: uppercase; font-size: 0.725rem; letter-spacing: 0.04em;">
+                                <th>Date Recorded</th>
+                                <th>Exam / Test</th>
+                                <th>Class / Subject</th>
+                                <th>Score / Max</th>
+                                <th style="text-align: right;">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalMarksTbody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Tab 3: Fees Table -->
+                <div id="modalTabPaneFees" style="display: none; max-height: 320px; overflow-y: auto;">
+                    <table class="table" style="width: 100%; font-size: 0.825rem; margin-bottom: 0;">
+                        <thead>
+                            <tr style="background: var(--bg-main); text-transform: uppercase; font-size: 0.725rem; letter-spacing: 0.04em;">
+                                <th>Payment Date</th>
+                                <th>Billing Period</th>
+                                <th>Class / Subject</th>
+                                <th>Amount</th>
+                                <th style="text-align: right;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalFeesTbody"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 0.85rem 1.5rem; border-top: 1px solid var(--border); background: var(--bg-main); display: flex; align-items: center; justify-content: space-between;">
+            <a id="modalMessageBtn" href="{{ url_for('messages.inbox') }}" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.85rem;">
+                <svg style="width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                Message Student
+            </a>
+            <button type="button" onclick="closeStudentHistoryModal()" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.4rem 1rem;">Close</button>
+        </div>
+
+    </div>
+</div>
+
+<style>
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+
 <script>
 let currentRiskLevel = 'ALL';
+let activeModalStudentId = null;
+let activeModalClassId = null;
+let activeModalClassName = '';
 
 function filterLevel(level) {
     currentRiskLevel = level;
@@ -285,6 +431,202 @@ function applyLiveRiskFilters() {
     }
 }
 
+/* Modal Functions */
+function openStudentRecordsModal(studentId, classId, studentName, className) {
+    activeModalStudentId = studentId;
+    activeModalClassId = classId;
+    activeModalClassName = className || '';
+
+    const modal = document.getElementById('studentHistoryModal');
+    const modalName = document.getElementById('modalStudentName');
+    const modalSub = document.getElementById('modalStudentSub');
+    const loadingState = document.getElementById('modalLoadingState');
+    const contentContainer = document.getElementById('modalContentContainer');
+    const scopeContainer = document.getElementById('modalScopeToggleContainer');
+    const scopeCheckbox = document.getElementById('modalClassScopeCheckbox');
+    const scopeLabel = document.getElementById('modalClassScopeLabel');
+
+    modalName.textContent = studentName || 'Student Records';
+    modalSub.textContent = className ? `Class: ${className}` : 'All Enrolled Classes';
+    
+    if (classId) {
+        scopeContainer.style.display = 'flex';
+        scopeCheckbox.checked = true;
+        scopeLabel.textContent = `Only ${className}`;
+    } else {
+        scopeContainer.style.display = 'none';
+    }
+
+    loadingState.style.display = 'block';
+    contentContainer.style.display = 'none';
+    modal.style.display = 'flex';
+
+    switchModalTab('att');
+    fetchStudentRecordsData(studentId, classId);
+}
+
+function closeStudentHistoryModal() {
+    const modal = document.getElementById('studentHistoryModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleModalClassScope() {
+    const scopeCheckbox = document.getElementById('modalClassScopeCheckbox');
+    const useClass = scopeCheckbox && scopeCheckbox.checked;
+    fetchStudentRecordsData(activeModalStudentId, useClass ? activeModalClassId : null);
+}
+
+function switchModalTab(tab) {
+    const tabs = ['att', 'marks', 'fees'];
+    tabs.forEach(t => {
+        const btn = document.getElementById('modalTabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const pane = document.getElementById('modalTabPane' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn && pane) {
+            if (t === tab) {
+                btn.style.fontWeight = '700';
+                btn.style.color = 'var(--primary)';
+                btn.style.borderBottom = '2px solid var(--primary)';
+                pane.style.display = 'block';
+            } else {
+                btn.style.fontWeight = '600';
+                btn.style.color = 'var(--text-muted)';
+                btn.style.borderBottom = '2px solid transparent';
+                pane.style.display = 'none';
+            }
+        }
+    });
+}
+
+function fetchStudentRecordsData(studentId, classId) {
+    const loadingState = document.getElementById('modalLoadingState');
+    const contentContainer = document.getElementById('modalContentContainer');
+    
+    loadingState.style.display = 'block';
+    contentContainer.style.display = 'none';
+
+    let url = `/api/ai/student-records/${studentId}`;
+    if (classId) {
+        url += `?class_id=${classId}`;
+    }
+
+    fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to load student history');
+            return res.json();
+        })
+        .then(data => {
+            renderStudentHistoryModal(data);
+            loadingState.style.display = 'none';
+            contentContainer.style.display = 'block';
+        })
+        .catch(err => {
+            loadingState.innerHTML = `<div style="color: var(--danger); font-size: 0.875rem;">Failed to load records: ${err.message}</div>`;
+        });
+}
+
+function renderStudentHistoryModal(data) {
+    const student = data.student || {};
+    const gradeBadge = document.getElementById('modalGradeBadge');
+    const modalSub = document.getElementById('modalStudentSub');
+    
+    if (gradeBadge) {
+        gradeBadge.textContent = student.grade ? `Grade ${student.grade}` : 'Student';
+    }
+    if (modalSub) {
+        const className = data.class ? data.class.subject : 'All Classes';
+        modalSub.textContent = `${student.email || ''} • Scope: ${className}`;
+    }
+
+    // 1. Attendance KPI & Table
+    const att = data.attendance || {};
+    const kpiAtt = document.getElementById('modalKpiAttendance');
+    const kpiAttSub = document.getElementById('modalKpiAttSub');
+    const tabAttCount = document.getElementById('modalTabAttCount');
+    const attTbody = document.getElementById('modalAttTbody');
+
+    if (kpiAtt) kpiAtt.textContent = `${att.percentage || 0}%`;
+    if (kpiAttSub) kpiAttSub.textContent = `${att.present_sessions || 0} Present / ${att.absent_sessions || 0} Absent`;
+    if (tabAttCount) tabAttCount.textContent = att.total_sessions || 0;
+
+    if (attTbody) {
+        if (!att.records || att.records.length === 0) {
+            attTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">No attendance sessions logged.</td></tr>`;
+        } else {
+            attTbody.innerHTML = att.records.map(r => `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="font-weight: 600;">${r.date || 'N/A'}</td>
+                    <td><span class="badge" style="background: #e2e8f0; color: #1e293b; font-size: 0.725rem;">${r.class_name || 'Class'}</span></td>
+                    <td style="text-align: right;">
+                        <span class="badge ${r.status === 'present' ? 'badge-success' : 'badge-danger'}" style="font-size: 0.725rem; font-weight: 700; text-transform: uppercase;">
+                            ${r.status}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // 2. Marks KPI & Table
+    const marks = data.marks || {};
+    const kpiMarks = document.getElementById('modalKpiMarks');
+    const kpiMarksSub = document.getElementById('modalKpiMarksSub');
+    const tabMarksCount = document.getElementById('modalTabMarksCount');
+    const marksTbody = document.getElementById('modalMarksTbody');
+
+    if (kpiMarks) kpiMarks.textContent = marks.average !== null ? `${marks.average}%` : 'N/A';
+    if (kpiMarksSub) kpiMarksSub.textContent = `${marks.total_tests || 0} Tests Evaluated`;
+    if (tabMarksCount) tabMarksCount.textContent = marks.total_tests || 0;
+
+    if (marksTbody) {
+        if (!marks.records || marks.records.length === 0) {
+            marksTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No exam marks published.</td></tr>`;
+        } else {
+            marksTbody.innerHTML = marks.records.map(r => `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td>${r.date_recorded || 'N/A'}</td>
+                    <td style="font-weight: 600;">${r.test_name || 'Exam'}</td>
+                    <td><span class="badge" style="background: #e2e8f0; color: #1e293b; font-size: 0.725rem;">${r.class_name || 'Class'}</span></td>
+                    <td>${r.marks_obtained} / ${r.max_marks}</td>
+                    <td style="text-align: right;">
+                        <span class="badge ${r.percentage >= 75 ? 'badge-success' : (r.percentage >= 50 ? 'badge-warning' : 'badge-danger')}" style="font-weight: 700; font-size: 0.75rem;">
+                            ${r.percentage}%
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    // 3. Payments KPI & Table
+    const pmts = data.payments || {};
+    const kpiFees = document.getElementById('modalKpiFees');
+    const kpiFeesSub = document.getElementById('modalKpiFeesSub');
+    const tabFeesCount = document.getElementById('modalTabFeesCount');
+    const feesTbody = document.getElementById('modalFeesTbody');
+
+    if (kpiFees) kpiFees.textContent = `Rs. ${(pmts.total_paid || 0).toLocaleString()}`;
+    if (kpiFeesSub) kpiFeesSub.textContent = `${pmts.total_transactions || 0} Payments on File`;
+    if (tabFeesCount) tabFeesCount.textContent = pmts.total_transactions || 0;
+
+    if (feesTbody) {
+        if (!pmts.records || pmts.records.length === 0) {
+            feesTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No tuition fee payments recorded.</td></tr>`;
+        } else {
+            feesTbody.innerHTML = pmts.records.map(r => `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td>${r.payment_date || 'N/A'}</td>
+                    <td style="font-weight: 600;">${r.period || 'Monthly'}</td>
+                    <td><span class="badge" style="background: #e2e8f0; color: #1e293b; font-size: 0.725rem;">${r.class_name || 'Class'}</span></td>
+                    <td style="font-weight: 700;">Rs. ${Number(r.amount).toLocaleString()}</td>
+                    <td style="text-align: right;">
+                        <span class="badge badge-success" style="font-size: 0.725rem; font-weight: 700;">PAID</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('riskSearchInput');
     if (searchInput) {
@@ -292,6 +634,23 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 clearRiskSearch();
+            }
+        });
+    }
+
+    // Close modal on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeStudentHistoryModal();
+        }
+    });
+
+    // Close modal on backdrop click
+    const modal = document.getElementById('studentHistoryModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeStudentHistoryModal();
             }
         });
     }

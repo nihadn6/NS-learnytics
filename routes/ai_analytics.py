@@ -200,3 +200,143 @@ def predict_single_student(student_id):
 
     return jsonify(analysis)
 
+
+@ai_analytics_bp.route('/api/ai/student-records/<int:student_id>', methods=['GET'])
+def get_student_records(student_id):
+    """Fetch consolidated attendance, marks, and fee payment history for a student."""
+    if session.get('role') not in ('superadmin', 'admin', 'teacher', 'moderator'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    raw_class_id = request.args.get('class_id')
+    class_id = None
+    if raw_class_id and raw_class_id.isdigit():
+        class_id = int(raw_class_id)
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # 1. Student details
+            cursor.execute("""
+                SELECT u.id, u.name, u.email, sp.grade 
+                FROM users u 
+                LEFT JOIN student_profiles sp ON u.id = sp.user_id 
+                WHERE u.id = %s AND u.role = 'student'
+            """, (student_id,))
+            student = cursor.fetchone()
+            if not student:
+                return jsonify({'error': 'Student not found'}), 404
+
+            # 2. Selected Class details if filtered
+            selected_class = None
+            if class_id:
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s", (class_id,))
+                selected_class = cursor.fetchone()
+
+            # 3. Attendance history
+            if class_id:
+                cursor.execute("""
+                    SELECT a.id, a.date, a.status, c.subject as class_name, a.class_id
+                    FROM attendance a 
+                    JOIN classes c ON a.class_id = c.id 
+                    WHERE a.student_id = %s AND a.class_id = %s
+                    ORDER BY a.date DESC
+                """, (student_id, class_id))
+            else:
+                cursor.execute("""
+                    SELECT a.id, a.date, a.status, c.subject as class_name, a.class_id
+                    FROM attendance a 
+                    JOIN classes c ON a.class_id = c.id 
+                    WHERE a.student_id = %s
+                    ORDER BY a.date DESC
+                """, (student_id,))
+            attendance_rows = cursor.fetchall()
+
+            for row in attendance_rows:
+                if row.get('date'):
+                    row['date'] = row['date'].strftime('%Y-%m-%d')
+
+            total_sessions = len(attendance_rows)
+            present_sessions = sum(1 for a in attendance_rows if a['status'] == 'present')
+            absent_sessions = sum(1 for a in attendance_rows if a['status'] == 'absent')
+            att_pct = round((present_sessions / total_sessions * 100), 1) if total_sessions > 0 else 100.0
+
+            # 4. Exam marks history
+            if class_id:
+                cursor.execute("""
+                    SELECT m.id, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject as class_name, m.class_id
+                    FROM marks m 
+                    JOIN classes c ON m.class_id = c.id 
+                    WHERE m.student_id = %s AND m.class_id = %s
+                    ORDER BY m.date_recorded DESC
+                """, (student_id, class_id))
+            else:
+                cursor.execute("""
+                    SELECT m.id, m.test_name, m.marks_obtained, m.max_marks, m.date_recorded, c.subject as class_name, m.class_id
+                    FROM marks m 
+                    JOIN classes c ON m.class_id = c.id 
+                    WHERE m.student_id = %s
+                    ORDER BY m.date_recorded DESC
+                """, (student_id,))
+            marks_rows = cursor.fetchall()
+
+            for row in marks_rows:
+                if row.get('date_recorded'):
+                    row['date_recorded'] = row['date_recorded'].strftime('%Y-%m-%d')
+                obtained = float(row.get('marks_obtained') or 0)
+                max_m = float(row.get('max_marks') or 100)
+                row['marks_obtained'] = obtained
+                row['max_marks'] = max_m
+                row['percentage'] = round((obtained / max_m * 100), 1) if max_m > 0 else 0.0
+
+            avg_mark = round(sum(m['percentage'] for m in marks_rows) / len(marks_rows), 1) if marks_rows else None
+
+            # 5. Fee payments history
+            if class_id:
+                cursor.execute("""
+                    SELECT p.id, p.amount, p.payment_date, p.period, c.subject as class_name, p.class_id
+                    FROM payments p 
+                    JOIN classes c ON p.class_id = c.id 
+                    WHERE p.student_id = %s AND p.class_id = %s
+                    ORDER BY p.payment_date DESC
+                """, (student_id, class_id))
+            else:
+                cursor.execute("""
+                    SELECT p.id, p.amount, p.payment_date, p.period, c.subject as class_name, p.class_id
+                    FROM payments p 
+                    JOIN classes c ON p.class_id = c.id 
+                    WHERE p.student_id = %s
+                    ORDER BY p.payment_date DESC
+                """, (student_id,))
+            payments_rows = cursor.fetchall()
+
+            for row in payments_rows:
+                if row.get('payment_date'):
+                    row['payment_date'] = row['payment_date'].strftime('%Y-%m-%d')
+                row['amount'] = float(row.get('amount') or 0)
+
+            total_paid = sum(p['amount'] for p in payments_rows)
+
+            return jsonify({
+                'student': student,
+                'class': selected_class,
+                'attendance': {
+                    'total_sessions': total_sessions,
+                    'present_sessions': present_sessions,
+                    'absent_sessions': absent_sessions,
+                    'percentage': att_pct,
+                    'records': attendance_rows
+                },
+                'marks': {
+                    'average': avg_mark,
+                    'total_tests': len(marks_rows),
+                    'records': marks_rows
+                },
+                'payments': {
+                    'total_paid': total_paid,
+                    'total_transactions': len(payments_rows),
+                    'records': payments_rows
+                }
+            })
+    finally:
+        conn.close()
+
