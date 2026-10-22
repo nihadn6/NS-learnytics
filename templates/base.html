@@ -98,7 +98,7 @@
                         </div>
                     </div>
 
-                    <div class="nav-section-title">Finance & AI Analytics</div>
+                    <div class="nav-section-title">Finance & Analytics</div>
                     {% set is_teacher_finance_active = request.endpoint in ('finance.manual_payment', 'finance.income_report', 'finance.import_payments_view') %}
                     <div class="sidebar-collapsible {% if is_teacher_finance_active %}open{% endif %}">
                         <button type="button" class="sidebar-collapsible-btn {% if is_teacher_finance_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_teacher_finance_active %}true{% else %}false{% endif %}">
@@ -125,7 +125,7 @@
                     <div class="sidebar-collapsible {% if is_teacher_ai_active %}open{% endif %}">
                         <button type="button" class="sidebar-collapsible-btn {% if is_teacher_ai_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_teacher_ai_active %}true{% else %}false{% endif %}">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            <span class="collapsible-title">AI Analytics</span>
+                            <span class="collapsible-title">Analytics</span>
                             <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                         <div class="sidebar-submenu">
@@ -315,7 +315,7 @@
                     <div class="sidebar-collapsible {% if is_admin_ai_active %}open{% endif %}">
                         <button type="button" class="sidebar-collapsible-btn {% if is_admin_ai_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_admin_ai_active %}true{% else %}false{% endif %}">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                            <span class="collapsible-title">AI Analytics</span>
+                            <span class="collapsible-title">Analytics</span>
                             <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                         <div class="sidebar-submenu">
