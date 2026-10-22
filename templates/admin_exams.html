@@ -27,19 +27,21 @@
                    onkeyup="filterExamsTable()" 
                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 220px;">
                    
-            <select id="teacherFilterSelect" onchange="filterExamsTable()" 
-                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <select id="teacherFilterSelect" onchange="onTeacherChange()" 
+                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                 <option value="">All Instructors</option>
                 {% for t in teachers %}
-                    <option value="{{ t.name }}">{{ t.name }}</option>
+                    <option value="{{ t.id }}">{{ t.name }}</option>
                 {% endfor %}
             </select>
 
             <select id="classFilterSelect" onchange="filterExamsTable()" 
-                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                    style="padding: 0.45rem 0.85rem; font-size: 0.825rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                 <option value="">All Classes</option>
                 {% for c in classes %}
-                    <option value="{{ c.subject }}">{{ c.subject }}</option>
+                    <option value="{{ c.id }}" data-teacher-id="{{ c.teacher_id or '' }}">
+                        {{ c.subject }}{% if c.schedule %} ({{ c.schedule }}){% endif %}
+                    </option>
                 {% endfor %}
             </select>
         </div>
@@ -66,7 +68,9 @@
                     <tr class="exam-row" 
                         data-search="{{ (e.test_name ~ ' ' ~ e.subject ~ ' ' ~ e.teacher_name)|lower }}"
                         data-teacher="{{ e.teacher_name }}"
-                        data-class="{{ e.subject }}">
+                        data-teacher-id="{{ e.teacher_id }}"
+                        data-class="{{ e.subject }}"
+                        data-class-id="{{ e.class_id }}">
                         <td>
                             <strong style="color: var(--text-main); font-size: 0.9rem;">{{ e.subject }}</strong>
                             <div style="font-size: 0.725rem; color: var(--text-muted);">{{ e.schedule }}</div>
@@ -161,20 +165,56 @@
 </div>
 
 <script>
+    function onTeacherChange() {
+        const teacherSelect = document.getElementById('teacherFilterSelect');
+        const selectedTeacherId = teacherSelect.value;
+        const classSelect = document.getElementById('classFilterSelect');
+        const options = classSelect.querySelectorAll('option');
+
+        let selectedOptionStillVisible = false;
+
+        options.forEach(opt => {
+            if (!opt.value) {
+                // "All Classes" option
+                opt.style.display = '';
+                opt.disabled = false;
+                return;
+            }
+            const optTeacherId = opt.getAttribute('data-teacher-id');
+            if (!selectedTeacherId || optTeacherId === selectedTeacherId) {
+                opt.style.display = '';
+                opt.disabled = false;
+                if (opt.value === classSelect.value) {
+                    selectedOptionStillVisible = true;
+                }
+            } else {
+                opt.style.display = 'none';
+                opt.disabled = true;
+            }
+        });
+
+        // If the selected class belongs to another instructor, reset to All Classes
+        if (classSelect.value && !selectedOptionStillVisible) {
+            classSelect.value = '';
+        }
+
+        filterExamsTable();
+    }
+
     function filterExamsTable() {
         const search = document.getElementById('examSearchInput').value.toLowerCase().trim();
-        const teacher = document.getElementById('teacherFilterSelect').value;
-        const className = document.getElementById('classFilterSelect').value;
+        const teacherId = document.getElementById('teacherFilterSelect').value;
+        const classId = document.getElementById('classFilterSelect').value;
         const rows = document.querySelectorAll('.exam-row');
 
         rows.forEach(row => {
             const rowSearch = row.getAttribute('data-search') || '';
-            const rowTeacher = row.getAttribute('data-teacher') || '';
-            const rowClass = row.getAttribute('data-class') || '';
+            const rowTeacherId = row.getAttribute('data-teacher-id') || '';
+            const rowClassId = row.getAttribute('data-class-id') || '';
 
             const matchesSearch = !search || rowSearch.includes(search);
-            const matchesTeacher = !teacher || rowTeacher === teacher;
-            const matchesClass = !className || rowClass === className;
+            const matchesTeacher = !teacherId || rowTeacherId === teacherId;
+            const matchesClass = !classId || rowClassId === classId;
 
             if (matchesSearch && matchesTeacher && matchesClass) {
                 row.style.display = '';
@@ -183,6 +223,10 @@
             }
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        onTeacherChange();
+    });
 
     function confirmDeleteExam(classId, testName, subjectName, studentCount) {
         document.getElementById('deleteModalExamTitle').textContent = testName;

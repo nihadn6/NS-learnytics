@@ -744,7 +744,12 @@ def manage_exams():
             teachers = cursor.fetchall()
 
             # Classes for filter
-            cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+            cursor.execute("""
+                SELECT c.id, c.subject, c.schedule, c.teacher_id, u.name as teacher_name 
+                FROM classes c 
+                LEFT JOIN users u ON c.teacher_id = u.id 
+                ORDER BY c.subject
+            """)
             classes = cursor.fetchall()
 
             # Global summary stats
