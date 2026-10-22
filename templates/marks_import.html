@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Offline Exam Results Sheet Import - NS Learnytics{% endblock %}
+{% block title %}Import Exam Results - NS Learnytics{% endblock %}
 
 {% block content %}
 <!-- Top Header Hero -->
@@ -11,60 +11,40 @@
             <span>&rsaquo;</span>
             <a href="{{ url_for('performance.performance_report') }}" style="color: var(--text-muted); text-decoration: none;">Performance</a>
             <span>&rsaquo;</span>
-            <span style="color: var(--text-main); font-weight: 600;">Exam Results Sheet Import</span>
+            <span style="color: var(--text-main); font-weight: 600;">Import Marks</span>
         </div>
-        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
-            Exam Results & Marks Spreadsheet Import
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+            Import Exam Results
         </h1>
-        <p class="text-muted" style="margin-bottom: 0;">Upload Excel (.xlsx) or CSV (.csv) spreadsheets to batch-record student scores, term assessment grades, or mock exam results.</p>
+        <p class="text-muted" style="margin-bottom: 0; font-size: 0.9rem;">Download pre-filled grading sheets or upload completed student scores (.xlsx, .csv).</p>
     </div>
     <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+        <a href="{{ url_for('performance.add_marks') }}" class="btn btn-outline" style="padding: 0.55rem 1rem; font-size: 0.85rem;">
             &larr; Manual Marks Entry
         </a>
-        {% if session.role in ('admin', 'superadmin', 'moderator') %}
-        <a href="{{ url_for('admin.manage_exams') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
-            Exam Registry &rarr;
-        </a>
-        {% endif %}
-        <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="padding: 0.55rem 1rem;">
+        <a href="{{ url_for('performance.performance_report') }}" class="btn btn-outline" style="padding: 0.55rem 1rem; font-size: 0.85rem;">
             Performance Sheets &rarr;
         </a>
     </div>
 </div>
 
-<!-- Workflow Notice Banner -->
-<div class="card mb-6" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1px solid #a7f3d0; border-left: 5px solid var(--success); padding: 1.15rem 1.35rem;">
-    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
-        <div style="color: var(--success); font-size: 1.35rem; line-height: 1; margin-top: 2px;">
-            <svg style="width: 22px; height: 22px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        </div>
-        <div>
-            <strong style="color: #065f46; font-size: 0.95rem;">Batch Assessment Grading Protocol</strong>
-            <div style="color: #047857; font-size: 0.825rem; margin-top: 0.2rem; line-height: 1.45;">
-                For term exams, large lecture tests (400+ students), or offline paper grading, generate a pre-filled class marksheet in Excel or CSV format. Fill in student scores offline and upload the completed sheet here to update the academic ledger and automatically notify parents and students.
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- 2-Column Operational Grid -->
-<div class="grid dashboard-operational-grid" style="grid-template-columns: 48% 52%; gap: 1.5rem; align-items: start; margin-bottom: 2rem;">
+<div class="grid dashboard-operational-grid" style="grid-template-columns: 48% 52%; gap: 1.5rem; align-items: start; margin-bottom: 1.75rem;">
     
     <!-- LEFT COLUMN: STEP 1 - DOWNLOAD PRE-FILLED TEMPLATE -->
     <div class="card" style="border-top: 4px solid var(--primary); padding: 1.35rem 1.5rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Step 1: Download Exam Scoring Template</h2>
-            <span class="badge badge-primary" style="font-size: 0.7rem;">Grading Tool</span>
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">Step 1: Download Template</h2>
+            <span class="badge badge-primary" style="font-size: 0.7rem;">Roster Sheet</span>
         </div>
-        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">
-            Generate a pre-filled marksheet containing student IDs and names for the selected class and assessment.
+        <p class="text-muted" style="font-size: 0.825rem; margin-bottom: 1.25rem;">
+            Generate a pre-filled marksheet containing student IDs and names for your class.
         </p>
 
         {% if teachers %}
         <div class="form-group mb-3">
-            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Filter by Instructor</label>
-            <select id="templateTeacherSelect" onchange="filterTemplateClasses()" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Filter by Instructor</label>
+            <select id="templateTeacherSelect" onchange="filterTemplateClasses()" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                 <option value="">-- All Instructors --</option>
                 {% for t in teachers %}
                 <option value="{{ t.id }}">{{ t.name }}</option>
@@ -74,8 +54,8 @@
         {% endif %}
 
         <div class="form-group mb-3">
-            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Target Class Section <span style="color: var(--danger);">*</span></label>
-            <select id="templateClassSelect" onchange="syncSelectedClass(this.value)" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Target Class Section <span style="color: var(--danger);">*</span></label>
+            <select id="templateClassSelect" onchange="syncClassSelection(this.value, 'template')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                 <option value="">-- Select Class Section --</option>
                 {% for c in classes %}
                 <option value="{{ c.id }}" data-teacher="{{ c.teacher_id or '' }}" {% if selected_class_id == c.id %}selected{% endif %}>
@@ -85,38 +65,28 @@
             </select>
         </div>
 
-        <div class="form-group mb-3">
-            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Assessment Title <span style="color: var(--danger);">*</span></label>
-            <input type="text" id="templateTestNameInput" value="Term Assessment 01" placeholder="e.g. Unit Test 01, Mid-Term Exam" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-        </div>
-
-        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
             <div class="form-group mb-0">
-                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Max Marks</label>
-                <input type="number" id="templateMaxMarksInput" value="100" min="1" step="0.5" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Assessment Title</label>
+                <input type="text" id="templateTestNameInput" value="Term Assessment 01" oninput="syncField(this.value, 'uploadTestNameInput')" placeholder="e.g. Mid-Term Exam" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
             </div>
             <div class="form-group mb-0">
-                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Exam Date</label>
-                <input type="date" id="templateDateInput" value="{{ today_date }}" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Max Marks</label>
+                <input type="number" id="templateMaxMarksInput" value="100" min="1" step="0.5" oninput="syncField(this.value, 'uploadMaxMarksInput')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
             </div>
         </div>
 
-        <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.3rem;">Template Features:</div>
-            <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.775rem; color: var(--text-muted); line-height: 1.5;">
-                <li>Pre-populated with active enrolled students and verified student IDs.</li>
-                <li>Pre-formatted with assessment title, maximum possible marks, and session date.</li>
-                <li>Excel file includes formatted numeric score cells for easy score entry.</li>
-                <li>Ready to be printed out as physical grading sheet or filled on any device.</li>
-            </ul>
+        <div class="form-group mb-4">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Exam Date</label>
+            <input type="date" id="templateDateInput" value="{{ today_date }}" oninput="syncField(this.value, 'uploadDateInput')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
         </div>
 
         <div style="display: flex; gap: 0.65rem;">
-            <button type="button" onclick="downloadTemplate('xlsx')" class="btn btn-primary" style="flex: 1; font-size: 0.825rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+            <button type="button" onclick="downloadTemplate('xlsx')" class="btn btn-primary" style="flex: 1; font-size: 0.85rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;">
                 <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span>Excel (.xlsx)</span>
             </button>
-            <button type="button" onclick="downloadTemplate('csv')" class="btn btn-outline" style="flex: 1; font-size: 0.825rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+            <button type="button" onclick="downloadTemplate('csv')" class="btn btn-outline" style="flex: 1; font-size: 0.85rem; padding: 0.6rem 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;">
                 <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span>CSV Template</span>
             </button>
@@ -126,18 +96,18 @@
     <!-- RIGHT COLUMN: STEP 2 - UPLOAD COMPLETED MARKS SHEET -->
     <div class="card" style="border-top: 4px solid var(--success); padding: 1.35rem 1.5rem;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Step 2: Upload Completed Exam Sheet</h2>
-            <span class="badge badge-success" style="font-size: 0.7rem;">Batch Ingestion</span>
+            <h2 style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main);">Step 2: Upload Completed Sheet</h2>
+            <span class="badge badge-success" style="font-size: 0.7rem;">Batch Sync</span>
         </div>
-        <p class="text-muted" style="font-size: 0.8rem; margin-bottom: 1.25rem;">
-            Upload your completed Excel or CSV spreadsheet to record scores into the academic ledger.
+        <p class="text-muted" style="font-size: 0.825rem; margin-bottom: 1.25rem;">
+            Upload your completed Excel or CSV spreadsheet to save student marks.
         </p>
 
         <form method="POST" action="{{ url_for('performance.import_marks_post') }}" enctype="multipart/form-data" id="importForm">
             
             <div class="form-group mb-3">
-                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Class Section <span style="color: var(--danger);">*</span></label>
-                <select name="class_id" id="uploadClassSelect" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Class Section <span style="color: var(--danger);">*</span></label>
+                <select name="class_id" id="uploadClassSelect" required onchange="syncClassSelection(this.value, 'upload')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                     <option value="">-- Select Class Section --</option>
                     {% for c in classes %}
                     <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>
@@ -147,54 +117,53 @@
                 </select>
             </div>
 
+            <!-- Drag and Drop File Input Area -->
             <div class="form-group mb-3">
-                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Assessment Title <span style="color: var(--danger);">*</span></label>
-                <input type="text" name="test_name" id="uploadTestNameInput" value="Term Assessment 01" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.25rem;">
-                    Default title for rows where the assessment name column is omitted.
-                </div>
-            </div>
-
-            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-                <div class="form-group mb-0">
-                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Max Marks <span style="color: var(--danger);">*</span></label>
-                    <input type="number" name="max_marks" id="uploadMaxMarksInput" value="100" min="1" step="0.5" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                </div>
-                <div class="form-group mb-0">
-                    <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Exam Date <span style="color: var(--danger);">*</span></label>
-                    <input type="date" name="date_recorded" id="uploadDateInput" value="{{ today_date }}" required style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                </div>
-            </div>
-
-            <div class="form-group mb-4">
-                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem;">Spreadsheet File (.xlsx, .csv) <span style="color: var(--danger);">*</span></label>
-                <div style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 1.25rem 1rem; text-align: center; background: #fdfdfd; cursor: pointer;" onclick="document.getElementById('sheetFileInput').click()">
-                    <svg style="width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 0.4rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);" id="fileSelectedText">Click to select exam spreadsheet (.xlsx or .csv)</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Supports Microsoft Excel (.xlsx) and Comma-Separated Values (.csv)</div>
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Spreadsheet File (.xlsx, .csv) <span style="color: var(--danger);">*</span></label>
+                <div id="fileDropZone" style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 1.5rem 1rem; text-align: center; background: var(--bg-main); cursor: pointer; transition: all 0.2s ease;" onclick="document.getElementById('sheetFileInput').click()">
+                    <svg style="width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 0.35rem;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-main);" id="fileSelectedText">Click or drag & drop exam sheet here</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">Supports Microsoft Excel (.xlsx) and Comma-Separated Values (.csv)</div>
                     <input type="file" name="file" id="sheetFileInput" accept=".csv, .xlsx, .xls" required style="display: none;" onchange="handleFileChosen(this)">
                 </div>
             </div>
 
+            <!-- Fallback Assessment Details Drawer (Pre-synced with Step 1) -->
+            <details style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.85rem; margin-bottom: 1rem; background: var(--bg-main);">
+                <summary style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted); cursor: pointer; user-select: none;">
+                    Assessment Info (Auto-synced from Step 1)
+                </summary>
+                <div style="padding-top: 0.65rem; display: flex; flex-direction: column; gap: 0.65rem;">
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Assessment Title</label>
+                        <input type="text" name="test_name" id="uploadTestNameInput" value="Term Assessment 01" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
+                    </div>
+                    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Max Marks</label>
+                            <input type="number" name="max_marks" id="uploadMaxMarksInput" value="100" min="1" step="0.5" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Exam Date</label>
+                            <input type="date" name="date_recorded" id="uploadDateInput" value="{{ today_date }}" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
+                        </div>
+                    </div>
+                </div>
+            </details>
+
             <!-- Import Options -->
-            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.65rem;">
-                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="send_notifications" value="1" checked style="margin-top: 3px;">
-                    <div>
-                        <strong>Send instant result notifications to parents and students</strong>
-                        <div style="font-size: 0.725rem; color: var(--text-muted);">Notify registered parents and learners with score details as soon as marks are published.</div>
-                    </div>
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.9rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="send_notifications" value="1" checked style="accent-color: var(--primary);">
+                    <span>Send score notifications to registered parents & students</span>
                 </label>
-                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="update_existing" value="1" checked style="margin-top: 3px;">
-                    <div>
-                        <strong>Update existing grades (Score Corrections)</strong>
-                        <div style="font-size: 0.725rem; color: var(--text-muted);">If marks were previously entered for a student in this assessment, update them cleanly without duplicating records.</div>
-                    </div>
+                <label style="font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="update_existing" value="1" checked style="accent-color: var(--primary);">
+                    <span>Update existing scores if already entered (score corrections)</span>
                 </label>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.9rem; padding: 0.65rem 1rem; background: var(--success); border-color: var(--success);">
+            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.9rem; padding: 0.65rem 1rem; background: var(--success); border-color: var(--success); font-weight: 600;">
                 Import Exam Results &rarr;
             </button>
         </form>
@@ -203,79 +172,93 @@
 
 </div>
 
-<!-- Accepted File Format Guidelines Card -->
-<div class="card mb-6">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div>
-            <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">Accepted Exam Sheet Column Structure</h3>
-            <p class="text-muted" style="font-size: 0.8rem; margin: 0.15rem 0 0 0;">The importer automatically parses spreadsheets formatted with the following columns:</p>
+<!-- Accepted File Format Guidelines (Clean Collapsible Accordion) -->
+<details class="card mb-6" style="padding: 1.1rem 1.35rem; cursor: pointer;">
+    <summary style="font-weight: 700; font-size: 0.95rem; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; user-select: none;">
+        <span style="display: flex; align-items: center; gap: 0.5rem;">
+            <svg style="width: 18px; height: 18px; color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Supported Spreadsheet Column Formats (Optional Reference)
+        </span>
+        <span style="font-size: 0.775rem; font-weight: 600; color: var(--primary);">View Column Guide &darr;</span>
+    </summary>
+    <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; cursor: default;">
+        <p class="text-muted" style="font-size: 0.825rem; margin-bottom: 0.75rem;">
+            The importer automatically recognizes spreadsheets containing the following standard headers:
+        </p>
+        <div class="table-container" style="border: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Column Name</th>
+                        <th style="width: 25%;">Accepted Headers</th>
+                        <th style="width: 20%;">Valid Values</th>
+                        <th style="width: 35%;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">student_id</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
+                        <td><code>student_id</code>, <code>id</code>, <code>reg no</code>, <code>student no</code></td>
+                        <td>Integer ID (e.g. <code>5</code>, <code>19</code>)</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Unique student identifier matching user accounts.</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">marks_obtained</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
+                        <td><code>marks_obtained</code>, <code>marks</code>, <code>score</code>, <code>result</code></td>
+                        <td>Number (e.g. <code>85</code>, <code>92.5</code>)</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Student score. Rows with blank or non-numeric scores are skipped.</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">test_name</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                        <td><code>test_name</code>, <code>assessment</code>, <code>exam</code>, <code>title</code></td>
+                        <td>Text string</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Defaults to form assessment title if omitted in the file.</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">max_marks</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                        <td><code>max_marks</code>, <code>max</code>, <code>total_marks</code></td>
+                        <td>Number (e.g. <code>100</code>)</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Assessment total scale. Defaults to form value if omitted.</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">date_recorded</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                        <td><code>date_recorded</code>, <code>date</code>, <code>exam_date</code></td>
+                        <td><code>YYYY-MM-DD</code></td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Examination date. Defaults to selected date if omitted.</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color: var(--text-main);">student_name</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                        <td><code>student_name</code>, <code>name</code></td>
+                        <td>Text string</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Used for human-readable verification on paper marksheets.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        <span class="badge badge-secondary" style="font-size: 0.72rem;">Flexible Parser</span>
     </div>
-
-    <div class="table-container" style="border: none;">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 20%;">Column Name</th>
-                    <th style="width: 25%;">Accepted Headers</th>
-                    <th style="width: 20%;">Valid Values</th>
-                    <th style="width: 35%;">Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong style="color: var(--text-main);">student_id</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
-                    <td><code>student_id</code>, <code>id</code>, <code>reg no</code>, <code>student no</code></td>
-                    <td>Integer ID (e.g., <code>5</code>, <code>19</code>)</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Unique student identifier matching user accounts.</td>
-                </tr>
-                <tr>
-                    <td><strong style="color: var(--text-main);">marks_obtained</strong> <span style="color: var(--danger); font-size: 0.75rem;">(Required)</span></td>
-                    <td><code>marks_obtained</code>, <code>marks</code>, <code>score</code>, <code>result</code></td>
-                    <td>Number (e.g., <code>85</code>, <code>92.5</code>)</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Student score. Rows with blank or non-numeric scores are skipped.</td>
-                </tr>
-                <tr>
-                    <td><strong style="color: var(--text-main);">test_name</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
-                    <td><code>test_name</code>, <code>assessment</code>, <code>exam</code>, <code>title</code></td>
-                    <td>Text string</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Assessment title. Defaults to the form input if omitted.</td>
-                </tr>
-                <tr>
-                    <td><strong style="color: var(--text-main);">max_marks</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
-                    <td><code>max_marks</code>, <code>max</code>, <code>total_marks</code></td>
-                    <td>Number (e.g., <code>100</code>)</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Assessment total scale. Defaults to form value if omitted.</td>
-                </tr>
-                <tr>
-                    <td><strong style="color: var(--text-main);">date_recorded</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
-                    <td><code>date_recorded</code>, <code>date</code>, <code>exam_date</code></td>
-                    <td><code>YYYY-MM-DD</code> format</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Examination date. Defaults to selected date if omitted.</td>
-                </tr>
-                <tr>
-                    <td><strong style="color: var(--text-main);">student_name</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
-                    <td><code>student_name</code>, <code>name</code></td>
-                    <td>Text string</td>
-                    <td class="text-muted" style="font-size: 0.8rem;">Used for human-readable verification on paper marksheets.</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+</details>
 
 <script>
-    function syncSelectedClass(classId) {
+    function syncClassSelection(classId, source) {
         if (!classId) return;
-        const uploadSelect = document.getElementById('uploadClassSelect');
-        if (uploadSelect) {
-            uploadSelect.value = classId;
+        const targetId = source === 'template' ? 'uploadClassSelect' : 'templateClassSelect';
+        const targetSelect = document.getElementById(targetId);
+        if (targetSelect && targetSelect.value !== classId) {
+            targetSelect.value = classId;
+        }
+    }
+
+    function syncField(value, targetElementId) {
+        const target = document.getElementById(targetElementId);
+        if (target) {
+            target.value = value;
         }
     }
 
     function filterTemplateClasses() {
-        const teacherId = document.getElementById('templateTeacherSelect').value;
+        const teacherSelect = document.getElementById('templateTeacherSelect');
+        if (!teacherSelect) return;
+        const teacherId = teacherSelect.value;
         const classSelect = document.getElementById('templateClassSelect');
         const options = classSelect.querySelectorAll('option');
 
@@ -314,13 +297,57 @@
 
     function handleFileChosen(input) {
         const display = document.getElementById('fileSelectedText');
+        const dropZone = document.getElementById('fileDropZone');
         if (input.files && input.files[0]) {
             display.textContent = 'Selected: ' + input.files[0].name + ' (' + (input.files[0].size / 1024).toFixed(1) + ' KB)';
             display.style.color = 'var(--primary)';
+            if (dropZone) {
+                dropZone.style.borderColor = 'var(--primary)';
+                dropZone.style.background = 'var(--primary-light)';
+            }
         } else {
-            display.textContent = 'Click to select exam spreadsheet (.xlsx or .csv)';
+            display.textContent = 'Click or drag & drop exam sheet here';
             display.style.color = 'var(--text-main)';
+            if (dropZone) {
+                dropZone.style.borderColor = 'var(--border)';
+                dropZone.style.background = 'var(--bg-main)';
+            }
         }
+    }
+
+    // Drag and drop support for dropzone
+    const dropZone = document.getElementById('fileDropZone');
+    const fileInput = document.getElementById('sheetFileInput');
+
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.borderColor = 'var(--primary)';
+                dropZone.style.background = 'var(--primary-light)';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (eventName === 'dragleave') {
+                    dropZone.style.borderColor = 'var(--border)';
+                    dropZone.style.background = 'var(--bg-main)';
+                }
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                fileInput.files = files;
+                handleFileChosen(fileInput);
+            }
+        }, false);
     }
 </script>
 {% endblock %}
