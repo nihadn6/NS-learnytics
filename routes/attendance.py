@@ -40,15 +40,26 @@ def mark_attendance():
             class_id = data.get('class_id')
             date = data.get('date')
             
+            skipped_locked = 0
+            newly_recorded = 0
             for key, value in data.items():
                 if key.startswith('status_'):
                     student_id = key.split('_')[1]
                     cursor.execute("""
+                        SELECT status FROM attendance 
+                        WHERE class_id = %s AND student_id = %s AND date = %s
+                    """, (class_id, student_id, date))
+                    if cursor.fetchone():
+                        skipped_locked += 1
+                        continue
+                    cursor.execute("""
                         INSERT INTO attendance (class_id, student_id, date, status) 
                         VALUES (%s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE status = VALUES(status)
                     """, (class_id, student_id, date, value))
+                    newly_recorded += 1
             conn.commit()
+            if skipped_locked > 0:
+                flash(f"Processed attendance: {newly_recorded} recorded. {skipped_locked} student(s) skipped because attendance was already recorded today.", 'info')
             return redirect(url_for('classes.view_classes'))
     finally:
         conn.close()
@@ -176,25 +187,16 @@ def scan_attendance():
             if not date:
                 date = datetime.date.today().isoformat()
 
-            # Check if student was already marked present today
+            # Check if student was already marked on this date
             cursor.execute("""
                 SELECT status FROM attendance 
                 WHERE class_id = %s AND student_id = %s AND date = %s
             """, (class_id, student_id, date))
             existing_row = cursor.fetchone()
-            already_marked = (existing_row is not None and existing_row['status'] == 'present')
 
-            # Insert or update attendance - mark as present
-            cursor.execute("""
-                INSERT INTO attendance (class_id, student_id, date, status)
-                VALUES (%s, %s, %s, 'present')
-                ON DUPLICATE KEY UPDATE status = VALUES(status)
-            """, (class_id, student_id, date))
-            conn.commit()
-
-            # Return success, student info, and updated session counts
             cursor.execute("SELECT id, name, email FROM users WHERE id = %s", (student_id,))
             student = cursor.fetchone()
+            student_name = student['name'] if student else f"Student #{student_id}"
 
             # Total present for this session
             cursor.execute("""
@@ -209,7 +211,31 @@ def scan_attendance():
             cursor.execute("SELECT COUNT(DISTINCT student_id) as total_enrolled FROM enrollments WHERE class_id = %s", (class_id,))
             enrolled_row = cursor.fetchone()
             total_enrolled = enrolled_row['total_enrolled'] if enrolled_row else 0
+            percentage = round((total_present / total_enrolled * 100), 1) if total_enrolled > 0 else 0.0
 
+            if existing_row is not None:
+                # Already recorded! Enforce immutability - reject re-recording
+                recorded_status = existing_row['status'].capitalize()
+                return jsonify({
+                    'success': False,
+                    'already_recorded': True,
+                    'locked': True,
+                    'error': f"Attendance was already recorded for {student_name} on {date} as '{recorded_status}'. Records cannot be re-recorded afterwards for this day.",
+                    'student': student,
+                    'date': date,
+                    'total_present': total_present,
+                    'total_enrolled': total_enrolled,
+                    'percentage': percentage
+                }), 409
+
+            # First-time recording for this date - insert record
+            cursor.execute("""
+                INSERT INTO attendance (class_id, student_id, date, status)
+                VALUES (%s, %s, %s, 'present')
+            """, (class_id, student_id, date))
+            conn.commit()
+
+            total_present += 1
             percentage = round((total_present / total_enrolled * 100), 1) if total_enrolled > 0 else 0.0
 
             return jsonify({
@@ -219,7 +245,7 @@ def scan_attendance():
                 'total_present': total_present,
                 'total_enrolled': total_enrolled,
                 'percentage': percentage,
-                'already_marked': already_marked
+                'already_marked': False
             })
     finally:
         conn.close()
@@ -254,18 +280,21 @@ def session_status(class_id):
             enrolled_res = cursor.fetchone()
             total_enrolled = enrolled_res['total_enrolled'] if enrolled_res else 0
 
-            # Present students for this class and date
+            # All recorded students (present and absent) for this class and date
             cursor.execute("""
                 SELECT u.id, u.name, u.email, a.status
                 FROM attendance a
                 JOIN users u ON a.student_id = u.id
-                WHERE a.class_id = %s AND a.date = %s AND a.status = 'present'
+                WHERE a.class_id = %s AND a.date = %s
                 ORDER BY a.id ASC
             """, (class_id, date))
-            present_students = cursor.fetchall()
+            all_recorded = cursor.fetchall()
+            present_students = [s for s in all_recorded if s['status'] == 'present']
             total_present = len(present_students)
+            total_recorded = len(all_recorded)
 
             percentage = round((total_present / total_enrolled * 100), 1) if total_enrolled > 0 else 0.0
+            is_session_locked = (total_enrolled > 0 and total_recorded >= total_enrolled)
 
             return jsonify({
                 'success': True,
@@ -273,9 +302,12 @@ def session_status(class_id):
                 'class_name': class_row['subject'],
                 'date': date,
                 'total_present': total_present,
+                'total_recorded': total_recorded,
                 'total_enrolled': total_enrolled,
                 'percentage': percentage,
-                'present_students': present_students
+                'is_session_locked': is_session_locked,
+                'present_students': present_students,
+                'recorded_student_ids': [s['id'] for s in all_recorded]
             })
     finally:
         conn.close()
@@ -317,15 +349,26 @@ def manual_mark():
                 if not cursor.fetchone():
                     return "Invalid class or unauthorized", 400
 
+            skipped_locked = 0
+            newly_recorded = 0
             for key, value in data.items():
                 if key.startswith('status_'):
                     student_id = key.split('_')[1]
                     cursor.execute("""
+                        SELECT status FROM attendance 
+                        WHERE class_id = %s AND student_id = %s AND date = %s
+                    """, (class_id, student_id, date))
+                    if cursor.fetchone():
+                        skipped_locked += 1
+                        continue
+                    cursor.execute("""
                         INSERT INTO attendance (class_id, student_id, date, status) 
                         VALUES (%s, %s, %s, %s)
-                        ON DUPLICATE KEY UPDATE status = VALUES(status)
                     """, (class_id, student_id, date, value))
+                    newly_recorded += 1
             conn.commit()
+            if skipped_locked > 0:
+                flash(f"Recorded attendance for {newly_recorded} student(s). {skipped_locked} student(s) were locked because their attendance was already recorded today.", 'info')
             # Redirect back to classes or admin dashboard based on role
             if session.get('role') == 'teacher':
                 return redirect(url_for('classes.view_classes'))
@@ -799,13 +842,16 @@ def finalize_attendance():
 
             missing_students = [s for s in enrolled_students if s not in marked_students]
             if not missing_students:
-                return jsonify({'success': True, 'message': 'All structurally enrolled students are already exclusively tracked internally for today!'})
+                return jsonify({
+                    'success': True,
+                    'is_locked': True,
+                    'message': f'Attendance for this session is already completely recorded and locked for {date}.'
+                })
 
             for student_id in missing_students:
                 cursor.execute("""
                     INSERT INTO attendance (class_id, student_id, date, status) 
                     VALUES (%s, %s, %s, 'absent')
-                    ON DUPLICATE KEY UPDATE status = VALUES(status)
                 """, (class_id, student_id, date))
                 
                 # Trigger Notification for Parents
@@ -821,7 +867,11 @@ def finalize_attendance():
 
             conn.commit()
 
-            return jsonify({'success': True, 'message': f'Algorithm executed successfully: Flagged exactly {len(missing_students)} structurally missing student(s) natively as Absent.'})
+            return jsonify({
+                'success': True,
+                'is_locked': True,
+                'message': f'Attendance finalized: {len(missing_students)} student(s) marked Absent. Session is now locked for {date}.'
+            })
     finally:
         conn.close()
 
@@ -1152,18 +1202,28 @@ def import_attendance_post():
             # Database write
             present_cnt = 0
             absent_cnt = 0
+            already_locked_cnt = 0
             recorded_sids = set()
 
             for rec in parsed_records:
                 sid = rec['student_id']
                 st = rec['status']
                 dt = rec['date']
+
+                # Check if attendance is already recorded for this student on this date
+                cursor.execute("""
+                    SELECT status FROM attendance 
+                    WHERE class_id = %s AND student_id = %s AND date = %s
+                """, (class_id, sid, dt))
+                if cursor.fetchone():
+                    already_locked_cnt += 1
+                    continue
+
                 recorded_sids.add(sid)
 
                 cursor.execute("""
                     INSERT INTO attendance (class_id, student_id, date, status)
                     VALUES (%s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE status = VALUES(status)
                 """, (class_id, sid, dt, st))
 
                 if st == 'present':
@@ -1187,10 +1247,17 @@ def import_attendance_post():
             if mark_unlisted_absent and enrolled_student_ids:
                 missing_sids = enrolled_student_ids - recorded_sids
                 for sid in missing_sids:
+                    # Check if already recorded on default_date
+                    cursor.execute("""
+                        SELECT status FROM attendance 
+                        WHERE class_id = %s AND student_id = %s AND date = %s
+                    """, (class_id, sid, default_date))
+                    if cursor.fetchone():
+                        continue
+
                     cursor.execute("""
                         INSERT INTO attendance (class_id, student_id, date, status)
                         VALUES (%s, %s, %s, 'absent')
-                        ON DUPLICATE KEY UPDATE status = VALUES(status)
                     """, (class_id, sid, default_date))
                     unlisted_absent_cnt += 1
                     absent_cnt += 1
@@ -1207,7 +1274,13 @@ def import_attendance_post():
 
             conn.commit()
 
+            if len(parsed_records) > 0 and already_locked_cnt == len(parsed_records):
+                flash(f"Attendance for {class_subject} on {default_date} is already recorded and locked. Records cannot be altered afterwards for this day.", 'warning')
+                return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
             msg = f"Successfully imported attendance for {class_subject} on {default_date}: {len(recorded_sids)} records processed ({present_cnt} Present, {absent_cnt} Absent)."
+            if already_locked_cnt > 0:
+                msg += f" {already_locked_cnt} record(s) were skipped because attendance was already recorded today and is locked."
             if unlisted_absent_cnt > 0:
                 msg += f" {unlisted_absent_cnt} unlisted enrolled student(s) automatically marked Absent."
             if skipped_rows > 0:

@@ -178,6 +178,7 @@
     let html5QrcodeScanner = null;
     let lastScannedToken = null;
     let currentClassStudents = [];
+    let recordedStudentIds = new Set();
 
     function renderStudentOptions(students, query = '') {
         studentSelect.innerHTML = '';
@@ -200,31 +201,50 @@
             return;
         }
 
-        studentSelect.disabled = false;
-        manualMarkBtn.disabled = false;
+        let unrecordedAvailable = 0;
+        const availableSids = [];
+
+        students.forEach(s => {
+            const isRecorded = recordedStudentIds.has(s.student_id);
+            const option = document.createElement('option');
+            option.value = s.student_id;
+            if (isRecorded) {
+                option.textContent = s.email ? `${s.name} (${s.email}) - [Locked: Already Recorded]` : `${s.name} - [Locked: Already Recorded]`;
+                option.disabled = true;
+                option.style.color = '#94a3b8';
+            } else {
+                option.textContent = s.email ? `${s.name} (${s.email})` : s.name;
+                unrecordedAvailable++;
+                availableSids.push(s.student_id);
+            }
+            studentSelect.appendChild(option);
+        });
 
         // Default placeholder option
         const placeholderOpt = document.createElement('option');
         placeholderOpt.value = '';
-        placeholderOpt.textContent = `-- Select Student (${students.length} available) --`;
-        studentSelect.appendChild(placeholderOpt);
+        if (unrecordedAvailable === 0) {
+            placeholderOpt.textContent = '-- All Enrolled Students Already Recorded Today --';
+            studentSelect.disabled = true;
+            manualMarkBtn.disabled = true;
+        } else {
+            placeholderOpt.textContent = `-- Select Student (${unrecordedAvailable} pending) --`;
+            studentSelect.disabled = false;
+            manualMarkBtn.disabled = false;
+        }
+        studentSelect.insertBefore(placeholderOpt, studentSelect.firstChild);
+        studentSelect.value = '';
 
-        students.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s.student_id;
-            option.textContent = s.email ? `${s.name} (${s.email})` : s.name;
-            studentSelect.appendChild(option);
-        });
-
-        // If query is active, auto-select the first student match
+        // If query is active, auto-select the first unrecorded student match
         if (query) {
-            if (students.length >= 1) {
-                studentSelect.value = students[0].student_id;
+            if (availableSids.length >= 1) {
+                studentSelect.value = availableSids[0];
             }
-            studentSearchStatus.textContent = `Found ${students.length} match${students.length > 1 ? 'es' : ''} for "${query}"`;
+            studentSearchStatus.textContent = `Found ${students.length} match${students.length > 1 ? 'es' : ''} (${unrecordedAvailable} pending)`;
             studentSearchStatus.style.color = 'var(--primary)';
         } else {
-            studentSearchStatus.textContent = `Showing all ${currentClassStudents.length} enrolled student(s)`;
+            const recordedCount = recordedStudentIds.size;
+            studentSearchStatus.textContent = `${recordedCount} recorded, ${Math.max(currentClassStudents.length - recordedCount, 0)} pending for today`;
             studentSearchStatus.style.color = 'var(--text-muted)';
         }
     }
@@ -328,6 +348,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
+                    recordedStudentIds = new Set(data.recorded_student_ids || []);
                     currentSessionStudents = (data.present_students || []).map(s => ({
                         id: s.id,
                         name: s.name,
@@ -337,10 +358,20 @@
                     }));
                     updateSessionMetrics(data);
                     renderScannedTable(currentSessionStudents);
-                    if (data.total_present > 0) {
+                    renderStudentOptions(currentClassStudents, studentSearchInput.value.trim().toLowerCase());
+
+                    if (data.is_session_locked) {
+                        document.getElementById('liveRecentNotice').innerHTML = `<strong style="color: var(--primary);">Session Complete & Locked:</strong> All ${data.total_enrolled} student(s) have been recorded for today.`;
+                        document.getElementById('sessionDateBadge').textContent = 'Session Locked';
+                        document.getElementById('sessionDateBadge').style.borderColor = 'var(--primary)';
+                        document.getElementById('sessionDateBadge').style.color = 'var(--primary)';
+                        document.getElementById('sessionDateBadge').style.fontWeight = '700';
+                    } else if (data.total_present > 0) {
                         document.getElementById('liveRecentNotice').innerHTML = `Currently <strong>${data.total_present}</strong> student${data.total_present === 1 ? '' : 's'} recorded present today.`;
+                        document.getElementById('sessionDateBadge').textContent = 'Today';
                     } else {
                         document.getElementById('liveRecentNotice').textContent = 'No students recorded yet for this session.';
+                        document.getElementById('sessionDateBadge').textContent = 'Today';
                     }
                 }
             })
@@ -362,6 +393,7 @@
         manualMarkBtn.disabled = true;
         currentClassStudents = [];
         currentSessionStudents = [];
+        recordedStudentIds.clear();
         document.getElementById('liveAttendanceCard').style.display = 'none';
 
         allClassOptions.forEach(opt => {
@@ -398,6 +430,7 @@
             studentSearchStatus.textContent = '';
             currentClassStudents = [];
             currentSessionStudents = [];
+            recordedStudentIds.clear();
             document.getElementById('liveAttendanceCard').style.display = 'none';
         }
     });
@@ -410,43 +443,48 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        }).then(r => r.json()).then(j => {
-            if (j.success) {
+        }).then(r => r.json().then(j => ({ ok: r.ok, status: r.status, data: j }))).then(res => {
+            const j = res.data;
+            if (res.ok && j.success) {
                 updateSessionMetrics(j);
                 const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-                if (j.already_marked) {
-                    resultDiv.innerHTML = `
-                        <div style="padding: 0.25rem;">
-                            <div style="color: var(--warning); font-size: 1.15rem; font-weight: 700;">${j.student.name}</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px;">Already marked Present earlier today (Duplicate Scan). Count: <strong>${j.total_present}</strong> / ${j.total_enrolled}</div>
-                        </div>
-                    `;
-                    resultDiv.style.borderColor = "var(--warning)";
-                    document.getElementById('liveRecentNotice').innerHTML = `Already verified: <strong>${j.student.name}</strong> (Total recorded: ${j.total_present})`;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div style="padding: 0.25rem;">
-                            <div style="color: var(--success); font-size: 1.25rem; font-weight: 800;">${j.student.name} Verified</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px;">Recorded as Student <strong>#${j.total_present}</strong> of ${j.total_enrolled} (${j.percentage}%)</div>
-                        </div>
-                    `;
-                    resultDiv.style.borderColor = "var(--success)";
-                    document.getElementById('liveRecentNotice').innerHTML = `Latest recorded: <strong>#${j.total_present} ${j.student.name}</strong> <span style="color: var(--text-muted);">(${timeNow})</span>`;
+                resultDiv.innerHTML = `
+                    <div style="padding: 0.25rem;">
+                        <div style="color: var(--success); font-size: 1.25rem; font-weight: 800;">${j.student.name} Verified</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px;">Recorded as Student <strong>#${j.total_present}</strong> of ${j.total_enrolled} (${j.percentage}%)</div>
+                    </div>
+                `;
+                resultDiv.style.borderColor = "var(--success)";
+                document.getElementById('liveRecentNotice').innerHTML = `Latest recorded: <strong>#${j.total_present} ${j.student.name}</strong> <span style="color: var(--text-muted);">(${timeNow})</span>`;
 
-                    // Add to in-memory list and re-render table
-                    currentSessionStudents.push({
-                        id: j.student.id,
-                        name: j.student.name,
-                        email: j.student.email,
-                        status: 'present',
-                        time: timeNow
-                    });
-                    renderScannedTable(currentSessionStudents);
+                // Add to in-memory list and re-render table
+                currentSessionStudents.push({
+                    id: j.student.id,
+                    name: j.student.name,
+                    email: j.student.email,
+                    status: 'present',
+                    time: timeNow
+                });
+                if (j.student && j.student.id) {
+                    recordedStudentIds.add(j.student.id);
                 }
+                renderScannedTable(currentSessionStudents);
+                renderStudentOptions(currentClassStudents, studentSearchInput.value.trim().toLowerCase());
             } else {
-                resultDiv.innerHTML = `<span style="color: var(--danger); font-size: 1.05rem;">${j.error}</span>`;
-                resultDiv.style.borderColor = "var(--danger)";
+                if (j.locked || j.already_recorded) {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 0.25rem;">
+                            <div style="color: var(--danger); font-size: 1.15rem; font-weight: 700;">Record Locked</div>
+                            <div style="font-size: 0.85rem; color: var(--danger); margin-top: 3px; font-weight: 600;">${j.error}</div>
+                        </div>
+                    `;
+                    resultDiv.style.borderColor = "var(--danger)";
+                    document.getElementById('liveRecentNotice').innerHTML = `<span style="color: var(--danger); font-weight: 600;">Lock Enforced: ${j.student ? j.student.name : 'Student'} attendance was already recorded today.</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span style="color: var(--danger); font-size: 1.05rem;">${j.error}</span>`;
+                    resultDiv.style.borderColor = "var(--danger)";
+                }
             }
             if (html5QrcodeScanner) { try { html5QrcodeScanner.resume(); } catch (e) { } }
         }).catch(err => {
@@ -517,7 +555,7 @@
 
     async function finalizeAttendance() {
         if (!classSelect.value) { alert("Select a class first."); return; }
-        if (!confirm("Flag all unscanned students as Absent for today?")) return;
+        if (!confirm("Flag all unscanned students as Absent for today? Once finalized, session attendance is locked.")) return;
         const resDiv = document.getElementById('finalizeResult');
         resDiv.innerText = "Syncing...";
         try {
@@ -529,6 +567,9 @@
             const j = await r.json();
             resDiv.innerText = j.message || j.error;
             resDiv.style.color = j.success ? "var(--success)" : "var(--danger)";
+            if (j.success) {
+                loadSessionStatus(classSelect.value);
+            }
         } catch (e) { resDiv.innerText = "Network Error"; }
     }
 
