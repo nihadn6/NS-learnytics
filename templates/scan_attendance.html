@@ -76,13 +76,25 @@
             <!-- Status Notice & Scanned Drawer Toggle -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.45rem; border-top: 1px solid var(--border); font-size: 0.775rem;">
                 <span id="liveRecentNotice" style="color: var(--text-muted);">No students recorded yet for this session.</span>
-                <button type="button" id="toggleScannedListBtn" class="btn btn-outline" style="font-size: 0.72rem; padding: 0.25rem 0.65rem;" onclick="toggleScannedDrawer()">
-                    Show Recorded List (<span id="drawerCount">0</span>) &darr;
+                <button type="button" id="toggleScannedListBtn" class="btn btn-outline" style="font-size: 0.72rem; padding: 0.25rem 0.65rem; cursor: pointer;" onclick="toggleScannedDrawer()">
+                    <span id="drawerBtnText">Show Recorded List</span> (<span id="drawerCount">0</span>) <span id="drawerBtnArrow">&darr;</span>
                 </button>
             </div>
 
+            <!-- Real-Time Latest Marked Student Strip -->
+            <div id="liveLatestStudentStrip" style="margin-top: 0.65rem; padding: 0.55rem 0.85rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: var(--radius-sm); display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="badge badge-success" style="font-size: 0.68rem; font-weight: 700; padding: 2px 7px;">Just Recorded</span>
+                    <strong id="liveLatestStudentName" style="color: #065f46; font-size: 0.85rem;"></strong>
+                    <span id="liveLatestStudentEmail" style="color: #047857; font-size: 0.775rem;"></span>
+                </div>
+                <div style="font-size: 0.775rem; color: #047857;">
+                    <strong id="liveLatestStudentIndex">#1</strong> recorded at <span id="liveLatestStudentTime"></span>
+                </div>
+            </div>
+
             <!-- Collapsible Scanned Students Table -->
-            <div id="scannedDrawer" style="display: none; margin-top: 0.75rem; max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: white;">
+            <div id="scannedDrawer" style="display: none; margin-top: 0.75rem; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: white;">
                 <table class="table" style="margin: 0; font-size: 0.775rem;">
                     <thead>
                         <tr style="background: var(--bg-main); border-bottom: 1px solid var(--border);">
@@ -291,24 +303,38 @@
 
     function toggleScannedDrawer() {
         const drawer = document.getElementById('scannedDrawer');
-        const btn = document.getElementById('toggleScannedListBtn');
-        const count = document.getElementById('drawerCount').textContent;
-        if (drawer.style.display === 'none' || !drawer.style.display) {
-            drawer.style.display = 'block';
-            btn.innerHTML = `Hide Recorded List (${count}) &uarr;`;
-        } else {
+        const textSpan = document.getElementById('drawerBtnText');
+        const arrowSpan = document.getElementById('drawerBtnArrow');
+        if (!drawer) return;
+
+        const isVisible = (drawer.style.display === 'block' || window.getComputedStyle(drawer).display === 'block');
+        if (isVisible) {
             drawer.style.display = 'none';
-            btn.innerHTML = `Show Recorded List (${count}) &darr;`;
+            if (textSpan) textSpan.textContent = 'Show Recorded List';
+            if (arrowSpan) arrowSpan.innerHTML = '&darr;';
+        } else {
+            drawer.style.display = 'block';
+            if (textSpan) textSpan.textContent = 'Hide Recorded List';
+            if (arrowSpan) arrowSpan.innerHTML = '&uarr;';
         }
     }
 
     function updateSessionMetrics(data) {
-        document.getElementById('livePresentCount').textContent = data.total_present !== undefined ? data.total_present : 0;
-        document.getElementById('liveEnrolledTotal').textContent = `/ ${data.total_enrolled || 0} Enrolled`;
-        const pct = data.percentage !== undefined ? data.percentage : (data.total_enrolled ? Math.round((data.total_present / data.total_enrolled) * 1000) / 10 : 0);
-        document.getElementById('livePercentageBadge').textContent = `${pct}%`;
-        document.getElementById('liveProgressBar').style.width = `${Math.min(pct, 100)}%`;
-        document.getElementById('drawerCount').textContent = data.total_present !== undefined ? data.total_present : 0;
+        const presentEl = document.getElementById('livePresentCount');
+        const enrolledEl = document.getElementById('liveEnrolledTotal');
+        const pctEl = document.getElementById('livePercentageBadge');
+        const barEl = document.getElementById('liveProgressBar');
+        const drawerCountEl = document.getElementById('drawerCount');
+
+        const totalPresent = data.total_present !== undefined ? data.total_present : (currentSessionStudents ? currentSessionStudents.length : 0);
+        const totalEnrolled = data.total_enrolled || 0;
+        const pct = data.percentage !== undefined ? data.percentage : (totalEnrolled ? Math.round((totalPresent / totalEnrolled) * 1000) / 10 : 0);
+
+        if (presentEl) presentEl.textContent = totalPresent;
+        if (enrolledEl) enrolledEl.textContent = `/ ${totalEnrolled} Enrolled`;
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (barEl) barEl.style.width = `${Math.min(pct, 100)}%`;
+        if (drawerCountEl) drawerCountEl.textContent = totalPresent;
     }
 
     function renderScannedTable(students) {
@@ -360,6 +386,20 @@
                     renderScannedTable(currentSessionStudents);
                     renderStudentOptions(currentClassStudents, studentSearchInput.value.trim().toLowerCase());
 
+                    const strip = document.getElementById('liveLatestStudentStrip');
+                    if (currentSessionStudents.length > 0) {
+                        const latest = currentSessionStudents[currentSessionStudents.length - 1];
+                        if (strip) {
+                            document.getElementById('liveLatestStudentName').textContent = latest.name;
+                            document.getElementById('liveLatestStudentEmail').textContent = latest.email ? `(${latest.email})` : '';
+                            document.getElementById('liveLatestStudentIndex').textContent = `#${currentSessionStudents.length}`;
+                            document.getElementById('liveLatestStudentTime').textContent = latest.time || 'Earlier';
+                            strip.style.display = 'flex';
+                        }
+                    } else if (strip) {
+                        strip.style.display = 'none';
+                    }
+
                     if (data.is_session_locked) {
                         document.getElementById('liveRecentNotice').innerHTML = `<strong style="color: var(--primary);">Session Complete & Locked:</strong> All ${data.total_enrolled} student(s) have been recorded for today.`;
                         document.getElementById('sessionDateBadge').textContent = 'Session Locked';
@@ -395,6 +435,8 @@
         currentSessionStudents = [];
         recordedStudentIds.clear();
         document.getElementById('liveAttendanceCard').style.display = 'none';
+        const strip1 = document.getElementById('liveLatestStudentStrip');
+        if (strip1) strip1.style.display = 'none';
 
         allClassOptions.forEach(opt => {
             if (!selectedTeacher || opt.getAttribute('data-teacher') === selectedTeacher) {
@@ -432,6 +474,8 @@
             currentSessionStudents = [];
             recordedStudentIds.clear();
             document.getElementById('liveAttendanceCard').style.display = 'none';
+            const strip2 = document.getElementById('liveLatestStudentStrip');
+            if (strip2) strip2.style.display = 'none';
         }
     });
 
@@ -457,6 +501,16 @@
                 `;
                 resultDiv.style.borderColor = "var(--success)";
                 document.getElementById('liveRecentNotice').innerHTML = `Latest recorded: <strong>#${j.total_present} ${j.student.name}</strong> <span style="color: var(--text-muted);">(${timeNow})</span>`;
+
+                // Update real-time latest student strip
+                const strip = document.getElementById('liveLatestStudentStrip');
+                if (strip) {
+                    document.getElementById('liveLatestStudentName').textContent = j.student.name;
+                    document.getElementById('liveLatestStudentEmail').textContent = j.student.email ? `(${j.student.email})` : '';
+                    document.getElementById('liveLatestStudentIndex').textContent = `#${j.total_present}`;
+                    document.getElementById('liveLatestStudentTime').textContent = timeNow;
+                    strip.style.display = 'flex';
+                }
 
                 // Add to in-memory list and re-render table
                 currentSessionStudents.push({
