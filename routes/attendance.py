@@ -821,7 +821,7 @@ def download_attendance_template(class_id):
                 writer = csv.writer(output)
                 writer.writerow(['student_id', 'student_name', 'email', 'status', 'date', 'remarks'])
                 for s in students:
-                    writer.writerow([s['id'], s['name'], s['email'] or '', 'Present', session_date, ''])
+                    writer.writerow([s['id'], s['name'], s['email'] or '', 'Absent', session_date, ''])
                 
                 resp = Response(output.getvalue(), mimetype='text/csv')
                 resp.headers['Content-Disposition'] = f'attachment; filename=attendance_template_{subject_slug}_{session_date}.csv'
@@ -846,7 +846,7 @@ def download_attendance_template(class_id):
                 bottom=Side(style='thin', color='E2E8F0')
             )
 
-            headers = ['Student ID', 'Student Name', 'Email', 'Status (Present/Absent)', 'Session Date', 'Remarks']
+            headers = ['Student ID', 'Student Name', 'Email', 'Status (Absent/Present)', 'Session Date', 'Remarks']
             ws.append(headers)
 
             for col_idx in range(1, len(headers) + 1):
@@ -856,7 +856,7 @@ def download_attendance_template(class_id):
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
             for s in students:
-                ws.append([s['id'], s['name'], s['email'] or '', 'Present', session_date, ''])
+                ws.append([s['id'], s['name'], s['email'] or '', 'Absent', session_date, ''])
 
             # Apply cell styling
             for row in ws.iter_rows(min_row=2, max_row=len(students) + 1, min_col=1, max_col=len(headers)):
@@ -868,8 +868,8 @@ def download_attendance_template(class_id):
                     elif cell.column in (4, 5):
                         cell.alignment = Alignment(horizontal="center")
 
-            # Add dropdown validation for Status column
-            dv = DataValidation(type='list', formula1='"Present,Absent"', allow_blank=True)
+            # Add dropdown validation for Status column (default Absent, change to Present for attendees)
+            dv = DataValidation(type='list', formula1='"Absent,Present"', allow_blank=True)
             ws.add_data_validation(dv)
             max_row = max(len(students) + 10, 50)
             dv.add(f'D2:D{max_row}')
@@ -991,7 +991,7 @@ def import_attendance_post():
                 clean_h = h.replace('_', ' ').replace('-', ' ').strip()
                 if clean_h in ('student id', 'studentid', 'id', 'student no', 'reg no'):
                     id_idx = idx
-                elif clean_h in ('status', 'status (present/absent)', 'attendance', 'attendance status', 'present'):
+                elif clean_h in ('status', 'status (absent/present)', 'status (present/absent)', 'attendance', 'attendance status', 'present', 'absent'):
                     status_idx = idx
                 elif clean_h in ('date', 'session date', 'attendance date', 'date (yyyy mm dd)'):
                     date_idx = idx
