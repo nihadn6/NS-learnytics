@@ -99,18 +99,28 @@
                     </div>
 
                     <div class="nav-section-title">Finance & AI Analytics</div>
-                    <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-link {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        <span>Collect Tuition Fee</span>
-                    </a>
-                    <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-link {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>Import Fee Sheet</span>
-                    </a>
-                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>Revenue Reports</span>
-                    </a>
+                    {% set is_teacher_finance_active = request.endpoint in ('finance.manual_payment', 'finance.income_report', 'finance.import_payments_view') %}
+                    <div class="sidebar-collapsible {% if is_teacher_finance_active %}open{% endif %}">
+                        <button type="button" class="sidebar-collapsible-btn {% if is_teacher_finance_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_teacher_finance_active %}true{% else %}false{% endif %}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span class="collapsible-title">Class Fee</span>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div class="sidebar-submenu">
+                            <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-sublink {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span>Collect Fee</span>
+                            </a>
+                            <a href="{{ url_for('finance.income_report') }}" class="sidebar-sublink {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Fee Reports</span>
+                            </a>
+                            <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-sublink {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Import Fee Sheet</span>
+                            </a>
+                        </div>
+                    </div>
                     <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         <span>AI Risk Predictor</span>
@@ -269,18 +279,28 @@
                             </a>
                         </div>
                     </div>
-                    <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-link {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        <span>Collect Tuition Fee</span>
-                    </a>
-                    <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-link {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>Import Fee Sheet</span>
-                    </a>
-                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>Financial Audit</span>
-                    </a>
+                    {% set is_admin_finance_active = request.endpoint in ('finance.manual_payment', 'finance.income_report', 'finance.import_payments_view') %}
+                    <div class="sidebar-collapsible {% if is_admin_finance_active %}open{% endif %}">
+                        <button type="button" class="sidebar-collapsible-btn {% if is_admin_finance_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_admin_finance_active %}true{% else %}false{% endif %}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span class="collapsible-title">Class Fee</span>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div class="sidebar-submenu">
+                            <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-sublink {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span>Collect Fee</span>
+                            </a>
+                            <a href="{{ url_for('finance.income_report') }}" class="sidebar-sublink {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Fee Reports</span>
+                            </a>
+                            <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-sublink {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Import Fee Sheet</span>
+                            </a>
+                        </div>
+                    </div>
                     <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="sidebar-link {% if request.endpoint == 'ai_analytics.at_risk_dashboard' %}active{% endif %}">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         <span>AI Student Risk Radar</span>
@@ -328,14 +348,7 @@
                             </a>
                         </div>
                     </div>
-                    <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-link {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                        <span>Collect Tuition Fee</span>
-                    </a>
-                    <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-link {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>Import Fee Sheet</span>
-                    </a>
+
                     {% set is_mod_exams_active = request.endpoint in ('performance.add_marks', 'performance.import_marks_view', 'performance.performance_report') %}
                     <div class="sidebar-collapsible {% if is_mod_exams_active %}open{% endif %}">
                         <button type="button" class="sidebar-collapsible-btn {% if is_mod_exams_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_mod_exams_active %}true{% else %}false{% endif %}">
@@ -359,11 +372,28 @@
                         </div>
                     </div>
 
-                    <div class="nav-section-title">Financial Records</div>
-                    <a href="{{ url_for('finance.income_report') }}" class="sidebar-link {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>Daily Fee Ledger</span>
-                    </a>
+                    {% set is_mod_finance_active = request.endpoint in ('finance.manual_payment', 'finance.income_report', 'finance.import_payments_view') %}
+                    <div class="sidebar-collapsible {% if is_mod_finance_active %}open{% endif %}">
+                        <button type="button" class="sidebar-collapsible-btn {% if is_mod_finance_active %}active{% endif %}" onclick="toggleSidebarMenu(this)" aria-expanded="{% if is_mod_finance_active %}true{% else %}false{% endif %}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span class="collapsible-title">Class Fee</span>
+                            <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div class="sidebar-submenu">
+                            <a href="{{ url_for('finance.manual_payment') }}" class="sidebar-sublink {% if request.endpoint == 'finance.manual_payment' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span>Collect Fee</span>
+                            </a>
+                            <a href="{{ url_for('finance.income_report') }}" class="sidebar-sublink {% if request.endpoint == 'finance.income_report' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Fee Reports</span>
+                            </a>
+                            <a href="{{ url_for('finance.import_payments_view') }}" class="sidebar-sublink {% if request.endpoint == 'finance.import_payments_view' %}active{% endif %}">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span>Import Fee Sheet</span>
+                            </a>
+                        </div>
+                    </div>
                 {% endif %}
 
                 <div class="nav-section-title">Account</div>
