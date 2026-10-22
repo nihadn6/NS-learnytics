@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for
+from flask import Blueprint, request, jsonify, session, render_template, redirect, url_for, flash, Response
 import datetime
 from database.db import get_db_connection
 
@@ -733,5 +733,402 @@ def finalize_attendance():
             conn.commit()
 
             return jsonify({'success': True, 'message': f'Algorithm executed successfully: Flagged exactly {len(missing_students)} structurally missing student(s) natively as Absent.'})
+    finally:
+        conn.close()
+
+
+@attendance_bp.route('/attendance/import', methods=['GET'])
+def import_attendance_view():
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if role == 'teacher':
+                cursor.execute("""
+                    SELECT c.id, c.subject, c.schedule, COUNT(e.student_id) as student_count
+                    FROM classes c
+                    LEFT JOIN enrollments e ON c.id = e.class_id
+                    WHERE c.teacher_id = %s
+                    GROUP BY c.id, c.subject, c.schedule
+                    ORDER BY c.subject
+                """, (session['user_id'],))
+                classes = cursor.fetchall()
+                teachers = []
+            else:
+                cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+                teachers = cursor.fetchall()
+                cursor.execute("""
+                    SELECT c.id, c.subject, c.schedule, c.teacher_id, u.name as teacher_name, COUNT(e.student_id) as student_count
+                    FROM classes c
+                    JOIN users u ON c.teacher_id = u.id
+                    LEFT JOIN enrollments e ON c.id = e.class_id
+                    GROUP BY c.id, c.subject, c.schedule, c.teacher_id, u.name
+                    ORDER BY c.subject
+                """)
+                classes = cursor.fetchall()
+
+            today_date = datetime.date.today().isoformat()
+            selected_class_id = request.args.get('class_id', type=int)
+
+            return render_template('attendance_import.html',
+                                   classes=classes,
+                                   teachers=teachers,
+                                   today_date=today_date,
+                                   selected_class_id=selected_class_id)
+    finally:
+        conn.close()
+
+
+@attendance_bp.route('/attendance/template/<int:class_id>', methods=['GET'])
+def download_attendance_template(class_id):
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    export_format = request.args.get('format', 'xlsx').lower()
+    session_date = request.args.get('date') or datetime.date.today().isoformat()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            if role == 'teacher':
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+            else:
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s", (class_id,))
+            class_row = cursor.fetchone()
+            if not class_row:
+                return "Class not found or unauthorized", 404
+
+            subject_slug = "".join(c for c in class_row['subject'] if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+
+            # Fetch enrolled students
+            cursor.execute("""
+                SELECT u.id, u.name, u.email
+                FROM enrollments e
+                JOIN users u ON e.student_id = u.id
+                WHERE e.class_id = %s
+                ORDER BY u.name
+            """, (class_id,))
+            students = cursor.fetchall()
+
+            if export_format == 'csv':
+                import csv
+                import io
+                output = io.StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['student_id', 'student_name', 'email', 'status', 'date', 'remarks'])
+                for s in students:
+                    writer.writerow([s['id'], s['name'], s['email'] or '', 'Present', session_date, ''])
+                
+                resp = Response(output.getvalue(), mimetype='text/csv')
+                resp.headers['Content-Disposition'] = f'attachment; filename=attendance_template_{subject_slug}_{session_date}.csv'
+                return resp
+
+            # Default: Excel .xlsx
+            import io
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.worksheet.datavalidation import DataValidation
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Attendance Roster"
+
+            header_fill = PatternFill(start_color="312E81", end_color="312E81", fill_type="solid")
+            header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+            thin_border = Border(
+                left=Side(style='thin', color='E2E8F0'),
+                right=Side(style='thin', color='E2E8F0'),
+                top=Side(style='thin', color='E2E8F0'),
+                bottom=Side(style='thin', color='E2E8F0')
+            )
+
+            headers = ['Student ID', 'Student Name', 'Email', 'Status (Present/Absent)', 'Session Date', 'Remarks']
+            ws.append(headers)
+
+            for col_idx in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            for s in students:
+                ws.append([s['id'], s['name'], s['email'] or '', 'Present', session_date, ''])
+
+            # Apply cell styling
+            for row in ws.iter_rows(min_row=2, max_row=len(students) + 1, min_col=1, max_col=len(headers)):
+                for cell in row:
+                    cell.border = thin_border
+                    cell.font = Font(name="Arial", size=10)
+                    if cell.column == 1:
+                        cell.alignment = Alignment(horizontal="center")
+                    elif cell.column in (4, 5):
+                        cell.alignment = Alignment(horizontal="center")
+
+            # Add dropdown validation for Status column
+            dv = DataValidation(type='list', formula1='"Present,Absent"', allow_blank=True)
+            ws.add_data_validation(dv)
+            max_row = max(len(students) + 10, 50)
+            dv.add(f'D2:D{max_row}')
+
+            # Auto-fit column widths
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 5, 14)
+
+            ws.row_dimensions[1].height = 28
+
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+
+            resp = Response(buf.getvalue(), mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            resp.headers['Content-Disposition'] = f'attachment; filename=attendance_template_{subject_slug}_{session_date}.xlsx'
+            return resp
+    finally:
+        conn.close()
+
+
+@attendance_bp.route('/attendance/import', methods=['POST'])
+def import_attendance_post():
+    role = session.get('role')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return "Unauthorized", 403
+
+    class_id = request.form.get('class_id', type=int)
+    default_date = (request.form.get('session_date') or '').strip()
+    mark_unlisted_absent = bool(request.form.get('mark_unlisted_absent'))
+    send_notifications = bool(request.form.get('send_notifications'))
+    file = request.files.get('file')
+
+    if not class_id:
+        flash('Please select a valid class section.', 'error')
+        return redirect(url_for('attendance.import_attendance_view'))
+
+    if not default_date:
+        default_date = datetime.date.today().isoformat()
+
+    if not file or not file.filename:
+        flash('Please select an Excel (.xlsx) or CSV (.csv) file to import.', 'error')
+        return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+    filename = file.filename.lower()
+    if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
+        flash('Unsupported file format. Please upload a .xlsx or .csv attendance file.', 'error')
+        return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Check teacher permission
+            if role == 'teacher':
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s AND teacher_id = %s", (class_id, session['user_id']))
+            else:
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s", (class_id,))
+            class_row = cursor.fetchone()
+            if not class_row:
+                flash('Unauthorized or invalid class section.', 'error')
+                return redirect(url_for('attendance.import_attendance_view'))
+
+            class_subject = class_row['subject']
+
+            # Enrolled students for validation and unlisted absent logic
+            cursor.execute("SELECT student_id FROM enrollments WHERE class_id = %s", (class_id,))
+            enrolled_student_ids = {row['student_id'] for row in cursor.fetchall()}
+
+            # Parse file rows into normalized dicts: [{'student_id': int, 'status': 'present'/'absent', 'date': 'YYYY-MM-DD'}]
+            parsed_records = []
+            skipped_rows = 0
+
+            if filename.endswith('.csv'):
+                import csv
+                import io
+                try:
+                    file_bytes = file.read()
+                    # Try UTF-8 with BOM, then UTF-8, then latin-1
+                    for enc in ('utf-8-sig', 'utf-8', 'latin-1'):
+                        try:
+                            text = file_bytes.decode(enc)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        text = file_bytes.decode('utf-8', errors='ignore')
+
+                    stream = io.StringIO(text, newline=None)
+                    reader = csv.reader(stream)
+                    raw_rows = list(reader)
+                except Exception as e:
+                    flash(f'Failed to parse CSV file: {str(e)}', 'error')
+                    return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+            else:
+                import io
+                import openpyxl
+                try:
+                    wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+                    ws = wb.active
+                    raw_rows = list(ws.iter_rows(values_only=True))
+                except Exception as e:
+                    flash(f'Failed to parse Excel workbook: {str(e)}', 'error')
+                    return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+            if not raw_rows:
+                flash('The uploaded file is empty.', 'error')
+                return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+            # Find header indices
+            header_row = [str(col or '').strip().lower() for col in raw_rows[0]]
+            id_idx = None
+            status_idx = None
+            date_idx = None
+
+            for idx, h in enumerate(header_row):
+                clean_h = h.replace('_', ' ').replace('-', ' ').strip()
+                if clean_h in ('student id', 'studentid', 'id', 'student no', 'reg no'):
+                    id_idx = idx
+                elif clean_h in ('status', 'status (present/absent)', 'attendance', 'attendance status', 'present'):
+                    status_idx = idx
+                elif clean_h in ('date', 'session date', 'attendance date', 'date (yyyy mm dd)'):
+                    date_idx = idx
+
+            # Fallback if headers were not recognized by name
+            if id_idx is None:
+                id_idx = 0
+            if status_idx is None:
+                # If there are multiple columns, check column 3 or 2
+                if len(header_row) >= 4:
+                    status_idx = 3
+                elif len(header_row) >= 3:
+                    status_idx = 2
+                else:
+                    status_idx = 1
+
+            # Iterate data rows (starting row 1)
+            for row_num, row in enumerate(raw_rows[1:], start=2):
+                if not row or all(c is None or str(c).strip() == '' for c in row):
+                    continue
+
+                try:
+                    raw_id = row[id_idx] if len(row) > id_idx else None
+                    if raw_id is None or str(raw_id).strip() == '':
+                        skipped_rows += 1
+                        continue
+
+                    # Extract integer student ID
+                    student_id = int(float(str(raw_id).strip()))
+
+                    # Extract status
+                    raw_status = str(row[status_idx] or '').strip().lower() if len(row) > status_idx else 'present'
+                    if not raw_status:
+                        raw_status = 'present'
+
+                    if raw_status in ('present', 'p', '1', 'true', 'yes', 'y'):
+                        norm_status = 'present'
+                    elif raw_status in ('absent', 'a', '0', 'false', 'no', 'n'):
+                        norm_status = 'absent'
+                    else:
+                        norm_status = 'present'
+
+                    # Extract date if present
+                    row_date = None
+                    if date_idx is not None and len(row) > date_idx and row[date_idx]:
+                        val = row[date_idx]
+                        if isinstance(val, (datetime.date, datetime.datetime)):
+                            row_date = val.strftime('%Y-%m-%d')
+                        else:
+                            val_str = str(val).strip()
+                            if len(val_str) >= 10:
+                                row_date = val_str[:10]
+
+                    final_date = row_date or default_date
+
+                    parsed_records.append({
+                        'student_id': student_id,
+                        'status': norm_status,
+                        'date': final_date
+                    })
+                except (ValueError, TypeError):
+                    skipped_rows += 1
+                    continue
+
+            if not parsed_records:
+                flash('No valid student attendance entries could be found in the uploaded file.', 'error')
+                return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
+
+            # Database write
+            present_cnt = 0
+            absent_cnt = 0
+            recorded_sids = set()
+
+            for rec in parsed_records:
+                sid = rec['student_id']
+                st = rec['status']
+                dt = rec['date']
+                recorded_sids.add(sid)
+
+                cursor.execute("""
+                    INSERT INTO attendance (class_id, student_id, date, status)
+                    VALUES (%s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE status = VALUES(status)
+                """, (class_id, sid, dt, st))
+
+                if st == 'present':
+                    present_cnt += 1
+                else:
+                    absent_cnt += 1
+
+                # Send parent absence notifications if enabled
+                if st == 'absent' and send_notifications:
+                    try:
+                        from utils.notifications import notify_parents_of_absence
+                        cursor.execute("SELECT name FROM users WHERE id = %s", (sid,))
+                        u = cursor.fetchone()
+                        if u:
+                            notify_parents_of_absence(sid, u['name'], class_subject, dt)
+                    except Exception as e:
+                        print(f"Parent notification error: {e}")
+
+            # Mark unlisted enrolled students as absent if checked
+            unlisted_absent_cnt = 0
+            if mark_unlisted_absent and enrolled_student_ids:
+                missing_sids = enrolled_student_ids - recorded_sids
+                for sid in missing_sids:
+                    cursor.execute("""
+                        INSERT INTO attendance (class_id, student_id, date, status)
+                        VALUES (%s, %s, %s, 'absent')
+                        ON DUPLICATE KEY UPDATE status = VALUES(status)
+                    """, (class_id, sid, default_date))
+                    unlisted_absent_cnt += 1
+                    absent_cnt += 1
+
+                    if send_notifications:
+                        try:
+                            from utils.notifications import notify_parents_of_absence
+                            cursor.execute("SELECT name FROM users WHERE id = %s", (sid,))
+                            u = cursor.fetchone()
+                            if u:
+                                notify_parents_of_absence(sid, u['name'], class_subject, default_date)
+                        except Exception as e:
+                            print(f"Parent notification error: {e}")
+
+            conn.commit()
+
+            msg = f"Successfully imported attendance for {class_subject} on {default_date}: {len(recorded_sids)} records processed ({present_cnt} Present, {absent_cnt} Absent)."
+            if unlisted_absent_cnt > 0:
+                msg += f" {unlisted_absent_cnt} unlisted enrolled student(s) automatically marked Absent."
+            if skipped_rows > 0:
+                msg += f" Note: {skipped_rows} row(s) were skipped due to invalid formats."
+
+            flash(msg, 'success')
+            return redirect(url_for('attendance.attendance_report', class_id=class_id, date=default_date))
+
+    except Exception as e:
+        flash(f'An unexpected error occurred during import: {str(e)}', 'error')
+        return redirect(url_for('attendance.import_attendance_view', class_id=class_id))
     finally:
         conn.close()
