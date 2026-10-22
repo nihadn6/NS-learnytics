@@ -176,6 +176,14 @@ def scan_attendance():
             if not date:
                 date = datetime.date.today().isoformat()
 
+            # Check if student was already marked present today
+            cursor.execute("""
+                SELECT status FROM attendance 
+                WHERE class_id = %s AND student_id = %s AND date = %s
+            """, (class_id, student_id, date))
+            existing_row = cursor.fetchone()
+            already_marked = (existing_row is not None and existing_row['status'] == 'present')
+
             # Insert or update attendance - mark as present
             cursor.execute("""
                 INSERT INTO attendance (class_id, student_id, date, status)
@@ -184,10 +192,91 @@ def scan_attendance():
             """, (class_id, student_id, date))
             conn.commit()
 
-            # Return success and student info
-            cursor.execute("SELECT name FROM users WHERE id = %s", (student_id,))
+            # Return success, student info, and updated session counts
+            cursor.execute("SELECT id, name, email FROM users WHERE id = %s", (student_id,))
             student = cursor.fetchone()
-            return jsonify({'success': True, 'student': student, 'date': date})
+
+            # Total present for this session
+            cursor.execute("""
+                SELECT COUNT(DISTINCT student_id) as total_present 
+                FROM attendance 
+                WHERE class_id = %s AND date = %s AND status = 'present'
+            """, (class_id, date))
+            present_row = cursor.fetchone()
+            total_present = present_row['total_present'] if present_row else 0
+
+            # Total enrolled in class
+            cursor.execute("SELECT COUNT(DISTINCT student_id) as total_enrolled FROM enrollments WHERE class_id = %s", (class_id,))
+            enrolled_row = cursor.fetchone()
+            total_enrolled = enrolled_row['total_enrolled'] if enrolled_row else 0
+
+            percentage = round((total_present / total_enrolled * 100), 1) if total_enrolled > 0 else 0.0
+
+            return jsonify({
+                'success': True,
+                'student': student,
+                'date': date,
+                'total_present': total_present,
+                'total_enrolled': total_enrolled,
+                'percentage': percentage,
+                'already_marked': already_marked
+            })
+    finally:
+        conn.close()
+
+
+@attendance_bp.route('/attendance/session-status/<int:class_id>', methods=['GET'])
+def session_status(class_id):
+    role = session.get('role')
+    user_id = session.get('user_id')
+    if role not in ('teacher', 'moderator', 'admin', 'superadmin'):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    date = request.args.get('date') or datetime.date.today().isoformat()
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # If teacher, verify class ownership
+            if role == 'teacher':
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s AND teacher_id = %s", (class_id, user_id))
+                class_row = cursor.fetchone()
+                if not class_row:
+                    return jsonify({'error': 'Unauthorized or class not found'}), 403
+            else:
+                cursor.execute("SELECT id, subject FROM classes WHERE id = %s", (class_id,))
+                class_row = cursor.fetchone()
+                if not class_row:
+                    return jsonify({'error': 'Class not found'}), 404
+
+            # Enrolled count
+            cursor.execute("SELECT COUNT(DISTINCT student_id) as total_enrolled FROM enrollments WHERE class_id = %s", (class_id,))
+            enrolled_res = cursor.fetchone()
+            total_enrolled = enrolled_res['total_enrolled'] if enrolled_res else 0
+
+            # Present students for this class and date
+            cursor.execute("""
+                SELECT u.id, u.name, u.email, a.status
+                FROM attendance a
+                JOIN users u ON a.student_id = u.id
+                WHERE a.class_id = %s AND a.date = %s AND a.status = 'present'
+                ORDER BY a.id ASC
+            """, (class_id, date))
+            present_students = cursor.fetchall()
+            total_present = len(present_students)
+
+            percentage = round((total_present / total_enrolled * 100), 1) if total_enrolled > 0 else 0.0
+
+            return jsonify({
+                'success': True,
+                'class_id': class_id,
+                'class_name': class_row['subject'],
+                'date': date,
+                'total_present': total_present,
+                'total_enrolled': total_enrolled,
+                'percentage': percentage,
+                'present_students': present_students
+            })
     finally:
         conn.close()
 
