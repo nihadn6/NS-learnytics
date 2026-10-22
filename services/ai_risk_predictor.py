@@ -13,8 +13,8 @@ class StudentRiskPredictor:
     def _bootstrap_model(self):
         """
         Train Random Forest model on synthesized training data representing
-        typical student risk patterns (Attendance, Recent Attendance, Avg Marks, Mark Trend, Missed Homework).
-        Features: [attendance_pct, recent_att_pct, avg_mark_pct, mark_trend, missed_hw_ratio]
+        typical student risk patterns (Attendance, Recent Attendance, Avg Marks, Mark Trend).
+        Features: [attendance_pct, recent_att_pct, avg_mark_pct, mark_trend]
         Target: 0 = Low Risk, 1 = Medium Risk, 2 = High Risk / At-Risk Dropout
         """
         np.random.seed(42)
@@ -27,13 +27,12 @@ class StudentRiskPredictor:
         
         avg_marks = np.random.uniform(20, 100, n_samples)
         mark_trend = np.random.uniform(-30, 30, n_samples)
-        missed_hw = np.random.uniform(0, 1.0, n_samples)
 
-        X = np.column_stack([att_pct, rec_att_pct, avg_marks, mark_trend, missed_hw])
+        X = np.column_stack([att_pct, rec_att_pct, avg_marks, mark_trend])
         y = []
 
         for row in X:
-            att, rec_att, marks, trend, hw = row
+            att, rec_att, marks, trend = row
             # Risk rules logic
             risk_score = 0
             if att < 60 or rec_att < 50:
@@ -47,8 +46,6 @@ class StudentRiskPredictor:
                 risk_score += 1
 
             if trend < -15:
-                risk_score += 1
-            if hw > 0.5:
                 risk_score += 1
 
             if risk_score >= 3:
@@ -142,33 +139,8 @@ class StudentRiskPredictor:
                     avg_mark_pct = 75.0
                     mark_trend = 0.0
 
-                # 4. Check LMS Assignment Missed Ratio (Class-Isolated if class_id provided)
-                if class_id:
-                    cursor.execute("""
-                        SELECT 
-                            COUNT(DISTINCT a.id) as total_assignments,
-                            COUNT(DISTINCT s.assignment_id) as submitted_assignments
-                        FROM assignments a
-                        LEFT JOIN assignment_submissions s ON a.id = s.assignment_id AND s.student_id = %s
-                        WHERE a.class_id = %s
-                    """, (student_id, class_id))
-                else:
-                    cursor.execute("""
-                        SELECT 
-                            COUNT(DISTINCT a.id) as total_assignments,
-                            COUNT(DISTINCT s.assignment_id) as submitted_assignments
-                        FROM enrollments e
-                        JOIN assignments a ON e.class_id = a.class_id
-                        LEFT JOIN assignment_submissions s ON a.id = s.assignment_id AND s.student_id = e.student_id
-                        WHERE e.student_id = %s
-                    """, (student_id,))
-                lms_data = cursor.fetchone()
-                total_hw = float(lms_data['total_assignments'] or 0)
-                sub_hw = float(lms_data['submitted_assignments'] or 0)
-                missed_hw_ratio = (total_hw - sub_hw) / total_hw if total_hw > 0 else 0.0
-
-                # 5. Feature Vector Construction
-                features = np.array([[att_pct, rec_att_pct, avg_mark_pct, mark_trend, missed_hw_ratio]])
+                # 4. Feature Vector Construction (Attendance + Academic Trajectory)
+                features = np.array([[att_pct, rec_att_pct, avg_mark_pct, mark_trend]])
                 probs = self.model.predict_proba(features)[0] # probabilities for [Low, Med, High]
 
                 # Calculate Risk Percentage (weighted risk score)
@@ -185,7 +157,7 @@ class StudentRiskPredictor:
                 else:
                     risk_level = 'LOW'
 
-                # 6. Generate Actionable Risk Factors
+                # 5. Generate Actionable Risk Factors
                 factors = []
                 if att_pct < 65:
                     factors.append(f"Critical attendance ({att_pct:.1f}%)")
@@ -203,9 +175,6 @@ class StudentRiskPredictor:
                 if mark_trend <= -10:
                     factors.append(f"Declining score trend ({mark_trend:.1f}%)")
 
-                if missed_hw_ratio >= 0.4:
-                    factors.append(f"Missed {int(missed_hw_ratio*100)}% homework")
-
                 if not factors and risk_level == 'LOW':
                     factors.append("Consistent performance & attendance")
 
@@ -220,7 +189,6 @@ class StudentRiskPredictor:
                     'recent_attendance_pct': round(rec_att_pct, 1),
                     'avg_mark_pct': round(avg_mark_pct, 1),
                     'mark_trend': round(mark_trend, 1),
-                    'missed_hw_ratio': round(missed_hw_ratio * 100, 1),
                     'risk_pct': risk_pct,
                     'risk_level': risk_level,
                     'risk_factors': factors
