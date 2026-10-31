@@ -3,12 +3,170 @@ from sklearn.ensemble import RandomForestClassifier
 from database.db import get_db_connection
 import datetime
 
+DEFAULT_RISK_SETTINGS = {
+    'preset_name': 'balanced',
+    'att_weight': 0.40,
+    'marks_weight': 0.40,
+    'rec_att_weight': 0.10,
+    'trend_weight': 0.10,
+    'min_attendance_threshold': 75.0,
+    'min_marks_threshold': 50.0,
+    'high_risk_threshold': 55.0,
+    'medium_risk_threshold': 25.0
+}
+
+PRESETS = {
+    'balanced': {
+        'preset_name': 'balanced',
+        'att_weight': 0.40,
+        'marks_weight': 0.40,
+        'rec_att_weight': 0.10,
+        'trend_weight': 0.10,
+        'min_attendance_threshold': 75.0,
+        'min_marks_threshold': 50.0,
+        'high_risk_threshold': 55.0,
+        'medium_risk_threshold': 25.0
+    },
+    'exam_heavy': {
+        'preset_name': 'exam_heavy',
+        'att_weight': 0.20,
+        'marks_weight': 0.55,
+        'rec_att_weight': 0.05,
+        'trend_weight': 0.20,
+        'min_attendance_threshold': 65.0,
+        'min_marks_threshold': 55.0,
+        'high_risk_threshold': 55.0,
+        'medium_risk_threshold': 25.0
+    },
+    'attendance_strict': {
+        'preset_name': 'attendance_strict',
+        'att_weight': 0.55,
+        'marks_weight': 0.20,
+        'rec_att_weight': 0.20,
+        'trend_weight': 0.05,
+        'min_attendance_threshold': 80.0,
+        'min_marks_threshold': 45.0,
+        'high_risk_threshold': 50.0,
+        'medium_risk_threshold': 25.0
+    }
+}
+
 class StudentRiskPredictor:
     def __init__(self):
         # Initialize Random Forest Classifier
         self.model = RandomForestClassifier(n_estimators=50, random_state=42)
         self._is_trained = False
         self._bootstrap_model()
+        self._ensure_settings_table()
+
+    def _ensure_settings_table(self):
+        """Ensure the user_risk_settings table exists in database"""
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS user_risk_settings (
+                        user_id INT PRIMARY KEY,
+                        preset_name VARCHAR(50) DEFAULT 'balanced',
+                        att_weight FLOAT DEFAULT 0.40,
+                        marks_weight FLOAT DEFAULT 0.40,
+                        rec_att_weight FLOAT DEFAULT 0.10,
+                        trend_weight FLOAT DEFAULT 0.10,
+                        min_attendance_threshold FLOAT DEFAULT 75.0,
+                        min_marks_threshold FLOAT DEFAULT 50.0,
+                        high_risk_threshold FLOAT DEFAULT 55.0,
+                        medium_risk_threshold FLOAT DEFAULT 25.0,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    );
+                """)
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Warning: unable to ensure user_risk_settings table: {e}")
+
+    def get_user_risk_settings(self, user_id):
+        """Retrieve stored risk settings for a teacher or admin, or return default balanced settings"""
+        if not user_id:
+            return dict(DEFAULT_RISK_SETTINGS)
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM user_risk_settings WHERE user_id = %s", (user_id,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'preset_name': row.get('preset_name') or 'custom',
+                        'att_weight': float(row.get('att_weight') if row.get('att_weight') is not None else 0.40),
+                        'marks_weight': float(row.get('marks_weight') if row.get('marks_weight') is not None else 0.40),
+                        'rec_att_weight': float(row.get('rec_att_weight') if row.get('rec_att_weight') is not None else 0.10),
+                        'trend_weight': float(row.get('trend_weight') if row.get('trend_weight') is not None else 0.10),
+                        'min_attendance_threshold': float(row.get('min_attendance_threshold') if row.get('min_attendance_threshold') is not None else 75.0),
+                        'min_marks_threshold': float(row.get('min_marks_threshold') if row.get('min_marks_threshold') is not None else 50.0),
+                        'high_risk_threshold': float(row.get('high_risk_threshold') if row.get('high_risk_threshold') is not None else 55.0),
+                        'medium_risk_threshold': float(row.get('medium_risk_threshold') if row.get('medium_risk_threshold') is not None else 25.0)
+                    }
+            conn.close()
+        except Exception as e:
+            print(f"Error fetching user_risk_settings for user {user_id}: {e}")
+        return dict(DEFAULT_RISK_SETTINGS)
+
+    def save_user_risk_settings(self, user_id, settings):
+        """Save customized risk parameters for the given user"""
+        if not user_id:
+            return False
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO user_risk_settings 
+                    (user_id, preset_name, att_weight, marks_weight, rec_att_weight, trend_weight, 
+                     min_attendance_threshold, min_marks_threshold, high_risk_threshold, medium_risk_threshold)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        preset_name = VALUES(preset_name),
+                        att_weight = VALUES(att_weight),
+                        marks_weight = VALUES(marks_weight),
+                        rec_att_weight = VALUES(rec_att_weight),
+                        trend_weight = VALUES(trend_weight),
+                        min_attendance_threshold = VALUES(min_attendance_threshold),
+                        min_marks_threshold = VALUES(min_marks_threshold),
+                        high_risk_threshold = VALUES(high_risk_threshold),
+                        medium_risk_threshold = VALUES(medium_risk_threshold)
+                """, (
+                    user_id,
+                    settings.get('preset_name', 'custom'),
+                    float(settings.get('att_weight', 0.40)),
+                    float(settings.get('marks_weight', 0.40)),
+                    float(settings.get('rec_att_weight', 0.10)),
+                    float(settings.get('trend_weight', 0.10)),
+                    float(settings.get('min_attendance_threshold', 75.0)),
+                    float(settings.get('min_marks_threshold', 50.0)),
+                    float(settings.get('high_risk_threshold', 55.0)),
+                    float(settings.get('medium_risk_threshold', 25.0))
+                ))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error saving user_risk_settings for user {user_id}: {e}")
+            return False
+
+    def reset_user_risk_settings(self, user_id):
+        """Reset user risk settings to defaults"""
+        if not user_id:
+            return False
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM user_risk_settings WHERE user_id = %s", (user_id,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error resetting user_risk_settings for user {user_id}: {e}")
+            return False
+
 
     def _bootstrap_model(self):
         """
@@ -58,7 +216,19 @@ class StudentRiskPredictor:
         self.model.fit(X, y)
         self._is_trained = True
 
-    def predict_student_risk(self, student_id, class_id=None):
+    def predict_student_risk(self, student_id, class_id=None, settings=None):
+        if settings is None:
+            settings = DEFAULT_RISK_SETTINGS
+
+        w_att = float(settings.get('att_weight', 0.40))
+        w_marks = float(settings.get('marks_weight', 0.40))
+        w_rec = float(settings.get('rec_att_weight', 0.10))
+        w_trend = float(settings.get('trend_weight', 0.10))
+        min_att = float(settings.get('min_attendance_threshold', 75.0))
+        min_marks = float(settings.get('min_marks_threshold', 50.0))
+        high_cutoff = float(settings.get('high_risk_threshold', 55.0))
+        med_cutoff = float(settings.get('medium_risk_threshold', 25.0))
+
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -139,38 +309,57 @@ class StudentRiskPredictor:
                     avg_mark_pct = 75.0
                     mark_trend = 0.0
 
-                # 4. Feature Vector Construction (Attendance + Academic Trajectory)
+                # 4. Custom Weighted Score + ML Feature Calibration
+                att_deficit = max(0.0, min(100.0, 100.0 - att_pct))
+                rec_att_deficit = max(0.0, min(100.0, 100.0 - rec_att_pct))
+                marks_deficit = max(0.0, min(100.0, 100.0 - avg_mark_pct))
+                trend_deficit = max(0.0, min(100.0, -mark_trend * 2.5)) if mark_trend < 0 else 0.0
+
+                total_w = w_att + w_marks + w_rec + w_trend
+                if total_w <= 0:
+                    total_w = 1.0
+                nw_att = w_att / total_w
+                nw_marks = w_marks / total_w
+                nw_rec = w_rec / total_w
+                nw_trend = w_trend / total_w
+
+                custom_score = (nw_att * att_deficit) + (nw_marks * marks_deficit) + (nw_rec * rec_att_deficit) + (nw_trend * trend_deficit)
+
                 features = np.array([[att_pct, rec_att_pct, avg_mark_pct, mark_trend]])
                 probs = self.model.predict_proba(features)[0] # probabilities for [Low, Med, High]
-
-                # Calculate Risk Percentage (weighted risk score)
-                # Classes: 0 (Low), 1 (Med), 2 (High)
                 high_prob = probs[2] if len(probs) > 2 else 0.0
                 med_prob = probs[1] if len(probs) > 1 else 0.0
-                risk_pct = round(float((high_prob * 1.0 + med_prob * 0.45) * 100), 1)
+                ml_score = (high_prob * 1.0 + med_prob * 0.45) * 100.0
 
-                # Determine Risk Level
-                if risk_pct >= 55 or att_pct < 55 or avg_mark_pct < 45:
+                # Blended risk percentage honoring teacher weights (70%) with ML adjustment (30%)
+                raw_risk = (0.70 * custom_score) + (0.30 * ml_score)
+                risk_pct = round(float(max(0.0, min(100.0, raw_risk))), 1)
+
+                # 5. Determine Risk Level using teacher's custom thresholds
+                is_critical_att = att_pct < max(35.0, min_att - 15.0)
+                is_critical_marks = avg_mark_pct < max(30.0, min_marks - 10.0)
+
+                if risk_pct >= high_cutoff or is_critical_att or is_critical_marks:
                     risk_level = 'HIGH'
-                elif risk_pct >= 25 or att_pct < 75 or avg_mark_pct < 60:
+                elif risk_pct >= med_cutoff or att_pct < min_att or avg_mark_pct < min_marks:
                     risk_level = 'MEDIUM'
                 else:
                     risk_level = 'LOW'
 
-                # 5. Generate Actionable Risk Factors
+                # 6. Generate Actionable Risk Factors customized to teacher's thresholds
                 factors = []
-                if att_pct < 65:
-                    factors.append(f"Critical attendance ({att_pct:.1f}%)")
-                elif att_pct < 75:
-                    factors.append(f"Low attendance ({att_pct:.1f}%)")
+                if is_critical_att:
+                    factors.append(f"Critical attendance ({att_pct:.1f}% vs {min_att:.0f}% target)")
+                elif att_pct < min_att:
+                    factors.append(f"Low attendance ({att_pct:.1f}% vs {min_att:.0f}% target)")
 
                 if rec_att_pct < att_pct - 10:
                     factors.append(f"Recent attendance drop ({rec_att_pct:.1f}% in 30d)")
 
-                if avg_mark_pct < 50:
-                    factors.append(f"Failing grade avg ({avg_mark_pct:.1f}%)")
-                elif avg_mark_pct < 60:
-                    factors.append(f"Below avg marks ({avg_mark_pct:.1f}%)")
+                if is_critical_marks:
+                    factors.append(f"Failing grade avg ({avg_mark_pct:.1f}% vs {min_marks:.0f}% target)")
+                elif avg_mark_pct < min_marks:
+                    factors.append(f"Below target marks ({avg_mark_pct:.1f}% vs {min_marks:.0f}% target)")
 
                 if mark_trend <= -10:
                     factors.append(f"Declining score trend ({mark_trend:.1f}%)")
@@ -197,8 +386,8 @@ class StudentRiskPredictor:
         finally:
             conn.close()
 
-    def get_all_student_risks(self, teacher_id=None, class_id=None):
-        """Fetch risk analytics isolated per student-class enrollment"""
+    def get_all_student_risks(self, teacher_id=None, class_id=None, user_risk_settings=None):
+        """Fetch risk analytics isolated per student-class enrollment with custom risk preferences"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -247,7 +436,7 @@ class StudentRiskPredictor:
 
             results = []
             for enr in enrollments:
-                analysis = self.predict_student_risk(enr['student_id'], class_id=enr['class_id'])
+                analysis = self.predict_student_risk(enr['student_id'], class_id=enr['class_id'], settings=user_risk_settings)
                 if analysis:
                     results.append(analysis)
 

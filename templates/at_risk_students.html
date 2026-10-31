@@ -4,7 +4,7 @@
 
 {% block content %}
 <!-- Top Header Hero -->
-<div class="dashboard-hero-header mb-5">
+<div class="dashboard-hero-header mb-5" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
         <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
             Risk Radar
@@ -12,6 +12,29 @@
         <p class="text-muted" style="margin-bottom: 0; font-size: 0.875rem;">
             Class-isolated machine learning analysis evaluating attendance rates, recent attendance stability, and academic score trajectories.
         </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <!-- Active Formula Pill -->
+        <div style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.85rem; border-radius: 9999px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); font-size: 0.8rem; font-weight: 600; color: var(--primary);">
+            <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Formula: 
+                <strong id="headerFormulaPreset">
+                    {% if risk_settings.preset_name == 'balanced' %}Balanced (40% Att / 40% Marks)
+                    {% elif risk_settings.preset_name == 'exam_heavy' %}Exam-Focused (55% Marks / 20% Att)
+                    {% elif risk_settings.preset_name == 'attendance_strict' %}Attendance-Strict (55% Att / 20% Marks)
+                    {% else %}Custom ({{ (risk_settings.att_weight * 100)|round|int }}% Att / {{ (risk_settings.marks_weight * 100)|round|int }}% Marks)
+                    {% endif %}
+                </strong>
+            </span>
+        </div>
+
+        <!-- Customize Risk Settings Button -->
+        <button type="button" class="btn btn-primary" onclick="openRiskSettingsModal()" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.95rem; font-size: 0.825rem; font-weight: 600; box-shadow: var(--shadow-sm);">
+            <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+            </svg>
+            Customize Sensitivity
+        </button>
     </div>
 </div>
 
@@ -354,6 +377,179 @@
     </div>
 </div>
 
+<!-- Risk Sensitivity Customization Modal -->
+<div id="riskSettingsModal" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1050; padding: 1rem;">
+    <div style="background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-xl); width: 100%; max-width: 680px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; animation: modalPop 0.2s ease-out;">
+        
+        <!-- Modal Header -->
+        <div style="padding: 1.15rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--bg-main);">
+            <div>
+                <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.45rem;">
+                    <svg style="width: 19px; height: 19px; color: var(--primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                    </svg>
+                    Customize Risk Radar Formula & Sensitivity
+                </h3>
+                <p style="font-size: 0.775rem; color: var(--text-muted); margin: 0;">
+                    Tailor factor weights and alert thresholds to match your subject's grading and attendance criteria.
+                </p>
+            </div>
+            <button type="button" onclick="closeRiskSettingsModal()" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; line-height: 1; padding: 0.25rem;" title="Close">&times;</button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
+            
+            <!-- Quick Presets -->
+            <div style="margin-bottom: 1.25rem;">
+                <label style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">
+                    Quick-Choice Presets
+                </label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem;">
+                    <button type="button" class="preset-btn" id="presetBtnBalanced" onclick="selectFormulaPreset('balanced')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
+                            ⚖️ Balanced
+                        </div>
+                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            40% Attendance, 40% Marks, 10% Trend, 10% Drop
+                        </div>
+                    </button>
+
+                    <button type="button" class="preset-btn" id="presetBtnExam" onclick="selectFormulaPreset('exam_heavy')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
+                            📚 Exam-Focused
+                        </div>
+                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            55% Marks, 20% Trend, 20% Attendance, 5% Drop
+                        </div>
+                    </button>
+
+                    <button type="button" class="preset-btn" id="presetBtnAtt" onclick="selectFormulaPreset('attendance_strict')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
+                            🏫 Attendance-Strict
+                        </div>
+                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
+                            55% Attendance, 20% Drop, 20% Marks, 5% Trend
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Section 1: Weights -->
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                    <div>
+                        <span style="font-weight: 700; font-size: 0.825rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-main);">
+                            Factor Importance Weights
+                        </span>
+                        <div style="font-size: 0.725rem; color: var(--text-muted);">Adjust how much each factor impacts the student risk calculation</div>
+                    </div>
+                    <span id="weightsTotalBadge" style="font-weight: 700; font-size: 0.775rem; padding: 0.25rem 0.65rem; border-radius: 9999px; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3);">
+                        Total: 100%
+                    </span>
+                </div>
+
+                <!-- Slider 1: Attendance Weight -->
+                <div style="margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600; color: var(--text-main);">Overall Attendance Rate</span>
+                        <span id="attWeightDisplay" style="font-weight: 700; color: var(--primary);">40%</span>
+                    </div>
+                    <input type="range" id="sliderAttWeight" min="0" max="100" step="5" value="40" oninput="onWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                </div>
+
+                <!-- Slider 2: Marks Weight -->
+                <div style="margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600; color: var(--text-main);">Exam / Test Marks Average</span>
+                        <span id="marksWeightDisplay" style="font-weight: 700; color: var(--primary);">40%</span>
+                    </div>
+                    <input type="range" id="sliderMarksWeight" min="0" max="100" step="5" value="40" oninput="onWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                </div>
+
+                <!-- Slider 3: Recent Drop Weight -->
+                <div style="margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600; color: var(--text-main);">Recent (30-Day) Attendance Drop</span>
+                        <span id="recAttWeightDisplay" style="font-weight: 700; color: var(--primary);">10%</span>
+                    </div>
+                    <input type="range" id="sliderRecAttWeight" min="0" max="100" step="5" value="10" oninput="onWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                </div>
+
+                <!-- Slider 4: Trend Weight -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                        <span style="font-weight: 600; color: var(--text-main);">Academic Momentum / Score Trend</span>
+                        <span id="trendWeightDisplay" style="font-weight: 700; color: var(--primary);">10%</span>
+                    </div>
+                    <input type="range" id="sliderTrendWeight" min="0" max="100" step="5" value="10" oninput="onWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                </div>
+            </div>
+
+            <!-- Section 2: Alert Thresholds -->
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem;">
+                <span style="font-weight: 700; font-size: 0.825rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-main); display: block; margin-bottom: 0.85rem;">
+                    Custom Alert Thresholds
+                </span>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.95rem;">
+                    <div>
+                        <label for="inputMinAttendance" style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                            Min Attendance Target (%)
+                        </label>
+                        <input type="number" id="inputMinAttendance" min="20" max="100" step="1" value="75" class="input-field" style="width: 100%; font-size: 0.825rem; padding: 0.4rem 0.65rem;" onchange="markAsCustomPreset()">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Below this triggers attendance warning</span>
+                    </div>
+
+                    <div>
+                        <label for="inputMinMarks" style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                            Passing Marks Target (%)
+                        </label>
+                        <input type="number" id="inputMinMarks" min="20" max="100" step="1" value="50" class="input-field" style="width: 100%; font-size: 0.825rem; padding: 0.4rem 0.65rem;" onchange="markAsCustomPreset()">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Below this triggers academic warning</span>
+                    </div>
+
+                    <div>
+                        <label for="inputHighRisk" style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                            High-Risk Cutoff Score (%)
+                        </label>
+                        <input type="number" id="inputHighRisk" min="20" max="95" step="1" value="55" class="input-field" style="width: 100%; font-size: 0.825rem; padding: 0.4rem 0.65rem;" onchange="markAsCustomPreset()">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Scores &ge; this trigger High Risk (Red)</span>
+                    </div>
+
+                    <div>
+                        <label for="inputMedRisk" style="font-size: 0.775rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                            Moderate-Risk Cutoff Score (%)
+                        </label>
+                        <input type="number" id="inputMedRisk" min="10" max="80" step="1" value="25" class="input-field" style="width: 100%; font-size: 0.825rem; padding: 0.4rem 0.65rem;" onchange="markAsCustomPreset()">
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Scores &ge; this trigger Moderate Risk</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inline Alert Message Container -->
+            <div id="riskSettingsMsg" style="display: none; margin-top: 1rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600;"></div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 0.85rem 1.5rem; border-top: 1px solid var(--border); background: var(--bg-main); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <button type="button" onclick="resetRiskSettingsToDefault()" class="btn btn-outline" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.35); font-size: 0.8rem; padding: 0.4rem 0.85rem;">
+                Reset to Default Standard
+            </button>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="button" onclick="closeRiskSettingsModal()" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.85rem;">
+                    Cancel
+                </button>
+                <button type="button" id="btnSaveRiskSettings" onclick="saveCustomRiskSettings()" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.4rem 1.15rem; font-weight: 700;">
+                    Save & Recalculate Radar
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
 <style>
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
@@ -645,6 +841,252 @@ function renderStudentHistoryModal(data) {
     }
 }
 
+// ==========================================
+// Risk Sensitivity Customization Logic
+// ==========================================
+let currentRiskSettings = {{ risk_settings|tojson if risk_settings else '{}' }};
+let activePreset = currentRiskSettings.preset_name || 'balanced';
+
+const RISK_PRESETS = {
+    balanced: {
+        preset_name: 'balanced',
+        att_weight: 40,
+        marks_weight: 40,
+        rec_att_weight: 10,
+        trend_weight: 10,
+        min_attendance_threshold: 75,
+        min_marks_threshold: 50,
+        high_risk_threshold: 55,
+        medium_risk_threshold: 25
+    },
+    exam_heavy: {
+        preset_name: 'exam_heavy',
+        att_weight: 20,
+        marks_weight: 55,
+        rec_att_weight: 5,
+        trend_weight: 20,
+        min_attendance_threshold: 65,
+        min_marks_threshold: 55,
+        high_risk_threshold: 55,
+        medium_risk_threshold: 25
+    },
+    attendance_strict: {
+        preset_name: 'attendance_strict',
+        att_weight: 55,
+        marks_weight: 20,
+        rec_att_weight: 20,
+        trend_weight: 5,
+        min_attendance_threshold: 80,
+        min_marks_threshold: 45,
+        high_risk_threshold: 50,
+        medium_risk_threshold: 25
+    }
+};
+
+function openRiskSettingsModal() {
+    const modal = document.getElementById('riskSettingsModal');
+    if (!modal) return;
+
+    // Populate values from current settings
+    const attW = Math.round((currentRiskSettings.att_weight !== undefined ? currentRiskSettings.att_weight : 0.40) * 100);
+    const marksW = Math.round((currentRiskSettings.marks_weight !== undefined ? currentRiskSettings.marks_weight : 0.40) * 100);
+    const recW = Math.round((currentRiskSettings.rec_att_weight !== undefined ? currentRiskSettings.rec_att_weight : 0.10) * 100);
+    const trendW = Math.round((currentRiskSettings.trend_weight !== undefined ? currentRiskSettings.trend_weight : 0.10) * 100);
+
+    document.getElementById('sliderAttWeight').value = attW;
+    document.getElementById('sliderMarksWeight').value = marksW;
+    document.getElementById('sliderRecAttWeight').value = recW;
+    document.getElementById('sliderTrendWeight').value = trendW;
+
+    document.getElementById('inputMinAttendance').value = currentRiskSettings.min_attendance_threshold || 75;
+    document.getElementById('inputMinMarks').value = currentRiskSettings.min_marks_threshold || 50;
+    document.getElementById('inputHighRisk').value = currentRiskSettings.high_risk_threshold || 55;
+    document.getElementById('inputMedRisk').value = currentRiskSettings.medium_risk_threshold || 25;
+
+    activePreset = currentRiskSettings.preset_name || 'balanced';
+    highlightActivePresetButton(activePreset);
+    onWeightSliderInput(false);
+
+    // Hide previous messages
+    const msgBox = document.getElementById('riskSettingsMsg');
+    if (msgBox) msgBox.style.display = 'none';
+
+    modal.style.display = 'flex';
+}
+
+function closeRiskSettingsModal() {
+    const modal = document.getElementById('riskSettingsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function highlightActivePresetButton(presetKey) {
+    const presets = ['balanced', 'exam_heavy', 'attendance_strict'];
+    const mapping = {
+        'balanced': 'presetBtnBalanced',
+        'exam_heavy': 'presetBtnExam',
+        'attendance_strict': 'presetBtnAtt'
+    };
+
+    presets.forEach(p => {
+        const btn = document.getElementById(mapping[p]);
+        if (btn) {
+            if (p === presetKey) {
+                btn.style.borderColor = 'var(--primary)';
+                btn.style.background = 'rgba(59, 130, 246, 0.08)';
+                btn.style.boxShadow = '0 0 0 1px var(--primary)';
+            } else {
+                btn.style.borderColor = 'var(--border)';
+                btn.style.background = 'var(--bg-main)';
+                btn.style.boxShadow = 'none';
+            }
+        }
+    });
+}
+
+function selectFormulaPreset(presetKey) {
+    const config = RISK_PRESETS[presetKey];
+    if (!config) return;
+
+    activePreset = presetKey;
+    highlightActivePresetButton(presetKey);
+
+    document.getElementById('sliderAttWeight').value = config.att_weight;
+    document.getElementById('sliderMarksWeight').value = config.marks_weight;
+    document.getElementById('sliderRecAttWeight').value = config.rec_att_weight;
+    document.getElementById('sliderTrendWeight').value = config.trend_weight;
+
+    document.getElementById('inputMinAttendance').value = config.min_attendance_threshold;
+    document.getElementById('inputMinMarks').value = config.min_marks_threshold;
+    document.getElementById('inputHighRisk').value = config.high_risk_threshold;
+    document.getElementById('inputMedRisk').value = config.medium_risk_threshold;
+
+    onWeightSliderInput(false);
+}
+
+function markAsCustomPreset() {
+    activePreset = 'custom';
+    highlightActivePresetButton('custom');
+}
+
+function onWeightSliderInput(triggerCustom = true) {
+    if (triggerCustom && activePreset !== 'custom') {
+        markAsCustomPreset();
+    }
+
+    const attW = parseInt(document.getElementById('sliderAttWeight').value, 10);
+    const marksW = parseInt(document.getElementById('sliderMarksWeight').value, 10);
+    const recW = parseInt(document.getElementById('sliderRecAttWeight').value, 10);
+    const trendW = parseInt(document.getElementById('sliderTrendWeight').value, 10);
+
+    document.getElementById('attWeightDisplay').textContent = `${attW}%`;
+    document.getElementById('marksWeightDisplay').textContent = `${marksW}%`;
+    document.getElementById('recAttWeightDisplay').textContent = `${recW}%`;
+    document.getElementById('trendWeightDisplay').textContent = `${trendW}%`;
+
+    const total = attW + marksW + recW + trendW;
+    const badge = document.getElementById('weightsTotalBadge');
+    if (badge) {
+        if (total === 100) {
+            badge.textContent = 'Total: 100%';
+            badge.style.background = 'rgba(34, 197, 94, 0.15)';
+            badge.style.color = 'var(--success)';
+            badge.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+        } else {
+            badge.textContent = `Total: ${total}% (auto-normalizes)`;
+            badge.style.background = 'rgba(234, 179, 8, 0.15)';
+            badge.style.color = '#b45309';
+            badge.style.borderColor = 'rgba(234, 179, 8, 0.3)';
+        }
+    }
+}
+
+async function saveCustomRiskSettings() {
+    const btn = document.getElementById('btnSaveRiskSettings');
+    const msgBox = document.getElementById('riskSettingsMsg');
+
+    const attW = parseFloat(document.getElementById('sliderAttWeight').value) / 100.0;
+    const marksW = parseFloat(document.getElementById('sliderMarksWeight').value) / 100.0;
+    const recW = parseFloat(document.getElementById('sliderRecAttWeight').value) / 100.0;
+    const trendW = parseFloat(document.getElementById('sliderTrendWeight').value) / 100.0;
+
+    const minAtt = parseFloat(document.getElementById('inputMinAttendance').value) || 75.0;
+    const minMarks = parseFloat(document.getElementById('inputMinMarks').value) || 50.0;
+    const highRisk = parseFloat(document.getElementById('inputHighRisk').value) || 55.0;
+    const medRisk = parseFloat(document.getElementById('inputMedRisk').value) || 25.0;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Recalculating...';
+    }
+
+    try {
+        const response = await fetch('/ai/risk-preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                preset_name: activePreset,
+                att_weight: attW,
+                marks_weight: marksW,
+                rec_att_weight: recW,
+                trend_weight: trendW,
+                min_attendance_threshold: minAtt,
+                min_marks_threshold: minMarks,
+                high_risk_threshold: highRisk,
+                medium_risk_threshold: medRisk
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            if (msgBox) {
+                msgBox.style.display = 'block';
+                msgBox.style.background = 'rgba(34, 197, 94, 0.15)';
+                msgBox.style.color = 'var(--success)';
+                msgBox.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+                msgBox.textContent = 'Formula updated! Recalculating radar...';
+            }
+            setTimeout(() => {
+                window.location.reload();
+            }, 600);
+        } else {
+            throw new Error(result.message || 'Failed to save settings');
+        }
+    } catch (err) {
+        if (msgBox) {
+            msgBox.style.display = 'block';
+            msgBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            msgBox.style.color = 'var(--danger)';
+            msgBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            msgBox.textContent = err.message || 'Error saving preferences.';
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save & Recalculate Radar';
+        }
+    }
+}
+
+async function resetRiskSettingsToDefault() {
+    if (!confirm('Are you sure you want to reset your Risk Radar settings to the standard balanced defaults?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/ai/risk-preferences/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert(result.message || 'Failed to reset settings.');
+        }
+    } catch (err) {
+        alert('Network error while resetting settings.');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('riskSearchInput');
     if (searchInput) {
@@ -656,22 +1098,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Close modal on Escape
+    // Close modals on Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeStudentHistoryModal();
+            closeRiskSettingsModal();
         }
     });
 
-    // Close modal on backdrop click
-    const modal = document.getElementById('studentHistoryModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+    // Close modals on backdrop click
+    const histModal = document.getElementById('studentHistoryModal');
+    if (histModal) {
+        histModal.addEventListener('click', (e) => {
+            if (e.target === histModal) {
                 closeStudentHistoryModal();
+            }
+        });
+    }
+
+    const settingsModal = document.getElementById('riskSettingsModal');
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                closeRiskSettingsModal();
             }
         });
     }
 });
 </script>
+
 {% endblock %}

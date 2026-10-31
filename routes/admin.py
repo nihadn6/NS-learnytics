@@ -104,7 +104,8 @@ def dashboard():
                         grade_dist['Needs Support'] += 1
 
             # Fetch Executive AI Risk Predictor Top 5 At-Risk Students (Institution-Wide)
-            top_5_at_risk = risk_predictor.get_all_student_risks()[:5]
+            admin_risk_settings = risk_predictor.get_user_risk_settings(session.get('user_id'))
+            top_5_at_risk = risk_predictor.get_all_student_risks(user_risk_settings=admin_risk_settings)[:5]
 
             # Student of the Month evaluation
             students_of_month, som_month_label = get_or_calculate_student_of_the_month(conn)

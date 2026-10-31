@@ -175,8 +175,9 @@ def teacher_dashboard():
             rev_labels = [r['subject'] for r in class_rev]
             rev_data = [float(r['revenue'] or 0) for r in class_rev]
             
-            # Fetch AI Risk Predictor Top 5 At-Risk Students
-            top_5_at_risk = risk_predictor.get_all_student_risks(teacher_id=user_id)[:5]
+            # Fetch AI Risk Predictor Top 5 At-Risk Students honoring teacher's customized formula
+            user_risk_settings = risk_predictor.get_user_risk_settings(user_id)
+            top_5_at_risk = risk_predictor.get_all_student_risks(teacher_id=user_id, user_risk_settings=user_risk_settings)[:5]
 
             # Insights Engine
             insights = []

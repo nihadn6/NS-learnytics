@@ -190,3 +190,18 @@ CREATE TABLE IF NOT EXISTS student_of_the_month (
     UNIQUE KEY unique_month_subject (month_period, subject)
 );
 
+CREATE TABLE IF NOT EXISTS user_risk_settings (
+    user_id INT PRIMARY KEY,
+    preset_name VARCHAR(50) DEFAULT 'balanced',
+    att_weight FLOAT DEFAULT 0.40,
+    marks_weight FLOAT DEFAULT 0.40,
+    rec_att_weight FLOAT DEFAULT 0.10,
+    trend_weight FLOAT DEFAULT 0.10,
+    min_attendance_threshold FLOAT DEFAULT 75.0,
+    min_marks_threshold FLOAT DEFAULT 50.0,
+    high_risk_threshold FLOAT DEFAULT 55.0,
+    medium_risk_threshold FLOAT DEFAULT 25.0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
