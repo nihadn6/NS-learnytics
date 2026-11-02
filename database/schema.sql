@@ -205,3 +205,18 @@ CREATE TABLE IF NOT EXISTS user_risk_settings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS user_grade_forecast_settings (
+    user_id INT PRIMARY KEY,
+    preset_name VARCHAR(50) DEFAULT 'sri_lanka_national',
+    cutoff_a FLOAT DEFAULT 75.0,
+    cutoff_b FLOAT DEFAULT 65.0,
+    cutoff_c FLOAT DEFAULT 50.0,
+    cutoff_s FLOAT DEFAULT 35.0,
+    exam_weight FLOAT DEFAULT 0.90,
+    hw_weight FLOAT DEFAULT 0.10,
+    target_threshold FLOAT DEFAULT 50.0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+

@@ -103,6 +103,9 @@ def grade_forecasting_dashboard():
     class_id = request.args.get('class_id')
     search_query = request.args.get('search', '').strip()
     
+    # Retrieve user-customized grading thresholds & component weights
+    user_forecast_settings = grade_forecaster.get_user_forecast_settings(user_id)
+
     conn = get_db_connection()
     classes = []
     teachers = []
@@ -112,7 +115,11 @@ def grade_forecasting_dashboard():
             if role == 'teacher':
                 cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
                 classes = cursor.fetchall()
-                forecast_data = grade_forecaster.forecast_all_students(teacher_id=user_id, class_id=class_id)
+                forecast_data = grade_forecaster.forecast_all_students(
+                    teacher_id=user_id, 
+                    class_id=class_id, 
+                    user_forecast_settings=user_forecast_settings
+                )
             elif role in ('superadmin', 'admin', 'moderator'):
                 # Fetch all teachers for admin dropdown
                 cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
@@ -135,7 +142,11 @@ def grade_forecasting_dashboard():
                         ORDER BY c.subject
                     """)
                 classes = cursor.fetchall()
-                forecast_data = grade_forecaster.forecast_all_students(teacher_id=teacher_id, class_id=class_id)
+                forecast_data = grade_forecaster.forecast_all_students(
+                    teacher_id=teacher_id, 
+                    class_id=class_id, 
+                    user_forecast_settings=user_forecast_settings
+                )
             elif role == 'student':
                 cursor.execute("""
                     SELECT DISTINCT c.id, c.subject 
@@ -145,7 +156,11 @@ def grade_forecasting_dashboard():
                     ORDER BY c.subject
                 """, (user_id,))
                 classes = cursor.fetchall()
-                f_single = grade_forecaster.forecast_student_performance(user_id, class_id=class_id)
+                f_single = grade_forecaster.forecast_student_performance(
+                    user_id, 
+                    class_id=class_id, 
+                    user_forecast_settings=user_forecast_settings
+                )
                 forecast_data = [f_single] if f_single else []
             elif role == 'parent':
                 target_student_id = session.get('selected_student_id')
@@ -166,7 +181,11 @@ def grade_forecasting_dashboard():
                 else:
                     classes = []
 
-                f_single = grade_forecaster.forecast_student_performance(target_student_id, class_id=class_id) if target_student_id else None
+                f_single = grade_forecaster.forecast_student_performance(
+                    target_student_id, 
+                    class_id=class_id, 
+                    user_forecast_settings=user_forecast_settings
+                ) if target_student_id else None
                 forecast_data = [f_single] if f_single else []
 
             # Optional server-side search filter
@@ -197,6 +216,7 @@ def grade_forecasting_dashboard():
                            selected_class_id=class_id,
                            search_query=search_query,
                            accuracy_metrics=accuracy_metrics,
+                           forecast_settings=user_forecast_settings,
                            role=role)
 
 @ai_analytics_bp.route('/api/ai/predict-student/<int:student_id>', methods=['GET'])
@@ -270,6 +290,64 @@ def reset_risk_preferences():
     if success:
         return jsonify({'success': True, 'message': 'Risk Radar formula successfully reset to default standard configuration.'})
     return jsonify({'success': False, 'message': 'Failed to reset preferences.'}), 500
+
+
+@ai_analytics_bp.route('/ai/grade-forecast-preferences', methods=['POST'])
+def save_grade_forecast_preferences():
+    role = session.get('role')
+    user_id = session.get('user_id')
+    if role not in ('superadmin', 'admin', 'teacher', 'moderator') or not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    try:
+        data = request.get_json() or {}
+        preset_name = data.get('preset_name', 'custom')
+        cutoff_a = float(data.get('cutoff_a', 75.0))
+        cutoff_b = float(data.get('cutoff_b', 65.0))
+        cutoff_c = float(data.get('cutoff_c', 50.0))
+        cutoff_s = float(data.get('cutoff_s', 35.0))
+        exam_weight = float(data.get('exam_weight', 0.90))
+        hw_weight = float(data.get('hw_weight', 0.10))
+        target_threshold = float(data.get('target_threshold', 50.0))
+
+        if not (0.0 <= cutoff_s < cutoff_c < cutoff_b < cutoff_a <= 100.0):
+            return jsonify({'success': False, 'message': 'Grade cutoffs must be strictly ascending: S < C < B < A'}), 400
+
+        total_w = exam_weight + hw_weight
+        if total_w <= 0:
+            return jsonify({'success': False, 'message': 'Sum of weights must be greater than zero.'}), 400
+
+        settings = {
+            'preset_name': preset_name,
+            'cutoff_a': max(10.0, min(100.0, cutoff_a)),
+            'cutoff_b': max(10.0, min(100.0, cutoff_b)),
+            'cutoff_c': max(10.0, min(100.0, cutoff_c)),
+            'cutoff_s': max(5.0, min(100.0, cutoff_s)),
+            'exam_weight': max(0.0, min(1.0, exam_weight / total_w)),
+            'hw_weight': max(0.0, min(1.0, hw_weight / total_w)),
+            'target_threshold': max(10.0, min(100.0, target_threshold))
+        }
+
+        success = grade_forecaster.save_user_forecast_settings(user_id, settings)
+        if success:
+            return jsonify({'success': True, 'message': 'Grade Forecaster scale & weight preferences saved successfully!'})
+        return jsonify({'success': False, 'message': 'Failed to save preferences to database.'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+
+@ai_analytics_bp.route('/ai/grade-forecast-preferences/reset', methods=['POST'])
+def reset_grade_forecast_preferences():
+    role = session.get('role')
+    user_id = session.get('user_id')
+    if role not in ('superadmin', 'admin', 'teacher', 'moderator') or not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    success = grade_forecaster.reset_user_forecast_settings(user_id)
+    if success:
+        return jsonify({'success': True, 'message': 'Grade Forecaster successfully reset to default National G.C.E. standard.'})
+    return jsonify({'success': False, 'message': 'Failed to reset preferences.'}), 500
+
 
 
 @ai_analytics_bp.route('/api/ai/student-records/<int:student_id>', methods=['GET'])

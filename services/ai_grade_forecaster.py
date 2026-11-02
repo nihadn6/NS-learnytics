@@ -2,26 +2,181 @@ import numpy as np
 from database.db import get_db_connection
 import datetime
 
+DEFAULT_FORECAST_SETTINGS = {
+    'preset_name': 'sri_lanka_national',
+    'cutoff_a': 75.0,
+    'cutoff_b': 65.0,
+    'cutoff_c': 50.0,
+    'cutoff_s': 35.0,
+    'exam_weight': 0.90,
+    'hw_weight': 0.10,
+    'target_threshold': 50.0
+}
+
+FORECAST_PRESETS = {
+    'sri_lanka_national': {
+        'preset_name': 'sri_lanka_national',
+        'title': 'Sri Lanka National G.C.E.',
+        'cutoff_a': 75.0,
+        'cutoff_b': 65.0,
+        'cutoff_c': 50.0,
+        'cutoff_s': 35.0,
+        'exam_weight': 0.90,
+        'hw_weight': 0.10,
+        'target_threshold': 50.0
+    },
+    'cambridge_edexcel': {
+        'preset_name': 'cambridge_edexcel',
+        'title': 'Cambridge / Edexcel UK',
+        'cutoff_a': 80.0,
+        'cutoff_b': 70.0,
+        'cutoff_c': 60.0,
+        'cutoff_s': 40.0,
+        'exam_weight': 0.85,
+        'hw_weight': 0.15,
+        'target_threshold': 60.0
+    },
+    'higher_ed_gpa': {
+        'preset_name': 'higher_ed_gpa',
+        'title': 'Higher Ed / Continuous Eval',
+        'cutoff_a': 85.0,
+        'cutoff_b': 70.0,
+        'cutoff_c': 55.0,
+        'cutoff_s': 45.0,
+        'exam_weight': 0.75,
+        'hw_weight': 0.25,
+        'target_threshold': 55.0
+    }
+}
+
 class GradeForecaster:
     def __init__(self):
-        pass
+        self._ensure_settings_table()
 
-    def _get_letter_grade(self, pct):
+    def _ensure_settings_table(self):
+        """Ensure the user_grade_forecast_settings table exists in database"""
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS user_grade_forecast_settings (
+                        user_id INT PRIMARY KEY,
+                        preset_name VARCHAR(50) DEFAULT 'sri_lanka_national',
+                        cutoff_a FLOAT DEFAULT 75.0,
+                        cutoff_b FLOAT DEFAULT 65.0,
+                        cutoff_c FLOAT DEFAULT 50.0,
+                        cutoff_s FLOAT DEFAULT 35.0,
+                        exam_weight FLOAT DEFAULT 0.90,
+                        hw_weight FLOAT DEFAULT 0.10,
+                        target_threshold FLOAT DEFAULT 50.0,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    );
+                """)
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Warning: unable to ensure user_grade_forecast_settings table: {e}")
+
+    def get_user_forecast_settings(self, user_id):
+        """Retrieve stored grading forecast settings for a user, or return default settings"""
+        if not user_id:
+            return dict(DEFAULT_FORECAST_SETTINGS)
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM user_grade_forecast_settings WHERE user_id = %s", (user_id,))
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        'preset_name': row.get('preset_name') or 'custom',
+                        'cutoff_a': float(row.get('cutoff_a') if row.get('cutoff_a') is not None else 75.0),
+                        'cutoff_b': float(row.get('cutoff_b') if row.get('cutoff_b') is not None else 65.0),
+                        'cutoff_c': float(row.get('cutoff_c') if row.get('cutoff_c') is not None else 50.0),
+                        'cutoff_s': float(row.get('cutoff_s') if row.get('cutoff_s') is not None else 35.0),
+                        'exam_weight': float(row.get('exam_weight') if row.get('exam_weight') is not None else 0.90),
+                        'hw_weight': float(row.get('hw_weight') if row.get('hw_weight') is not None else 0.10),
+                        'target_threshold': float(row.get('target_threshold') if row.get('target_threshold') is not None else 50.0)
+                    }
+            conn.close()
+        except Exception as e:
+            print(f"Error fetching user_grade_forecast_settings for user {user_id}: {e}")
+        return dict(DEFAULT_FORECAST_SETTINGS)
+
+    def save_user_forecast_settings(self, user_id, settings):
+        """Save customized grade thresholds & component weights for the given user"""
+        if not user_id:
+            return False
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO user_grade_forecast_settings
+                    (user_id, preset_name, cutoff_a, cutoff_b, cutoff_c, cutoff_s, exam_weight, hw_weight, target_threshold)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        preset_name = VALUES(preset_name),
+                        cutoff_a = VALUES(cutoff_a),
+                        cutoff_b = VALUES(cutoff_b),
+                        cutoff_c = VALUES(cutoff_c),
+                        cutoff_s = VALUES(cutoff_s),
+                        exam_weight = VALUES(exam_weight),
+                        hw_weight = VALUES(hw_weight),
+                        target_threshold = VALUES(target_threshold)
+                """, (
+                    user_id,
+                    settings.get('preset_name', 'custom'),
+                    float(settings.get('cutoff_a', 75.0)),
+                    float(settings.get('cutoff_b', 65.0)),
+                    float(settings.get('cutoff_c', 50.0)),
+                    float(settings.get('cutoff_s', 35.0)),
+                    float(settings.get('exam_weight', 0.90)),
+                    float(settings.get('hw_weight', 0.10)),
+                    float(settings.get('target_threshold', 50.0))
+                ))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error saving user_grade_forecast_settings for user {user_id}: {e}")
+            return False
+
+    def reset_user_forecast_settings(self, user_id):
+        """Reset user grade forecasting settings to default"""
+        if not user_id:
+            return False
+        try:
+            conn = get_db_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM user_grade_forecast_settings WHERE user_id = %s", (user_id,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error resetting user_grade_forecast_settings for user {user_id}: {e}")
+            return False
+
+    def _get_letter_grade(self, pct, settings=None):
         """
-        Standardized educational grading scale (matching system-wide benchmarks):
-        A: 75% - 100% (Distinction)
-        B: 65% - 74.9% (Very Good)
-        C: 50% - 64.9% (Credit Pass)
-        S: 35% - 49.9% (Simple Pass)
-        F: Below 35%  (Needs Support / Fail)
+        Determine letter grade using user customized or default scale cutoffs:
+        A: >= cutoff_a (default 75.0%)
+        B: >= cutoff_b (default 65.0%)
+        C: >= cutoff_c (default 50.0%)
+        S: >= cutoff_s (default 35.0%)
+        F: < cutoff_s
         """
-        if pct >= 75.0:
+        cutoff_a = float(settings.get('cutoff_a', 75.0)) if settings else 75.0
+        cutoff_b = float(settings.get('cutoff_b', 65.0)) if settings else 65.0
+        cutoff_c = float(settings.get('cutoff_c', 50.0)) if settings else 50.0
+        cutoff_s = float(settings.get('cutoff_s', 35.0)) if settings else 35.0
+
+        if pct >= cutoff_a:
             return 'A'
-        elif pct >= 65.0:
+        elif pct >= cutoff_b:
             return 'B'
-        elif pct >= 50.0:
+        elif pct >= cutoff_c:
             return 'C'
-        elif pct >= 35.0:
+        elif pct >= cutoff_s:
             return 'S'
         else:
             return 'F'
@@ -103,45 +258,50 @@ class GradeForecaster:
             'std_dev': round(std_dev, 1)
         }
 
-    def _calculate_target_pathway(self, curr_avg, scores):
+    def _calculate_target_pathway(self, curr_avg, scores, settings=None):
         """
-        Calculate required score on next exam to attain or sustain grade tiers:
-        A: 75% | B: 65% | C: 50% | S: 35%
+        Calculate required score on next exam to attain or sustain grade tiers
+        based on user-configured or standard grade cutoffs.
         """
         if not scores:
             return None
 
+        cutoff_a = float(settings.get('cutoff_a', 75.0)) if settings else 75.0
+        cutoff_b = float(settings.get('cutoff_b', 65.0)) if settings else 65.0
+        cutoff_c = float(settings.get('cutoff_c', 50.0)) if settings else 50.0
+        cutoff_s = float(settings.get('cutoff_s', 35.0)) if settings else 35.0
+
         n = len(scores)
         s = sum(scores)
 
-        if curr_avg < 35.0:
+        if curr_avg < cutoff_s:
             target_grade = 'S'
-            target_thresh = 35.0
+            target_thresh = cutoff_s
             is_maintain = False
-        elif curr_avg < 50.0:
+        elif curr_avg < cutoff_c:
             target_grade = 'C'
-            target_thresh = 50.0
+            target_thresh = cutoff_c
             is_maintain = False
-        elif curr_avg < 65.0:
+        elif curr_avg < cutoff_b:
             target_grade = 'B'
-            target_thresh = 65.0
+            target_thresh = cutoff_b
             is_maintain = False
-        elif curr_avg < 75.0:
+        elif curr_avg < cutoff_a:
             target_grade = 'A'
-            target_thresh = 75.0
+            target_thresh = cutoff_a
             is_maintain = False
         else:
             target_grade = 'A'
-            target_thresh = 75.0
+            target_thresh = cutoff_a
             is_maintain = True
 
         needed = round(float((n + 1) * target_thresh - s), 1)
 
         if is_maintain:
             if needed <= 0.0:
-                msg = "Firmly in Distinction: Normal passing exam sustains Grade A"
+                msg = f"Firmly in Distinction: Normal passing exam sustains Grade {target_grade}"
             else:
-                msg = f"Maintain 'A': Score >= {needed}% on next exam"
+                msg = f"Maintain '{target_grade}': Score >= {needed}% on next exam"
         else:
             if needed <= 0.0:
                 msg = f"Target '{target_grade}': Already within reach with steady exam score"
@@ -257,14 +417,14 @@ class GradeForecaster:
                 averages[r['class_id']] = float(r['avg_pct'])
         return averages
 
-    def _calculate_damped_prediction(self, exam_timeline, hw_timeline, class_avg):
+    def _calculate_damped_prediction(self, exam_timeline, hw_timeline, class_avg, settings=None):
         """
         Tier 1 Robust Statistical Forecast:
         1. Primary focus on supervised exam records.
         2. Recency-weighted Moving Average (recent exams have higher importance).
         3. Damped regression trend (prevents wild linear runaway extrapolation).
         4. Bayesian shrinkage towards class mean based on assessment count.
-        5. Conservative auxiliary integration of homework effort.
+        5. Conservative auxiliary integration of homework effort according to custom weights.
         """
         exam_scores = [e['pct'] for e in exam_timeline]
         hw_scores = [h['pct'] for h in hw_timeline]
@@ -368,10 +528,19 @@ class GradeForecaster:
                 trend_status = 'Stable Performance'
                 trend_class = 'text-primary'
 
-        # 4. If homework exists, incorporate conservatively as an effort adjustment (10% weight)
-        if n_hw > 0:
+        # 4. If homework exists, incorporate according to user configured weights (default: 90% exam, 10% hw)
+        exam_w = float(settings.get('exam_weight', 0.90)) if settings else 0.90
+        hw_w = float(settings.get('hw_weight', 0.10)) if settings else 0.10
+        total_w = exam_w + hw_w
+        if total_w > 0:
+            exam_w = exam_w / total_w
+            hw_w = hw_w / total_w
+        else:
+            exam_w, hw_w = 0.90, 0.10
+
+        if n_hw > 0 and hw_w > 0:
             hw_avg = sum(hw_scores) / n_hw
-            pred = (0.90 * pred) + (0.10 * hw_avg)
+            pred = (exam_w * pred) + (hw_w * hw_avg)
 
         # Final bounding & rounding
         predicted_pct = round(max(0.0, min(100.0, float(pred))), 1)
@@ -386,7 +555,7 @@ class GradeForecaster:
             'assessment_count': n_exams
         }
 
-    def forecast_student_performance(self, student_id, class_id=None, teacher_id=None, conn=None, class_averages=None):
+    def forecast_student_performance(self, student_id, class_id=None, teacher_id=None, conn=None, class_averages=None, user_forecast_settings=None):
         should_close = False
         if conn is None:
             conn = get_db_connection()
@@ -511,7 +680,7 @@ class GradeForecaster:
                 # Class benchmark fallback
                 class_avg = class_averages.get(cid, 65.0)
 
-                calc = self._calculate_damped_prediction(exam_timeline, hw_timeline, class_avg)
+                calc = self._calculate_damped_prediction(exam_timeline, hw_timeline, class_avg, settings=user_forecast_settings)
                 if not calc:
                     continue
 
@@ -522,14 +691,14 @@ class GradeForecaster:
                 trend_class = calc['trend_class']
                 scores = calc['all_scores']
 
-                predicted_grade = self._get_letter_grade(predicted_pct)
-                current_grade = self._get_letter_grade(curr_avg)
+                predicted_grade = self._get_letter_grade(predicted_pct, settings=user_forecast_settings)
+                current_grade = self._get_letter_grade(curr_avg, settings=user_forecast_settings)
 
                 conf = self._calculate_confidence(scores, calc['assessment_count'])
                 margin = conf['margin']
                 pred_low = round(max(0.0, predicted_pct - margin), 1)
                 pred_high = round(min(100.0, predicted_pct + margin), 1)
-                pathway = self._calculate_target_pathway(curr_avg, scores)
+                pathway = self._calculate_target_pathway(curr_avg, scores, settings=user_forecast_settings)
 
                 forecasts.append({
                     'class_id': cid,
@@ -566,7 +735,7 @@ class GradeForecaster:
             if should_close:
                 conn.close()
 
-    def forecast_all_students(self, teacher_id=None, class_id=None):
+    def forecast_all_students(self, teacher_id=None, class_id=None, user_forecast_settings=None):
         """Batch-optimized student forecasting with single connection reuse"""
         conn = get_db_connection()
         try:
@@ -616,7 +785,8 @@ class GradeForecaster:
                     class_id=class_id, 
                     teacher_id=teacher_id, 
                     conn=conn, 
-                    class_averages=class_averages
+                    class_averages=class_averages,
+                    user_forecast_settings=user_forecast_settings
                 )
                 if f_data and f_data['forecasts']:
                     results.append(f_data)
