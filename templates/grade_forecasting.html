@@ -156,8 +156,11 @@
                             </div>
                         </div>
 
-                        <div style="font-size: 0.775rem; color: var(--text-muted);">
-                            Evaluated across <strong>{{ f.assessment_count }}</strong> historical assessment points.
+                        <div style="font-size: 0.775rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
+                            <span>Evaluated across <strong>{{ f.assessment_count }}</strong> exam(s).</span>
+                            {% if f.class_avg_pct %}
+                            <span style="font-weight: 600; color: #475569;">Class Avg: <strong>{{ f.class_avg_pct }}%</strong></span>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}

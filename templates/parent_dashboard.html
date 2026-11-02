@@ -290,7 +290,7 @@
                         <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                 <strong style="font-size: 0.85rem;">{{ f.subject }}</strong>
-                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% else %}badge-warning{% endif %}">
+                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% elif f.predicted_final_grade in ('C', 'S') %}badge-warning{% else %}badge-danger{% endif %}">
                                     Grade: {{ f.predicted_final_grade }}
                                 </span>
                             </div>

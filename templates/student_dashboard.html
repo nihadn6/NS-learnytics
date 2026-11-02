@@ -285,7 +285,7 @@
                             </div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
                                 <span class="text-muted">Est. Next Score: <strong>{{ f.predicted_next_exam_pct }}%</strong></span>
-                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% else %}badge-warning{% endif %}">
+                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% elif f.predicted_final_grade in ('C', 'S') %}badge-warning{% else %}badge-danger{% endif %}">
                                     Grade: {{ f.predicted_final_grade }}
                                 </span>
                             </div>
