@@ -1,31 +1,84 @@
 {% extends 'base.html' %}
 
-{% block title %}My Enrolled Classes - NS Learnytics{% endblock %}
+{% block title %}My Classes - NS Learnytics{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-</div>
-<div class="flex justify-between align-center mb-4">
-    <h1>My Enrolled Classes</h1>
+<div class="flex justify-between align-center mb-6" style="flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+        <h1 class="mt-2">My Enrolled Classes</h1>
+        <p class="text-muted">Access your active subjects, schedules, attendance and course materials.</p>
+    </div>
     <a href="{{ url_for('enrollment.join_class') }}" class="btn btn-primary">+ Join New Class</a>
 </div>
 
+<!-- Pending or Recent Join Requests -->
+{% if my_requests %}
+{% set pending_list = my_requests | selectattr('status', 'equalto', 'pending') | list %}
+{% if pending_list %}
+<div class="card mb-6" style="border-left: 4px solid var(--warning); background: #fffdf5;">
+    <div class="flex justify-between align-center mb-3">
+        <h3 class="mb-0" style="color: #92400e; font-size: 1.1rem;">⏳ Class Join Requests Awaiting Approval ({{ pending_list|length }})</h3>
+        <span style="font-size: 0.75rem; background: #fef3c7; color: #92400e; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600;">Pending Review</span>
+    </div>
+    <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">
+        Your instructor or administrator has received your join request. You will gain full access to class materials and attendance once approved.
+    </p>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th>Schedule</th>
+                    <th>Monthly Fee</th>
+                    <th>Requested At</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_list %}
+                <tr>
+                    <td style="font-weight: 600; color: var(--primary);">{{ req.subject }}</td>
+                    <td>{{ req.teacher_name }}</td>
+                    <td>{{ req.schedule }}</td>
+                    <td>LKR {{ "{:,.2f}".format(req.fee) }}</td>
+                    <td class="text-muted">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else 'N/A' }}</td>
+                    <td>
+                        <span style="padding: 0.25rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; background: #fef3c7; color: #92400e; text-transform: uppercase;">
+                            Pending Approval
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Active Enrolled Classes Grid -->
 <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
     {% for class in classes %}
-    <div class="card">
-        <div class="flex justify-between align-center mb-2">
-            <h3 class="mb-0">{{ class.subject }}</h3>
-            <span class="text-muted" style="font-size: 0.75rem; background: var(--bg-main); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">Active</span>
-        </div>
-        <div class="flex flex-column gap-1 mb-4">
-            <p class="text-muted" style="font-size: 0.875rem;"><strong>Teacher:</strong> {{ class.teacher_name }}</p>
-            <p class="text-muted" style="font-size: 0.875rem;"><strong>Schedule:</strong> {{ class.schedule }}</p>
-            <p class="text-muted" style="font-size: 0.875rem;"><strong>Monthly Fee:</strong> LKR {{ "{:,.2f}".format(class.fee) }}</p>
+    <div class="card flex flex-column justify-between">
+        <div>
+            <div class="flex justify-between align-center mb-2">
+                <h3 class="mb-0">{{ class.subject }}</h3>
+                <span class="text-muted" style="font-size: 0.75rem; background: #dcfce7; color: #166534; padding: 0.25rem 0.6rem; border-radius: 1rem; font-weight: 700;">Active</span>
+            </div>
+            <div class="flex flex-column gap-1 mb-4">
+                <p class="text-muted" style="font-size: 0.875rem;"><strong>Teacher:</strong> {{ class.teacher_name }}</p>
+                <p class="text-muted" style="font-size: 0.875rem;"><strong>Schedule:</strong> {{ class.schedule }}</p>
+                <p class="text-muted" style="font-size: 0.875rem;"><strong>Monthly Fee:</strong> LKR {{ "{:,.2f}".format(class.fee) }}</p>
+            </div>
         </div>
         
         <div class="flex justify-between align-center mt-4 pt-4" style="border-top: 1px solid var(--border);">
             <small class="text-muted">Enrolled: {{ class.joined_at.strftime('%b %d, %Y') if class.joined_at else 'N/A' }}</small>
-            <a href="{{ url_for('attendance.view_attendance_history') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.4rem 0.8rem;">View Attendance</a>
+            <div class="flex gap-1">
+                <a href="{{ url_for('lms.index', class_id=class.id) }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.4rem 0.7rem;">LMS</a>
+                <a href="{{ url_for('attendance.view_attendance_history') }}" class="btn btn-outline" style="font-size: 0.75rem; padding: 0.4rem 0.7rem;">Attendance</a>
+            </div>
         </div>
     </div>
     {% else %}
@@ -35,4 +88,42 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Past / Declined Requests if any -->
+{% if my_requests %}
+{% set past_list = my_requests | rejectattr('status', 'equalto', 'pending') | list %}
+{% if past_list %}
+<div class="card mt-8">
+    <h3 class="mb-3" style="font-size: 1rem; color: var(--text-muted);">Request History</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th>Status</th>
+                    <th>Date Processed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in past_list %}
+                <tr>
+                    <td style="font-weight: 500;">{{ r.subject }}</td>
+                    <td>{{ r.teacher_name }}</td>
+                    <td>
+                        {% if r.status == 'approved' %}
+                        <span style="padding: 0.2rem 0.5rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; background: #dcfce7; color: #166534;">Enrolled</span>
+                        {% else %}
+                        <span style="padding: 0.2rem 0.5rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; background: #fee2e2; color: #991b1b;">Declined</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ r.actioned_at.strftime('%Y-%m-%d') if r.actioned_at else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}

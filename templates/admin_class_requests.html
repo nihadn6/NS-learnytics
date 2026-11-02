@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Class Requests - Admin - NS Learnytics{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex justify-between align-center" style="flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+        <h1 class="mt-2">Student Class Join Requests</h1>
+        <p class="text-muted">Global administrative approval queue for student class join requests across all teachers.</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">&larr; Admin Console</a>
+        <a href="{{ url_for('admin.manage_classes') }}" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">Class Management</a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <form method="GET" action="{{ url_for('admin.view_class_requests') }}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label>Filter by Teacher</label>
+            <select name="teacher_id" class="input-field">
+                <option value="">All Teachers</option>
+                {% for t in teachers %}
+                <option value="{{ t.id }}" {% if teacher_filter|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+            <label>Filter by Class</label>
+            <select name="class_id" class="input-field">
+                <option value="">All Classes</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" {% if class_filter|string == c.id|string %}selected{% endif %}>{{ c.subject }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+        <a href="{{ url_for('admin.view_class_requests') }}" class="btn btn-outline">Reset</a>
+    </form>
+</div>
+
+<!-- Pending Requests -->
+<div class="card mb-6">
+    <div class="flex justify-between align-center mb-4">
+        <h3 class="mb-0">Pending Approvals</h3>
+        <span class="text-muted" style="font-size: 0.875rem; background: var(--bg-main); padding: 0.25rem 0.75rem; border-radius: 1rem;">
+            {{ pending_requests|length }} Request(s) Pending
+        </span>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Class / Subject</th>
+                    <th>Teacher</th>
+                    <th>Student Name & Email</th>
+                    <th>Grade</th>
+                    <th>Fee</th>
+                    <th>Requested Date</th>
+                    <th style="text-align: right;">Administrative Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_requests %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: var(--primary);">{{ req.subject }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ req.schedule }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 500;">{{ req.teacher_name }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ req.teacher_email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 600;">{{ req.student_name }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ req.student_email }}</div>
+                    </td>
+                    <td>{{ req.grade or 'N/A' }}</td>
+                    <td>LKR {{ "{:,.2f}".format(req.fee) }}</td>
+                    <td class="text-muted">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else 'N/A' }}</td>
+                    <td>
+                        <div class="flex gap-2 justify-end" style="white-space: nowrap;">
+                            <form action="{{ url_for('admin.manage_class_request', request_id=req.request_id, action='accept') }}" method="POST" style="margin: 0;">
+                                <input type="hidden" name="next" value="{{ request.full_path }}">
+                                <button type="submit" class="btn btn-primary" style="background: var(--success); font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                                    ✓ Accept
+                                </button>
+                            </form>
+                            <form action="{{ url_for('admin.manage_class_request', request_id=req.request_id, action='decline') }}" method="POST" style="margin: 0;" onsubmit="return confirm('Decline {{ req.student_name }} from joining {{ req.subject }}?');">
+                                <input type="hidden" name="next" value="{{ request.full_path }}">
+                                <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger); font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                                    ✕ Decline
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">
+                        No pending class join requests matching your criteria.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- History -->
+<div class="card">
+    <h3 class="mb-4">Recent Audit History</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Teacher</th>
+                    <th>Student</th>
+                    <th>Decision</th>
+                    <th>Processed At</th>
+                    <th>Actioned By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in history %}
+                <tr>
+                    <td style="font-weight: 600;">{{ h.subject }}</td>
+                    <td>{{ h.teacher_name }}</td>
+                    <td>
+                        <div>{{ h.student_name }}</div>
+                        <div class="text-muted" style="font-size: 0.75rem;">{{ h.student_email }}</div>
+                    </td>
+                    <td>
+                        {% if h.status == 'approved' %}
+                        <span style="padding: 0.25rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #dcfce7; color: #166534;">
+                            Accepted
+                        </span>
+                        {% else %}
+                        <span style="padding: 0.25rem 0.6rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; background: #fee2e2; color: #991b1b;">
+                            Declined
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted">{{ h.actioned_at.strftime('%Y-%m-%d %H:%M') if h.actioned_at else 'N/A' }}</td>
+                    <td class="text-muted">{{ h.actioned_by_name or 'System' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted" style="padding: 2rem;">No previous decisions recorded.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -47,6 +47,21 @@ CREATE TABLE IF NOT EXISTS enrollments (
     UNIQUE(class_id, student_id)
 );
 
+CREATE TABLE IF NOT EXISTS class_join_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    class_id INT NOT NULL,
+    student_id INT NOT NULL,
+    status ENUM('pending', 'approved', 'declined') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actioned_at TIMESTAMP NULL,
+    actioned_by INT NULL,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (actioned_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE KEY unique_class_student_request (class_id, student_id)
+);
+
+
 CREATE TABLE IF NOT EXISTS attendance (
     id INT AUTO_INCREMENT PRIMARY KEY,
     class_id INT NOT NULL,

@@ -46,6 +46,23 @@
 </div>
 {% endif %}
 
+<!-- Urgent Attention Banner for Pending Student Class Join Requests -->
+{% if pending_class_requests_count > 0 %}
+<div class="card mb-4" style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 5px solid var(--info); padding: 1rem 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div>
+                <strong style="color: #1e40af; font-size: 0.95rem;">Action Required: {{ pending_class_requests_count }} Student Class Join Request(s) Pending</strong>
+                <div style="color: #2563eb; font-size: 0.8rem;">Students requesting admission to institutional classes awaiting administrative/teacher sign-off.</div>
+            </div>
+        </div>
+        <a href="{{ url_for('admin.view_class_requests') }}" class="btn btn-primary" style="background: #1d4ed8; border: none; font-size: 0.8rem; padding: 0.4rem 0.85rem;">
+            Review Requests &rarr;
+        </a>
+    </div>
+</div>
+{% endif %}
+
 <!-- Macro Institutional KPI Grid -->
 <div class="stat-grid">
     <div class="stat-card" style="border-left: 4px solid var(--primary);">

@@ -21,7 +21,14 @@ def view_classes():
             if role == 'teacher':
                 cursor.execute("SELECT * FROM classes WHERE teacher_id = %s ORDER BY created_at DESC", (user_id,))
                 classes = cursor.fetchall()
-                return render_template('classes_teacher.html', classes=classes)
+                cursor.execute("""
+                    SELECT COUNT(*) as cnt 
+                    FROM class_join_requests r 
+                    JOIN classes c ON r.class_id = c.id 
+                    WHERE c.teacher_id = %s AND r.status = 'pending'
+                """, (user_id,))
+                pending_count = cursor.fetchone()['cnt']
+                return render_template('classes_teacher.html', classes=classes, pending_requests_count=pending_count)
             else:
                 cursor.execute("""
                     SELECT c.*, u.name as teacher_name 
@@ -31,7 +38,18 @@ def view_classes():
                     WHERE e.student_id = %s ORDER BY e.joined_at DESC
                 """, (user_id,))
                 classes = cursor.fetchall()
-                return render_template('classes_student.html', classes=classes)
+
+                cursor.execute("""
+                    SELECT r.id as request_id, r.status, r.requested_at, r.actioned_at,
+                           c.subject, c.schedule, c.fee, u.name as teacher_name
+                    FROM class_join_requests r
+                    JOIN classes c ON r.class_id = c.id
+                    JOIN users u ON c.teacher_id = u.id
+                    WHERE r.student_id = %s
+                    ORDER BY r.requested_at DESC
+                """, (user_id,))
+                my_requests = cursor.fetchall()
+                return render_template('classes_student.html', classes=classes, my_requests=my_requests)
     finally:
         conn.close()
 

@@ -18,6 +18,52 @@
     </div>
 </div>
 
+{% if pending_requests %}
+<div class="card mb-6" style="border-left: 4px solid var(--warning); background: #fffdf5;">
+    <div class="flex justify-between align-center mb-3">
+        <h3 class="mb-0" style="color: #92400e;">Pending Join Requests ({{ pending_requests|length }})</h3>
+        <span style="font-size: 0.78rem; background: #fef3c7; color: #92400e; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600;">Action Required</span>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Email Address</th>
+                    <th>Grade</th>
+                    <th>Requested At</th>
+                    <th style="text-align: right;">Decision</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in pending_requests %}
+                <tr>
+                    <td style="font-weight: 600;">{{ r.name }}</td>
+                    <td class="text-muted">{{ r.email }}</td>
+                    <td>{{ r.grade or '-' }}</td>
+                    <td class="text-muted">{{ r.requested_at.strftime('%Y-%m-%d %H:%M') if r.requested_at else '-' }}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <form action="{{ url_for('admin.manage_class_request', request_id=r.request_id, action='accept') }}" method="POST" style="display: inline; margin: 0;">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="btn btn-primary" style="background: var(--success); font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                ✓ Accept
+                            </button>
+                        </form>
+                        <form action="{{ url_for('admin.manage_class_request', request_id=r.request_id, action='decline') }}" method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Decline {{ r.name }} from joining {{ cls.subject }}?');">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger); font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                                ✕ Decline
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start;">
     <div class="card" style="grid-column: span 2; min-width: 0;">
         <h3 class="mb-4">Enrolled Students ({{ roster|length }})</h3>

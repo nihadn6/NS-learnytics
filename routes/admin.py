@@ -37,6 +37,10 @@ def dashboard():
             cursor.execute("SELECT COUNT(*) as cnt FROM parent_student_links WHERE status = 'pending'")
             pending_parent_requests_count = cursor.fetchone()['cnt']
 
+            # Pending Student Class Join Requests
+            cursor.execute("SELECT COUNT(*) as cnt FROM class_join_requests WHERE status = 'pending'")
+            pending_class_requests_count = cursor.fetchone()['cnt']
+
             # Total Classes
             cursor.execute("SELECT COUNT(*) as cnt FROM classes")
             total_classes_count = cursor.fetchone()['cnt']
@@ -178,6 +182,7 @@ def dashboard():
                                    total_ungraded_submissions=total_ungraded_submissions,
                                    low_attendance_count=low_attendance_count,
                                    pending_parent_requests_count=pending_parent_requests_count,
+                                   pending_class_requests_count=pending_class_requests_count,
                                    total_classes_count=total_classes_count,
                                    recent_users=recent_users)
     finally:
@@ -335,6 +340,122 @@ def manage_parent_request(request_id, action):
             cursor.execute("UPDATE parent_student_links SET status = %s WHERE id = %s", (status, request_id))
             conn.commit()
         return redirect(url_for('admin.view_parent_requests'))
+    finally:
+        conn.close()
+
+@admin_bp.route('/admin/class-requests', methods=['GET'])
+def view_class_requests():
+    if not _admin_guard():
+        return "Unauthorized", 403
+    
+    teacher_filter = request.args.get('teacher_id') or ''
+    class_filter = request.args.get('class_id') or ''
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Fetch teachers and classes for filtering
+            cursor.execute("SELECT id, name FROM users WHERE role = 'teacher' ORDER BY name")
+            teachers = cursor.fetchall()
+            
+            cursor.execute("SELECT id, subject FROM classes ORDER BY subject")
+            classes = cursor.fetchall()
+            
+            query_pending = """
+                SELECT r.id as request_id, r.requested_at, c.id as class_id, c.subject, c.schedule, c.fee,
+                       t.name as teacher_name, t.email as teacher_email,
+                       u.id as student_id, u.name as student_name, u.email as student_email, sp.grade
+                FROM class_join_requests r
+                JOIN classes c ON r.class_id = c.id
+                JOIN users t ON c.teacher_id = t.id
+                JOIN users u ON r.student_id = u.id
+                LEFT JOIN student_profiles sp ON sp.user_id = u.id
+                WHERE r.status = 'pending'
+            """
+            params = []
+            if teacher_filter:
+                query_pending += " AND c.teacher_id = %s"
+                params.append(teacher_filter)
+            if class_filter:
+                query_pending += " AND c.id = %s"
+                params.append(class_filter)
+                
+            query_pending += " ORDER BY r.requested_at ASC"
+            cursor.execute(query_pending, tuple(params))
+            pending_requests = cursor.fetchall()
+            
+            # Recent audit history
+            cursor.execute("""
+                SELECT r.id as request_id, r.requested_at, r.actioned_at, r.status, c.subject,
+                       t.name as teacher_name, u.name as student_name, u.email as student_email,
+                       act.name as actioned_by_name
+                FROM class_join_requests r
+                JOIN classes c ON r.class_id = c.id
+                JOIN users t ON c.teacher_id = t.id
+                JOIN users u ON r.student_id = u.id
+                LEFT JOIN users act ON r.actioned_by = act.id
+                WHERE r.status != 'pending'
+                ORDER BY r.actioned_at DESC LIMIT 50
+            """)
+            history = cursor.fetchall()
+            
+            return render_template('admin_class_requests.html',
+                                   pending_requests=pending_requests,
+                                   history=history,
+                                   teachers=teachers,
+                                   classes=classes,
+                                   teacher_filter=teacher_filter,
+                                   class_filter=class_filter)
+    finally:
+        conn.close()
+
+@admin_bp.route('/admin/class-requests/<int:request_id>/<string:action>', methods=['POST'])
+def manage_class_request(request_id, action):
+    if not _admin_guard():
+        return "Unauthorized", 403
+    
+    action = action.lower()
+    if action not in ('accept', 'approve', 'decline', 'reject'):
+        return "Invalid action", 400
+        
+    admin_id = session['user_id']
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT r.id, r.class_id, r.student_id, r.status, c.subject, u.name as student_name
+                FROM class_join_requests r
+                JOIN classes c ON r.class_id = c.id
+                JOIN users u ON r.student_id = u.id
+                WHERE r.id = %s
+            """, (request_id,))
+            req = cursor.fetchone()
+            if not req:
+                return "Request not found", 404
+                
+            if action in ('accept', 'approve'):
+                cursor.execute("INSERT IGNORE INTO enrollments (class_id, student_id) VALUES (%s, %s)",
+                               (req['class_id'], req['student_id']))
+                cursor.execute("""
+                    UPDATE class_join_requests 
+                    SET status = 'approved', actioned_at = CURRENT_TIMESTAMP, actioned_by = %s 
+                    WHERE id = %s
+                """, (admin_id, request_id))
+                conn.commit()
+                flash(f"Approved {req['student_name']}'s join request for '{req['subject']}'.", 'success')
+            else:
+                cursor.execute("""
+                    UPDATE class_join_requests 
+                    SET status = 'declined', actioned_at = CURRENT_TIMESTAMP, actioned_by = %s 
+                    WHERE id = %s
+                """, (admin_id, request_id))
+                conn.commit()
+                flash(f"Declined {req['student_name']}'s join request for '{req['subject']}'.", 'warning')
+                
+        next_url = request.form.get('next') or request.referrer
+        if next_url:
+            return redirect(next_url)
+        return redirect(url_for('admin.view_class_requests'))
     finally:
         conn.close()
 
@@ -661,7 +782,19 @@ def admin_class_roster(class_id):
             cursor.execute("SELECT id, name, email FROM users WHERE role = 'teacher' ORDER BY name")
             teachers = cursor.fetchall()
 
+            # Pending join requests for this class
+            cursor.execute("""
+                SELECT r.id as request_id, r.requested_at, u.id as student_id, u.name, u.email, sp.grade
+                FROM class_join_requests r
+                JOIN users u ON r.student_id = u.id
+                LEFT JOIN student_profiles sp ON sp.user_id = u.id
+                WHERE r.class_id = %s AND r.status = 'pending'
+                ORDER BY r.requested_at ASC
+            """, (class_id,))
+            pending_requests = cursor.fetchall()
+
             return render_template('admin_class_roster.html', cls=cls, roster=roster,
+                                   pending_requests=pending_requests,
                                    available_students=available_students, teachers=teachers)
     finally:
         conn.close()

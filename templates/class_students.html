@@ -3,17 +3,70 @@
 {% block title %}Students: {{ class_subject }} - NS Learnytics{% endblock %}
 
 {% block content %}
-<div class="mb-4 flex gap-2 align-center">
+<div class="mb-4 flex justify-between align-center" style="flex-wrap: wrap; gap: 0.5rem;">
     <a href="{{ url_for('classes.view_classes') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none;">&larr; Back to My Classes</a>
+    <a href="{{ url_for('enrollment.teacher_class_requests') }}" class="btn btn-outline" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">All Class Requests</a>
 </div>
+
 <div class="mb-4">
     <div class="flex justify-between align-center mt-2">
-        <h1>Enrolled Students: <span style="color: var(--primary);">{{ class_subject }}</span></h1>
-        <span class="text-muted" style="font-size: 0.875rem; background: var(--bg-main); padding: 0.25rem 0.75rem; border-radius: 1rem;">{{ students|length }} Students</span>
+        <h1>Students: <span style="color: var(--primary);">{{ class_subject }}</span></h1>
+        <span class="text-muted" style="font-size: 0.875rem; background: var(--bg-main); padding: 0.25rem 0.75rem; border-radius: 1rem;">{{ students|length }} Enrolled</span>
     </div>
 </div>
 
+<!-- Pending Join Requests for this Class -->
+{% if pending_requests %}
+<div class="card mb-6" style="border-left: 4px solid var(--warning);">
+    <div class="flex justify-between align-center mb-3">
+        <h3 class="mb-0" style="color: #92400e;">Pending Join Requests ({{ pending_requests|length }})</h3>
+        <span style="font-size: 0.78rem; background: #fef3c7; color: #92400e; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600;">Action Required</span>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Email Address</th>
+                    <th>Grade</th>
+                    <th>Requested At</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in pending_requests %}
+                <tr>
+                    <td style="font-weight: 600;">{{ r.name }}</td>
+                    <td class="text-muted">{{ r.email }}</td>
+                    <td>{{ r.grade or 'N/A' }}</td>
+                    <td class="text-muted">{{ r.requested_at.strftime('%Y-%m-%d %H:%M') if r.requested_at else 'N/A' }}</td>
+                    <td>
+                        <div class="flex gap-2 justify-end" style="white-space: nowrap;">
+                            <form action="{{ url_for('enrollment.manage_join_request', request_id=r.request_id, action='accept') }}" method="POST" style="margin: 0;">
+                                <input type="hidden" name="next" value="{{ request.full_path }}">
+                                <button type="submit" class="btn btn-primary" style="background: var(--success); font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                                    ✓ Accept
+                                </button>
+                            </form>
+                            <form action="{{ url_for('enrollment.manage_join_request', request_id=r.request_id, action='decline') }}" method="POST" style="margin: 0;" onsubmit="return confirm('Decline {{ r.name }} from joining this class?');">
+                                <input type="hidden" name="next" value="{{ request.full_path }}">
+                                <button type="submit" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger); font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                                    ✕ Decline
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Active Enrolled Students -->
 <div class="card">
+    <h3 class="mb-3">Enrolled Roster</h3>
     {% if students %}
     <div class="table-container">
         <table>
