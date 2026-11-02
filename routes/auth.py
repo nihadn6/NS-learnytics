@@ -42,7 +42,7 @@ def register():
                 cursor.execute("INSERT INTO student_profiles (user_id, qr_code) VALUES (%s, %s)", (user_id, qr_token))
         conn.commit()
         # Inform the new user how to access their QR and inform admins about teacher invites
-        flash('Registration successful. Students can view/download their QR from the Profile page after login.\nAdmins can create teacher/moderator accounts from the Super Admin dashboard.')
+        flash('Registration successful. Students can view/download their QR from the Profile page after login.\nAdmins can create teacher/moderator accounts from the Super Admin dashboard.', 'success')
         return redirect(url_for('auth.login'))
     except Exception as e:
         return render_template('register.html', error=str(e))

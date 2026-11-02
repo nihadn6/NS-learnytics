@@ -469,7 +469,7 @@
                     {% if messages %}
                         <div class="alerts-container">
                             {% for category, message in messages %}
-                                <div class="alert {% if category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-error{% endif %}">
+                                <div class="alert {% if category == 'success' or (category in ('message', 'info') and ('success' in message|lower or 'registered' in message|lower)) %}alert-success{% elif category == 'warning' %}alert-warning{% elif category == 'info' %}alert-info{% else %}alert-error{% endif %}">
                                     {{ message }}
                                 </div>
                             {% endfor %}
@@ -541,7 +541,7 @@
             {% if messages %}
                 <div class="alerts-container">
                     {% for category, message in messages %}
-                        <div class="alert {% if category == 'success' %}alert-success{% elif category == 'warning' %}alert-warning{% else %}alert-error{% endif %}">
+                        <div class="alert {% if category == 'success' or (category in ('message', 'info') and ('success' in message|lower or 'registered' in message|lower)) %}alert-success{% elif category == 'warning' %}alert-warning{% elif category == 'info' %}alert-info{% else %}alert-error{% endif %}">
                             {{ message }}
                         </div>
                     {% endfor %}

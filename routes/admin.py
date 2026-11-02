@@ -285,6 +285,7 @@ def create_student():
                            (user_id, grade, token))
 
             conn.commit()
+            flash(f"Student '{name}' registered successfully!", 'success')
             return redirect(url_for('admin.dashboard'))
     finally:
         conn.close()

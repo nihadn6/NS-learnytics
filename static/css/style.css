@@ -881,6 +881,18 @@ tr:hover td {
     border-left-color: var(--success);
 }
 
+.alert-warning {
+    background: var(--warning-light);
+    color: #92400e;
+    border-left-color: var(--warning);
+}
+
+.alert-info {
+    background: var(--info-light);
+    color: #1e40af;
+    border-left-color: var(--info);
+}
+
 .alert-error {
     background: var(--danger-light);
     color: #991b1b;
