@@ -295,9 +295,14 @@
                                 </span>
                             </div>
                             <div style="display: flex; justify-content: space-between; font-size: 0.775rem; color: var(--text-muted);">
-                                <span>Est. Score: <strong>{{ f.predicted_next_exam_pct }}%</strong></span>
+                                <span>Est. Score: <strong>{{ f.predicted_next_exam_pct }}%</strong> (±{{ f.confidence_margin }}%)</span>
                                 <span class="{{ f.trend_class }}">{{ f.trend_status }}</span>
                             </div>
+                            {% if f.target_pathway %}
+                            <div style="margin-top: 0.35rem; font-size: 0.725rem; color: #4338ca; font-weight: 600; border-top: 1px dashed var(--border); padding-top: 0.3rem;">
+                                🎯 {{ f.target_pathway.pathway_message|safe }}
+                            </div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>

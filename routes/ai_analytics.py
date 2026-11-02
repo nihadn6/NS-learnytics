@@ -183,6 +183,12 @@ def grade_forecasting_dashboard():
     finally:
         conn.close()
 
+    # Empirical model backtest validation metrics
+    accuracy_metrics = grade_forecaster.evaluate_model_accuracy(
+        teacher_id=user_id if role == 'teacher' else teacher_id,
+        class_id=class_id
+    )
+
     return render_template('grade_forecasting.html',
                            forecast_data=forecast_data,
                            classes=classes,
@@ -190,6 +196,7 @@ def grade_forecasting_dashboard():
                            selected_teacher_id=teacher_id,
                            selected_class_id=class_id,
                            search_query=search_query,
+                           accuracy_metrics=accuracy_metrics,
                            role=role)
 
 @ai_analytics_bp.route('/api/ai/predict-student/<int:student_id>', methods=['GET'])

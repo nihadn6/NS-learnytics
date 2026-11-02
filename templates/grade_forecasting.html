@@ -11,9 +11,16 @@
         <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
             AI Final Grade & Exam Performance Forecaster
         </h1>
-        <p class="text-muted" style="margin-bottom: 0;">Predictive Regression Model estimating upcoming exam scores and projected final letter grades based on historical assessment marks & LMS homework trajectories.</p>
+        <p class="text-muted" style="margin-bottom: 0;">Predictive statistical regression model estimating upcoming exam scores, confidence intervals, and actionable grade target roadmaps based on historical exam trajectories.</p>
     </div>
+    {% if accuracy_metrics and accuracy_metrics.evaluated %}
+    <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.95rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); font-size: 0.8rem; font-weight: 600; color: #047857; box-shadow: var(--shadow-sm);">
+        <svg style="width: 15px; height: 15px; color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Empirical Accuracy: <strong>±{{ accuracy_metrics.mae }}% MAE</strong> across {{ accuracy_metrics.sample_count }} historical exam series ({{ accuracy_metrics.within_10_pct }}% within ±10 pts)</span>
+    </div>
+    {% endif %}
 </div>
+
 
 <!-- Universal Search & Filter Controls (with Teacher & Course Filters for Admin) -->
 <div class="card mb-6" style="padding: 1.1rem 1.25rem;">
@@ -128,33 +135,56 @@
                          data-teacher-name="{{ (f.teacher_name or '')|lower }}"
                          data-trend="{{ (f.trend_status or '')|lower }}">
                         
-                        <div class="flex justify-between align-center mb-2">
+                        <div class="flex justify-between align-center mb-2" style="flex-wrap: wrap; gap: 0.4rem;">
                             <div>
                                 <h4 style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin: 0;">{{ f.subject }}</h4>
                                 {% if f.teacher_name %}
                                     <span class="text-muted" style="font-size: 0.75rem;">Teacher: <strong>{{ f.teacher_name }}</strong></span>
                                 {% endif %}
                             </div>
-                            <span class="{{ f.trend_class }}" style="font-size: 0.775rem; font-weight: 600; background: rgba(0,0,0,0.03); padding: 0.2rem 0.5rem; border-radius: 4px;">
-                                {{ f.trend_status }}
-                            </span>
+                            <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                                <span class="{{ f.trend_class }}" style="font-size: 0.75rem; font-weight: 600; background: rgba(0,0,0,0.03); padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                    {{ f.trend_status }}
+                                </span>
+                                <span class="badge {{ f.confidence_badge }}" style="font-size: 0.675rem; text-transform: uppercase; font-weight: 700;">
+                                    {{ f.confidence_label }}
+                                </span>
+                            </div>
                         </div>
 
                         <div class="grid gap-2 mb-3" style="grid-template-columns: 1fr 1fr; margin-top: 0.75rem;">
                             <div style="background: white; padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
-                                <span class="text-muted" style="font-size: 0.75rem; display: block;">Current Average</span>
-                                <span style="font-weight: 800; font-size: 1.1rem; color: var(--text-main);">{{ f.current_avg_pct }}%</span>
-                                <span class="badge badge-primary" style="font-size: 0.7rem; margin-left: 0.25rem;">Grade: {{ f.current_grade }}</span>
+                                <span class="text-muted" style="font-size: 0.725rem; display: block;">Current Average</span>
+                                <div style="display: flex; align-items: baseline; gap: 0.35rem; margin-top: 0.15rem;">
+                                    <span style="font-weight: 800; font-size: 1.15rem; color: var(--text-main);">{{ f.current_avg_pct }}%</span>
+                                    <span class="badge badge-primary" style="font-size: 0.7rem;">Grade: {{ f.current_grade }}</span>
+                                </div>
                             </div>
 
                             <div style="background: white; padding: 0.6rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
-                                <span class="text-muted" style="font-size: 0.75rem; display: block;">Predicted Next Exam</span>
-                                <span style="font-weight: 800; font-size: 1.1rem; color: {% if f.predicted_next_exam_pct >= 75 %}var(--success){% elif f.predicted_next_exam_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
-                                    {{ f.predicted_next_exam_pct }}%
+                                <span class="text-muted" style="font-size: 0.725rem; display: block;">Predicted Next Exam</span>
+                                <div style="display: flex; align-items: baseline; gap: 0.35rem; margin-top: 0.15rem;">
+                                    <span style="font-weight: 800; font-size: 1.15rem; color: {% if f.predicted_next_exam_pct >= 75 %}var(--success){% elif f.predicted_next_exam_pct >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                                        {{ f.predicted_next_exam_pct }}%
+                                    </span>
+                                    <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% elif f.predicted_final_grade in ('C', 'S') %}badge-warning{% else %}badge-danger{% endif %}" style="font-size: 0.7rem;">Est. {{ f.predicted_final_grade }}</span>
+                                </div>
+                                <span style="font-size: 0.675rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">
+                                    Range: <strong>{{ f.pred_range_low }}% – {{ f.pred_range_high }}%</strong> (±{{ f.confidence_margin }}%)
                                 </span>
-                                <span class="badge {% if f.predicted_final_grade in ('A', 'B') %}badge-success{% elif f.predicted_final_grade in ('C', 'S') %}badge-warning{% else %}badge-danger{% endif %}" style="font-size: 0.7rem; margin-left: 0.25rem;">Est. Grade: {{ f.predicted_final_grade }}</span>
                             </div>
                         </div>
+
+                        <!-- Actionable Grade Target Pathway -->
+                        {% if f.target_pathway %}
+                        <div style="background: rgba(59, 130, 246, 0.05); border: 1px dashed rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.775rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1rem; line-height: 1;">🎯</span>
+                            <div style="flex: 1;">
+                                <span style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.03em; display: block;">Next Exam Target</span>
+                                <span style="color: var(--text-main); font-weight: 700;">{{ f.target_pathway.pathway_message|safe }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <div style="font-size: 0.775rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
                             <span>Evaluated across <strong>{{ f.assessment_count }}</strong> exam(s).</span>

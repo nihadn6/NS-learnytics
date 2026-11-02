@@ -38,6 +38,211 @@ class GradeForecaster:
         except Exception:
             return datetime.date.min
 
+    def _calculate_confidence(self, scores, n_assessments):
+        """
+        Determine confidence margin of error and reliability tier:
+        - Sample size N (1 test is provisional, 4+ is highly reliable)
+        - Variance / consistency of past scores
+        """
+        if not scores or n_assessments <= 0:
+            return {
+                'margin': 12.0,
+                'level': 'LOW',
+                'label': 'Developing Baseline',
+                'badge_class': 'badge-warning',
+                'star_count': 1
+            }
+
+        n = len(scores)
+        std_dev = float(np.std(scores)) if n >= 2 else 0.0
+
+        if n >= 4:
+            base_margin = 4.5
+            base_tier = 'HIGH'
+        elif n == 3:
+            base_margin = 6.5
+            base_tier = 'MEDIUM'
+        elif n == 2:
+            base_margin = 8.5
+            base_tier = 'MEDIUM'
+        else:
+            base_margin = 12.0
+            base_tier = 'LOW'
+
+        if std_dev > 15.0:
+            variance_adj = 2.0
+            if base_tier == 'HIGH':
+                base_tier = 'MEDIUM'
+        elif std_dev < 6.0 and n >= 3:
+            variance_adj = -1.0
+            base_tier = 'HIGH'
+        else:
+            variance_adj = 0.0
+
+        margin = round(max(3.0, min(15.0, base_margin + variance_adj)), 1)
+
+        if base_tier == 'HIGH':
+            label = 'High Confidence'
+            badge_class = 'badge-success'
+            star_count = 3
+        elif base_tier == 'MEDIUM':
+            label = 'Moderate Confidence'
+            badge_class = 'badge-primary'
+            star_count = 2
+        else:
+            label = 'Developing Baseline'
+            badge_class = 'badge-warning'
+            star_count = 1
+
+        return {
+            'margin': margin,
+            'level': base_tier,
+            'label': label,
+            'badge_class': badge_class,
+            'star_count': star_count,
+            'std_dev': round(std_dev, 1)
+        }
+
+    def _calculate_target_pathway(self, curr_avg, scores):
+        """
+        Calculate required score on next exam to attain or sustain grade tiers:
+        A: 75% | B: 65% | C: 50% | S: 35%
+        """
+        if not scores:
+            return None
+
+        n = len(scores)
+        s = sum(scores)
+
+        if curr_avg < 35.0:
+            target_grade = 'S'
+            target_thresh = 35.0
+            is_maintain = False
+        elif curr_avg < 50.0:
+            target_grade = 'C'
+            target_thresh = 50.0
+            is_maintain = False
+        elif curr_avg < 65.0:
+            target_grade = 'B'
+            target_thresh = 65.0
+            is_maintain = False
+        elif curr_avg < 75.0:
+            target_grade = 'A'
+            target_thresh = 75.0
+            is_maintain = False
+        else:
+            target_grade = 'A'
+            target_thresh = 75.0
+            is_maintain = True
+
+        needed = round(float((n + 1) * target_thresh - s), 1)
+
+        if is_maintain:
+            if needed <= 0.0:
+                msg = "Firmly in Distinction: Normal passing exam sustains Grade A"
+            else:
+                msg = f"Maintain 'A': Score >= {needed}% on next exam"
+        else:
+            if needed <= 0.0:
+                msg = f"Target '{target_grade}': Already within reach with steady exam score"
+            elif needed > 100.0:
+                msg = f"Target '{target_grade}': Requires multi-exam upward trajectory"
+            else:
+                msg = f"Level Up to '{target_grade}': Needs {needed}% on next exam"
+
+        return {
+            'target_grade': target_grade,
+            'needed_score': needed,
+            'pathway_message': msg,
+            'is_maintain': is_maintain
+        }
+
+    def evaluate_model_accuracy(self, teacher_id=None, class_id=None, conn=None):
+        """
+        Empirical leave-one-out historical backtest validation:
+        Tests prediction accuracy on actual historical exams across students.
+        """
+        should_close = False
+        if conn is None:
+            conn = get_db_connection()
+            should_close = True
+
+        try:
+            with conn.cursor() as cursor:
+                query = """
+                    SELECT m.student_id, m.class_id, m.marks_obtained, m.max_marks, m.date_recorded
+                    FROM marks m
+                    JOIN classes c ON m.class_id = c.id
+                    WHERE m.max_marks > 0
+                """
+                params = []
+                if class_id:
+                    query += " AND m.class_id = %s"
+                    params.append(class_id)
+                if teacher_id:
+                    query += " AND c.teacher_id = %s"
+                    params.append(teacher_id)
+
+                query += " ORDER BY m.student_id, m.class_id, m.date_recorded ASC"
+                cursor.execute(query, tuple(params))
+                rows = cursor.fetchall()
+
+                class_averages = self._fetch_class_averages(cursor)
+
+            grouped = {}
+            for r in rows:
+                key = (r['student_id'], r['class_id'])
+                if key not in grouped:
+                    grouped[key] = []
+                pct = float(r['marks_obtained']) / float(r['max_marks']) * 100.0
+                grouped[key].append(pct)
+
+            errors = []
+            within_10 = 0
+            within_5 = 0
+
+            for (sid, cid), scores in grouped.items():
+                if len(scores) >= 3:
+                    train_scores = scores[:-1]
+                    actual = scores[-1]
+                    c_avg = class_averages.get(cid, 65.0)
+
+                    mock_timeline = [{'pct': s, 'date_obj': datetime.date.min} for s in train_scores]
+                    calc = self._calculate_damped_prediction(mock_timeline, [], c_avg)
+                    if calc:
+                        pred = calc['predicted_pct']
+                        err = abs(pred - actual)
+                        errors.append(err)
+                        if err <= 10.0:
+                            within_10 += 1
+                        if err <= 5.0:
+                            within_5 += 1
+
+            if errors:
+                mae = round(float(sum(errors) / len(errors)), 1)
+                pct_10 = round(float(within_10 / len(errors) * 100.0), 1)
+                pct_5 = round(float(within_5 / len(errors) * 100.0), 1)
+                return {
+                    'evaluated': True,
+                    'sample_count': len(errors),
+                    'mae': mae,
+                    'within_10_pct': pct_10,
+                    'within_5_pct': pct_5,
+                    'badge_text': f"Empirical Accuracy: ±{mae}% MAE ({pct_10}% within ±10 pts)"
+                }
+            else:
+                return {
+                    'evaluated': False,
+                    'sample_count': 0,
+                    'mae': 0.0,
+                    'within_10_pct': 0.0,
+                    'within_5_pct': 0.0,
+                    'badge_text': "Empirical Accuracy: Establishing Baseline"
+                }
+        finally:
+            if should_close:
+                conn.close()
+
     def _fetch_class_averages(self, cursor):
         """Fetch average exam score per class for Bayesian shrinkage calibration"""
         cursor.execute("""
@@ -320,6 +525,12 @@ class GradeForecaster:
                 predicted_grade = self._get_letter_grade(predicted_pct)
                 current_grade = self._get_letter_grade(curr_avg)
 
+                conf = self._calculate_confidence(scores, calc['assessment_count'])
+                margin = conf['margin']
+                pred_low = round(max(0.0, predicted_pct - margin), 1)
+                pred_high = round(min(100.0, predicted_pct + margin), 1)
+                pathway = self._calculate_target_pathway(curr_avg, scores)
+
                 forecasts.append({
                     'class_id': cid,
                     'subject': sinfo['subject'],
@@ -331,6 +542,14 @@ class GradeForecaster:
                     'current_grade': current_grade,
                     'predicted_next_exam_pct': predicted_pct,
                     'predicted_final_grade': predicted_grade,
+                    'pred_range_low': pred_low,
+                    'pred_range_high': pred_high,
+                    'confidence_margin': margin,
+                    'confidence_level': conf['level'],
+                    'confidence_label': conf['label'],
+                    'confidence_badge': conf['badge_class'],
+                    'confidence_stars': conf['star_count'],
+                    'target_pathway': pathway,
                     'trend_slope': slope,
                     'trend_status': trend_status,
                     'trend_class': trend_class,
