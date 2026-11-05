@@ -739,20 +739,127 @@
         }
     };
 
+    const FORECAST_CLASSES = [
+        {% for c in classes %}
+        {
+            id: {{ c.id }},
+            subject: {{ c.subject|tojson }},
+            teacher_name: {{ (c.teacher_name or '')|tojson }},
+            enable_attendance: {{ 1 if c.enable_attendance_weight else 0 }},
+            attendance_weight_pct: {{ (c.attendance_weight_pct or 10.0)|float }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    let selectedClassId = {{ selected_class_id|tojson if selected_class_id else 'null' }};
+
     let currentGradeSettings = {{ forecast_settings|tojson if forecast_settings else '{}' }};
     let activeGradePreset = currentGradeSettings.preset_name || 'sri_lanka_national';
+
+    function getActiveAttendanceWeight() {
+        const selector = document.getElementById('modalClassSelector');
+        let cid = selector ? selector.value : selectedClassId;
+        if (!cid && selectedClassId) cid = selectedClassId;
+        if (cid) {
+            const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
+            if (found && found.enable_attendance) {
+                return Math.round(found.attendance_weight_pct);
+            }
+        }
+        return 0;
+    }
+
+    function updateAttendanceDisplay() {
+        const selector = document.getElementById('modalClassSelector');
+        let cid = selector ? selector.value : selectedClassId;
+        if (!cid && selectedClassId) cid = selectedClassId;
+
+        const attW = getActiveAttendanceWeight();
+        const display = document.getElementById('attWeightDisplay');
+        const bar = document.getElementById('attWeightBar');
+        const statusText = document.getElementById('attStatusText');
+
+        let subjectName = '';
+        let hasAttendance = false;
+        if (cid) {
+            const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
+            if (found) {
+                subjectName = found.subject;
+                hasAttendance = !!found.enable_attendance;
+            }
+        }
+
+        if (display) display.innerText = attW + '%';
+        if (bar) {
+            bar.style.width = attW + '%';
+            bar.style.background = hasAttendance ? '#3b82f6' : 'var(--border)';
+        }
+
+        if (statusText) {
+            if (hasAttendance && attW > 0) {
+                statusText.innerText = `Active for ${subjectName || 'this subject'} (${attW}%)`;
+                statusText.style.color = 'var(--primary)';
+            } else if (cid) {
+                statusText.innerText = `Attendance weighting disabled for ${subjectName || 'this subject'}`;
+                statusText.style.color = 'var(--text-muted)';
+            } else {
+                statusText.innerText = `Select a subject above to view attendance weight`;
+                statusText.style.color = 'var(--text-muted)';
+            }
+        }
+
+        // Adjust sliders max bounds and rebalance to maintain 100% total
+        const sliderExam = document.getElementById('sliderExamWeight');
+        const sliderHw = document.getElementById('sliderHwWeight');
+        if (sliderExam && sliderHw) {
+            const maxExam = Math.max(10, 100 - attW);
+            const maxHw = Math.max(0, 100 - attW);
+            sliderExam.max = maxExam;
+            sliderHw.max = maxHw;
+
+            let curExam = parseInt(sliderExam.value, 10) || 0;
+            let curHw = parseInt(sliderHw.value, 10) || 0;
+
+            if (curExam + curHw + attW !== 100) {
+                if (curExam > maxExam) {
+                    curExam = maxExam;
+                    sliderExam.value = curExam;
+                    document.getElementById('examWeightDisplay').innerText = curExam + '%';
+                }
+                curHw = Math.max(0, 100 - attW - curExam);
+                sliderHw.value = curHw;
+                document.getElementById('hwWeightDisplay').innerText = curHw + '%';
+            }
+        }
+
+        updateGradeWeightBadge();
+    }
+
+    function onModalClassChange() {
+        updateAttendanceDisplay();
+        markGradeAsCustom();
+    }
 
     function openGradeSettingsModal() {
         const modal = document.getElementById('gradeSettingsModal');
         if (!modal) return;
+
+        const selector = document.getElementById('modalClassSelector');
+        if (selector && selectedClassId) {
+            selector.value = selectedClassId;
+        }
 
         document.getElementById('inputCutoffA').value = currentGradeSettings.cutoff_a !== undefined ? currentGradeSettings.cutoff_a : 75;
         document.getElementById('inputCutoffB').value = currentGradeSettings.cutoff_b !== undefined ? currentGradeSettings.cutoff_b : 65;
         document.getElementById('inputCutoffC').value = currentGradeSettings.cutoff_c !== undefined ? currentGradeSettings.cutoff_c : 50;
         document.getElementById('inputCutoffS').value = currentGradeSettings.cutoff_s !== undefined ? currentGradeSettings.cutoff_s : 35;
 
-        const examW = Math.round((currentGradeSettings.exam_weight !== undefined ? currentGradeSettings.exam_weight : 0.90) * 100);
-        const hwW = Math.round((currentGradeSettings.hw_weight !== undefined ? currentGradeSettings.hw_weight : 0.10) * 100);
+        const attW = getActiveAttendanceWeight();
+        let examW = Math.round((currentGradeSettings.exam_weight !== undefined ? currentGradeSettings.exam_weight : 0.90) * 100);
+        let hwW = Math.round((currentGradeSettings.hw_weight !== undefined ? currentGradeSettings.hw_weight : 0.10) * 100);
+
+        if (examW + hwW + attW !== 100) {
+            examW = Math.max(0, 100 - attW - hwW);
+        }
 
         document.getElementById('sliderExamWeight').value = examW;
         document.getElementById('sliderHwWeight').value = hwW;
@@ -763,7 +870,8 @@
 
         activeGradePreset = currentGradeSettings.preset_name || 'sri_lanka_national';
         highlightGradePresetButton(activeGradePreset);
-        updateGradeWeightBadge();
+
+        updateAttendanceDisplay();
 
         const msg = document.getElementById('gradeSettingsMsg');
         if (msg) msg.style.display = 'none';
@@ -810,10 +918,17 @@
         document.getElementById('inputCutoffC').value = cfg.cutoff_c;
         document.getElementById('inputCutoffS').value = cfg.cutoff_s;
 
-        document.getElementById('sliderExamWeight').value = cfg.exam_weight;
-        document.getElementById('sliderHwWeight').value = cfg.hw_weight;
-        document.getElementById('examWeightDisplay').innerText = cfg.exam_weight + '%';
-        document.getElementById('hwWeightDisplay').innerText = cfg.hw_weight + '%';
+        const attW = getActiveAttendanceWeight();
+        let examW = Math.max(0, cfg.exam_weight - attW);
+        let hwW = cfg.hw_weight;
+        if (examW + hwW + attW !== 100) {
+            hwW = Math.max(0, 100 - attW - examW);
+        }
+
+        document.getElementById('sliderExamWeight').value = examW;
+        document.getElementById('sliderHwWeight').value = hwW;
+        document.getElementById('examWeightDisplay').innerText = examW + '%';
+        document.getElementById('hwWeightDisplay').innerText = hwW + '%';
 
         document.getElementById('inputTargetThresh').value = cfg.target_threshold;
 
@@ -826,8 +941,13 @@
     }
 
     function onExamWeightSliderInput() {
-        const examW = parseInt(document.getElementById('sliderExamWeight').value, 10);
-        const hwW = Math.max(0, 100 - examW);
+        const attW = getActiveAttendanceWeight();
+        let examW = parseInt(document.getElementById('sliderExamWeight').value, 10);
+        const maxExam = 100 - attW;
+        if (examW > maxExam) examW = maxExam;
+        document.getElementById('sliderExamWeight').value = examW;
+
+        const hwW = Math.max(0, 100 - attW - examW);
         document.getElementById('sliderHwWeight').value = hwW;
         document.getElementById('examWeightDisplay').innerText = examW + '%';
         document.getElementById('hwWeightDisplay').innerText = hwW + '%';
@@ -836,8 +956,13 @@
     }
 
     function onHwWeightSliderInput() {
-        const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10);
-        const examW = Math.max(0, 100 - hwW);
+        const attW = getActiveAttendanceWeight();
+        let hwW = parseInt(document.getElementById('sliderHwWeight').value, 10);
+        const maxHw = 100 - attW;
+        if (hwW > maxHw) hwW = maxHw;
+        document.getElementById('sliderHwWeight').value = hwW;
+
+        const examW = Math.max(0, 100 - attW - hwW);
         document.getElementById('sliderExamWeight').value = examW;
         document.getElementById('examWeightDisplay').innerText = examW + '%';
         document.getElementById('hwWeightDisplay').innerText = hwW + '%';
@@ -846,18 +971,24 @@
     }
 
     function updateGradeWeightBadge() {
+        const attW = getActiveAttendanceWeight();
         const examW = parseInt(document.getElementById('sliderExamWeight').value, 10) || 0;
         const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10) || 0;
-        const total = examW + hwW;
+        const total = examW + hwW + attW;
         const badge = document.getElementById('gradeWeightsBadge');
         if (!badge) return;
 
-        badge.innerText = `Total: ${total}%`;
         if (total === 100) {
+            if (attW > 0) {
+                badge.innerText = `Total: 100% (${examW}% Exam + ${hwW}% HW + ${attW}% Attendance)`;
+            } else {
+                badge.innerText = `Total: 100% (${examW}% Exam + ${hwW}% HW)`;
+            }
             badge.style.background = 'rgba(34, 197, 94, 0.15)';
             badge.style.color = 'var(--success)';
             badge.style.borderColor = 'rgba(34, 197, 94, 0.3)';
         } else {
+            badge.innerText = `Total: ${total}% (Must equal 100%)`;
             badge.style.background = 'rgba(239, 68, 68, 0.15)';
             badge.style.color = 'var(--danger)';
             badge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
@@ -883,9 +1014,20 @@
             return;
         }
 
+        const attW = getActiveAttendanceWeight();
         const examW = parseInt(document.getElementById('sliderExamWeight').value, 10);
         const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10);
         const targetThresh = parseFloat(document.getElementById('inputTargetThresh').value);
+
+        if (examW + hwW + attW !== 100) {
+            if (msg) {
+                msg.style.display = 'block';
+                msg.style.background = 'rgba(239, 68, 68, 0.1)';
+                msg.style.color = 'var(--danger)';
+                msg.innerText = `Validation Error: Assessment weights (Exam + Homework + Attendance) must sum up to exactly 100% (Current sum: ${examW + hwW + attW}%).`;
+            }
+            return;
+        }
 
         btn.disabled = true;
         btn.innerText = 'Saving Preferences...';
@@ -902,9 +1044,35 @@
                     cutoff_s: cutoffS,
                     exam_weight: examW / 100.0,
                     hw_weight: hwW / 100.0,
+                    att_weight: attW / 100.0,
                     target_threshold: targetThresh
                 })
             });
+            const data = await res.json();
+            if (data.success) {
+                if (msg) {
+                    msg.style.display = 'block';
+                    msg.style.background = 'rgba(34, 197, 94, 0.1)';
+                    msg.style.color = 'var(--success)';
+                    msg.innerText = data.message || 'Preferences saved! Recalculating forecasts...';
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+            } else {
+                throw new Error(data.message || 'Failed to save settings');
+            }
+        } catch (err) {
+            if (msg) {
+                msg.style.display = 'block';
+                msg.style.background = 'rgba(239, 68, 68, 0.1)';
+                msg.style.color = 'var(--danger)';
+                msg.innerText = err.message || 'Network error while saving.';
+            }
+            btn.disabled = false;
+            btn.innerText = 'Save & Recalculate Forecaster';
+        }
+    }
             const data = await res.json();
             if (data.success) {
                 if (msg) {
@@ -1061,17 +1229,40 @@
 
             <!-- Section 2: Component Weights -->
             <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
                     <div>
                         <span style="font-weight: 700; font-size: 0.825rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-main);">
                             2. Assessment Component Weights
                         </span>
-                        <div style="font-size: 0.725rem; color: var(--text-muted);">Balance between proctored exam trajectory and coursework/homework assignments</div>
+                        <div style="font-size: 0.725rem; color: var(--text-muted);">
+                            Balance between proctored exams, LMS homework, and class attendance
+                        </div>
                     </div>
                     <span id="gradeWeightsBadge" style="font-weight: 700; font-size: 0.775rem; padding: 0.25rem 0.65rem; border-radius: 9999px; background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3);">
                         Total: 100%
                     </span>
                 </div>
+
+                <!-- Subject / Class Context Selector -->
+                {% if classes %}
+                <div style="margin-bottom: 0.95rem; padding: 0.65rem 0.85rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                        <label for="modalClassSelector" style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;">
+                            Subject / Class Context:
+                        </label>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">Inspects subject attendance weight</span>
+                    </div>
+                    <select id="modalClassSelector" class="input-field" onchange="onModalClassChange()" style="width: 100%; font-size: 0.825rem; padding: 0.4rem 0.65rem; border-radius: 4px;">
+                        <option value="">General (No Class Attendance)</option>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}" {% if selected_class_id|string == c.id|string %}selected{% endif %}>
+                                {{ c.subject }}{% if c.teacher_name and not selected_teacher_id %} ({{ c.teacher_name }}){% endif %}
+                                {% if c.enable_attendance_weight %} — [Attendance: {{ (c.attendance_weight_pct or 10.0)|float|round(1) }}%]{% else %} — [Attendance: Disabled]{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
 
                 <!-- Slider 1: Exam Weight -->
                 <div style="margin-bottom: 0.85rem;">
@@ -1079,16 +1270,37 @@
                         <span style="font-weight: 600; color: var(--text-main);">Supervised Tests & Exams Weight</span>
                         <span id="examWeightDisplay" style="font-weight: 700; color: var(--primary);">90%</span>
                     </div>
-                    <input type="range" id="sliderExamWeight" min="50" max="100" step="5" value="90" oninput="onExamWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                    <input type="range" id="sliderExamWeight" min="10" max="100" step="5" value="90" oninput="onExamWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
                 </div>
 
                 <!-- Slider 2: Homework Weight -->
-                <div>
+                <div style="margin-bottom: 0.85rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
                         <span style="font-weight: 600; color: var(--text-main);">LMS Homework & Assignments Weight</span>
                         <span id="hwWeightDisplay" style="font-weight: 700; color: var(--primary);">10%</span>
                     </div>
                     <input type="range" id="sliderHwWeight" min="0" max="50" step="5" value="10" oninput="onHwWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                </div>
+
+                <!-- Component 3: Class Attendance Weight (Non-changeable / Locked Item) -->
+                <div id="attendanceWeightContainer" style="padding-top: 0.85rem; border-top: 1px dashed var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-bottom: 0.35rem;">
+                        <div style="display: flex; align-items: center; gap: 0.45rem;">
+                            <span style="font-weight: 600; color: var(--text-main);">Class Attendance Weight</span>
+                            <span id="attWeightLockBadge" class="badge" style="font-size: 0.675rem; padding: 0.15rem 0.5rem; background: rgba(100, 116, 139, 0.12); color: var(--text-muted); border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 0.25rem;">
+                                <svg style="width: 11px; height: 11px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                Non-changeable (Configured in Class Settings)
+                            </span>
+                        </div>
+                        <span id="attWeightDisplay" style="font-weight: 700; color: var(--primary);">0%</span>
+                    </div>
+                    <div style="position: relative; width: 100%; background: var(--border); height: 8px; border-radius: 9999px; overflow: hidden;">
+                        <div id="attWeightBar" style="height: 100%; width: 0%; background: #3b82f6; border-radius: 9999px; transition: width 0.2s ease;"></div>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Part of 100% total assessment evaluation</span>
+                        <span id="attStatusText" style="font-weight: 600;">Disabled for this class</span>
+                    </div>
                 </div>
             </div>
 

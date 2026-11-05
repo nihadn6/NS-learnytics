@@ -110,10 +110,16 @@ def grade_forecasting_dashboard():
     classes = []
     teachers = []
     forecast_data = []
+    selected_class_info = None
     try:
         with conn.cursor() as cursor:
             if role == 'teacher':
-                cursor.execute("SELECT id, subject FROM classes WHERE teacher_id = %s ORDER BY subject", (user_id,))
+                cursor.execute("""
+                    SELECT id, subject, enable_attendance_weight, attendance_weight_pct 
+                    FROM classes 
+                    WHERE teacher_id = %s 
+                    ORDER BY subject
+                """, (user_id,))
                 classes = cursor.fetchall()
                 forecast_data = grade_forecaster.forecast_all_students(
                     teacher_id=user_id, 
@@ -128,7 +134,7 @@ def grade_forecasting_dashboard():
                 # Fetch classes (optionally filtered if teacher_id is selected)
                 if teacher_id:
                     cursor.execute("""
-                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        SELECT c.id, c.subject, c.teacher_id, c.enable_attendance_weight, c.attendance_weight_pct, u.name as teacher_name 
                         FROM classes c 
                         LEFT JOIN users u ON c.teacher_id = u.id 
                         WHERE c.teacher_id = %s 
@@ -136,7 +142,7 @@ def grade_forecasting_dashboard():
                     """, (teacher_id,))
                 else:
                     cursor.execute("""
-                        SELECT c.id, c.subject, c.teacher_id, u.name as teacher_name 
+                        SELECT c.id, c.subject, c.teacher_id, c.enable_attendance_weight, c.attendance_weight_pct, u.name as teacher_name 
                         FROM classes c 
                         LEFT JOIN users u ON c.teacher_id = u.id 
                         ORDER BY c.subject
@@ -149,7 +155,7 @@ def grade_forecasting_dashboard():
                 )
             elif role == 'student':
                 cursor.execute("""
-                    SELECT DISTINCT c.id, c.subject 
+                    SELECT DISTINCT c.id, c.subject, c.enable_attendance_weight, c.attendance_weight_pct 
                     FROM classes c
                     JOIN enrollments e ON e.class_id = c.id
                     WHERE e.student_id = %s
@@ -171,7 +177,7 @@ def grade_forecasting_dashboard():
 
                 if target_student_id:
                     cursor.execute("""
-                        SELECT DISTINCT c.id, c.subject 
+                        SELECT DISTINCT c.id, c.subject, c.enable_attendance_weight, c.attendance_weight_pct 
                         FROM classes c
                         JOIN enrollments e ON e.class_id = c.id
                         WHERE e.student_id = %s
@@ -187,6 +193,13 @@ def grade_forecasting_dashboard():
                     user_forecast_settings=user_forecast_settings
                 ) if target_student_id else None
                 forecast_data = [f_single] if f_single else []
+
+            # Format classes for clean JSON / numerical consumption
+            for c in classes:
+                c['enable_attendance_weight'] = int(c.get('enable_attendance_weight') or 0)
+                c['attendance_weight_pct'] = float(c.get('attendance_weight_pct') if c.get('attendance_weight_pct') is not None else 10.0)
+                if class_id and str(c.get('id')) == str(class_id):
+                    selected_class_info = c
 
             # Optional server-side search filter
             if search_query:
@@ -214,6 +227,7 @@ def grade_forecasting_dashboard():
                            teachers=teachers,
                            selected_teacher_id=teacher_id,
                            selected_class_id=class_id,
+                           selected_class_info=selected_class_info,
                            search_query=search_query,
                            accuracy_metrics=accuracy_metrics,
                            forecast_settings=user_forecast_settings,
@@ -308,14 +322,19 @@ def save_grade_forecast_preferences():
         cutoff_s = float(data.get('cutoff_s', 35.0))
         exam_weight = float(data.get('exam_weight', 0.90))
         hw_weight = float(data.get('hw_weight', 0.10))
+        att_weight = float(data.get('att_weight', 0.0))
         target_threshold = float(data.get('target_threshold', 50.0))
 
         if not (0.0 <= cutoff_s < cutoff_c < cutoff_b < cutoff_a <= 100.0):
             return jsonify({'success': False, 'message': 'Grade cutoffs must be strictly ascending: S < C < B < A'}), 400
 
-        total_w = exam_weight + hw_weight
+        total_w = exam_weight + hw_weight + att_weight
         if total_w <= 0:
             return jsonify({'success': False, 'message': 'Sum of weights must be greater than zero.'}), 400
+
+        # Validate that total weights equal 1.0 (allowing small float tolerance)
+        if abs(total_w - 1.0) > 0.03 and abs((exam_weight + hw_weight) - 1.0) > 0.03:
+            return jsonify({'success': False, 'message': f'Assessment weights must sum up to 100%. Current total: {round(total_w * 100)}%'}), 400
 
         settings = {
             'preset_name': preset_name,
@@ -323,8 +342,8 @@ def save_grade_forecast_preferences():
             'cutoff_b': max(10.0, min(100.0, cutoff_b)),
             'cutoff_c': max(10.0, min(100.0, cutoff_c)),
             'cutoff_s': max(5.0, min(100.0, cutoff_s)),
-            'exam_weight': max(0.0, min(1.0, exam_weight / total_w)),
-            'hw_weight': max(0.0, min(1.0, hw_weight / total_w)),
+            'exam_weight': max(0.0, min(1.0, round(exam_weight, 4))),
+            'hw_weight': max(0.0, min(1.0, round(hw_weight, 4))),
             'target_threshold': max(10.0, min(100.0, target_threshold))
         }
 
