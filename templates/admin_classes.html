@@ -53,7 +53,12 @@
             <tbody>
                 {% for c in classes %}
                 <tr>
-                    <td style="font-weight: 600;">{{ c.subject }}</td>
+                    <td style="font-weight: 600;">
+                        {{ c.subject }}
+                        {% if c.enable_attendance_weight %}
+                        <div><span style="background: #e0f2fe; color: #0284c7; padding: 0.1rem 0.45rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700;">⚡ Attendance Forecast ({{ c.attendance_weight_pct|round(0)|int }}%)</span></div>
+                        {% endif %}
+                    </td>
                     <td>
                         {{ c.teacher_name }}
                         <div class="text-muted" style="font-size: 0.75rem;">{{ c.teacher_email }}</div>
@@ -70,7 +75,9 @@
                         <a href="{{ url_for('admin.admin_class_roster', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Roster</a>
                         <button type="button" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;"
                                 data-id="{{ c.id }}" data-teacher="{{ c.teacher_id }}" data-subject="{{ c.subject }}"
-                                data-schedule="{{ c.schedule }}" data-fee="{{ c.fee }}" onclick="openEditClass(this)">Edit</button>
+                                data-schedule="{{ c.schedule }}" data-fee="{{ c.fee }}"
+                                data-att="{{ 1 if c.enable_attendance_weight else 0 }}" data-attweight="{{ c.attendance_weight_pct or 10 }}"
+                                onclick="openEditClass(this)">Edit</button>
                         <a href="{{ url_for('attendance.attendance_report', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Attendance</a>
                         <a href="{{ url_for('performance.performance_report', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Marks</a>
                         <a href="{{ url_for('lms.index', class_id=c.id) }}" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">LMS</a>
@@ -119,6 +126,16 @@
                 <label>Monthly Fee (LKR)</label>
                 <input type="number" name="fee" class="input-field" min="0" step="0.01" required>
             </div>
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 0.85rem;">
+                <label style="font-size: 0.825rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="enable_attendance_weight" value="1" onchange="document.getElementById('adminCreateAttGroup').style.display = this.checked ? 'block' : 'none'" style="accent-color: var(--primary);">
+                    <span>Factor Attendance into AI Predictions</span>
+                </label>
+                <div id="adminCreateAttGroup" style="display: none; padding-top: 0.35rem; margin-top: 0.35rem; border-top: 1px dashed var(--border);">
+                    <label style="font-size: 0.775rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Attendance Impact Weight (%)</label>
+                    <input type="number" name="attendance_weight_pct" value="10" min="1" max="50" step="1" class="input-field">
+                </div>
+            </div>
             <p class="text-muted" style="font-size: 0.78rem;">A unique join code is generated automatically.</p>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Create Class</button>
         </form>
@@ -153,6 +170,16 @@
                 <label>Monthly Fee (LKR)</label>
                 <input type="number" name="fee" id="editFee" class="input-field" min="0" step="0.01" required>
             </div>
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 0.85rem;">
+                <label style="font-size: 0.825rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="enable_attendance_weight" id="adminEditEnableAtt" value="1" onchange="document.getElementById('adminEditAttGroup').style.display = this.checked ? 'block' : 'none'" style="accent-color: var(--primary);">
+                    <span>Factor Attendance into AI Predictions</span>
+                </label>
+                <div id="adminEditAttGroup" style="display: none; padding-top: 0.35rem; margin-top: 0.35rem; border-top: 1px dashed var(--border);">
+                    <label style="font-size: 0.775rem; font-weight: 600; display: block; margin-bottom: 0.2rem;">Attendance Impact Weight (%)</label>
+                    <input type="number" name="attendance_weight_pct" id="adminEditAttWeight" value="10" min="1" max="50" step="1" class="input-field">
+                </div>
+            </div>
             <p class="text-muted" style="font-size: 0.78rem;">Reassigning a teacher keeps all enrollments, attendance and marks.</p>
             <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Save Changes</button>
         </form>
@@ -172,6 +199,10 @@
         document.getElementById('editSubject').value = btn.dataset.subject;
         document.getElementById('editSchedule').value = btn.dataset.schedule;
         document.getElementById('editFee').value = btn.dataset.fee;
+        var enableAtt = btn.dataset.att === '1';
+        document.getElementById('adminEditEnableAtt').checked = enableAtt;
+        document.getElementById('adminEditAttWeight').value = btn.dataset.attweight || 10;
+        document.getElementById('adminEditAttGroup').style.display = enableAtt ? 'block' : 'none';
         document.getElementById('editClassForm').action = '/admin/classes/' + id + '/edit';
         document.getElementById('regenForm').action = '/admin/classes/' + id + '/regenerate_code';
         document.getElementById('editClassModal').style.display = 'flex';

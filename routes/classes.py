@@ -62,6 +62,12 @@ def create_class():
     subject = data.get('subject')
     schedule = data.get('schedule')
     fee = data.get('fee')
+    enable_attendance = 1 if data.get('enable_attendance_weight') in ('1', 'on', 'true', True) else 0
+    try:
+        attendance_weight = float(data.get('attendance_weight_pct') or 10.0)
+        attendance_weight = max(1.0, min(50.0, attendance_weight))
+    except (ValueError, TypeError):
+        attendance_weight = 10.0
     
     if not all([subject, schedule, fee]):
         return "Missing fields", 400
@@ -73,15 +79,47 @@ def create_class():
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO classes (teacher_id, subject, schedule, fee, join_code)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (teacher_id, subject, schedule, fee, join_code))
+                INSERT INTO classes (teacher_id, subject, schedule, fee, join_code, enable_attendance_weight, attendance_weight_pct)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (teacher_id, subject, schedule, fee, join_code, enable_attendance, attendance_weight))
         conn.commit()
     except Exception as e:
         return str(e), 500
     finally:
         conn.close()
         
+    return redirect(url_for('classes.view_classes'))
+
+@classes_bp.route('/classes/edit/<int:class_id>', methods=['POST'])
+def edit_class(class_id):
+    if session.get('role') != 'teacher':
+        return "Unauthorized", 403
+    
+    data = request.form
+    subject = (data.get('subject') or '').strip()
+    schedule = (data.get('schedule') or '').strip()
+    fee = data.get('fee')
+    enable_attendance = 1 if data.get('enable_attendance_weight') in ('1', 'on', 'true', True) else 0
+    try:
+        attendance_weight = float(data.get('attendance_weight_pct') or 10.0)
+        attendance_weight = max(1.0, min(50.0, attendance_weight))
+    except (ValueError, TypeError):
+        attendance_weight = 10.0
+
+    if not all([subject, schedule, fee]):
+        return "Missing fields", 400
+        
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                UPDATE classes 
+                SET subject = %s, schedule = %s, fee = %s, enable_attendance_weight = %s, attendance_weight_pct = %s
+                WHERE id = %s AND teacher_id = %s
+            """, (subject, schedule, fee, enable_attendance, attendance_weight, class_id, session['user_id']))
+        conn.commit()
+    finally:
+        conn.close()
     return redirect(url_for('classes.view_classes'))
 
 @classes_bp.route('/classes/delete/<int:class_id>', methods=['POST'])

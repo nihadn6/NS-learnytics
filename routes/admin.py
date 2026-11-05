@@ -587,6 +587,7 @@ def manage_classes():
         with conn.cursor() as cursor:
             query = """
                 SELECT c.id, c.subject, c.schedule, c.fee, c.join_code, c.teacher_id,
+                       c.enable_attendance_weight, c.attendance_weight_pct,
                        u.name AS teacher_name, u.email AS teacher_email,
                        (SELECT COUNT(*) FROM enrollments e WHERE e.class_id = c.id) AS enrolled,
                        (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.class_id = c.id) AS revenue
@@ -637,6 +638,13 @@ def admin_create_class():
     except ValueError:
         return "Invalid fee amount", 400
 
+    enable_attendance = 1 if f.get('enable_attendance_weight') in ('1', 'on', 'true', True) else 0
+    try:
+        attendance_weight = float(f.get('attendance_weight_pct') or 10.0)
+        attendance_weight = max(1.0, min(50.0, attendance_weight))
+    except (ValueError, TypeError):
+        attendance_weight = 10.0
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -645,8 +653,8 @@ def admin_create_class():
                 return "Selected teacher does not exist", 400
             code = _unique_join_code(cursor)
             cursor.execute(
-                "INSERT INTO classes (teacher_id, subject, schedule, fee, join_code) VALUES (%s, %s, %s, %s, %s)",
-                (teacher_id, subject, schedule, fee_val, code))
+                "INSERT INTO classes (teacher_id, subject, schedule, fee, join_code, enable_attendance_weight, attendance_weight_pct) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (teacher_id, subject, schedule, fee_val, code, enable_attendance, attendance_weight))
         conn.commit()
     finally:
         conn.close()
@@ -672,6 +680,13 @@ def admin_edit_class(class_id):
     except ValueError:
         return "Invalid fee amount", 400
 
+    enable_attendance = 1 if f.get('enable_attendance_weight') in ('1', 'on', 'true', True) else 0
+    try:
+        attendance_weight = float(f.get('attendance_weight_pct') or 10.0)
+        attendance_weight = max(1.0, min(50.0, attendance_weight))
+    except (ValueError, TypeError):
+        attendance_weight = 10.0
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
@@ -680,8 +695,8 @@ def admin_edit_class(class_id):
                 return "Selected teacher does not exist", 400
             # Teacher reassignment keeps the class id, so enrollments, attendance and marks are preserved.
             cursor.execute(
-                "UPDATE classes SET teacher_id = %s, subject = %s, schedule = %s, fee = %s WHERE id = %s",
-                (teacher_id, subject, schedule, fee_val, class_id))
+                "UPDATE classes SET teacher_id = %s, subject = %s, schedule = %s, fee = %s, enable_attendance_weight = %s, attendance_weight_pct = %s WHERE id = %s",
+                (teacher_id, subject, schedule, fee_val, enable_attendance, attendance_weight, class_id))
         conn.commit()
     finally:
         conn.close()

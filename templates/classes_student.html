@@ -70,6 +70,11 @@
                 <p class="text-muted" style="font-size: 0.875rem;"><strong>Teacher:</strong> {{ class.teacher_name }}</p>
                 <p class="text-muted" style="font-size: 0.875rem;"><strong>Schedule:</strong> {{ class.schedule }}</p>
                 <p class="text-muted" style="font-size: 0.875rem;"><strong>Monthly Fee:</strong> LKR {{ "{:,.2f}".format(class.fee) }}</p>
+                {% if class.enable_attendance_weight %}
+                <p class="text-muted" style="font-size: 0.8rem; margin-top: 0.2rem;">
+                    <span style="background: #e0f2fe; color: #0284c7; padding: 0.15rem 0.5rem; border-radius: 1rem; font-weight: 700; font-size: 0.725rem;">⚡ Attendance-Weighted Predictions ({{ class.attendance_weight_pct|round(0)|int }}%)</span>
+                </p>
+                {% endif %}
             </div>
         </div>
         

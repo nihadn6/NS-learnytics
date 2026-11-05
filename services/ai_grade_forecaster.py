@@ -593,7 +593,8 @@ class GradeForecaster:
                 # Fetch Assessment Marks (chronologically sorted)
                 query_marks = """
                     SELECT m.class_id, c.subject, c.teacher_id, u.name as teacher_name, 
-                           m.test_name, m.marks_obtained, m.max_marks, m.weight_pct, m.date_recorded
+                           m.test_name, m.marks_obtained, m.max_marks, m.weight_pct, m.date_recorded,
+                           c.enable_attendance_weight, c.attendance_weight_pct
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
                     LEFT JOIN users u ON c.teacher_id = u.id
@@ -614,7 +615,8 @@ class GradeForecaster:
                 # Fetch LMS homework scores (chronologically sorted)
                 query_hw = """
                     SELECT a.class_id, c.subject, c.teacher_id, u.name as teacher_name, 
-                           sub.marks_obtained, a.max_points, sub.submitted_at
+                           sub.marks_obtained, a.max_points, sub.submitted_at,
+                           c.enable_attendance_weight, c.attendance_weight_pct
                     FROM assignment_submissions sub
                     JOIN assignments a ON sub.assignment_id = a.id
                     JOIN classes c ON a.class_id = c.id
@@ -633,6 +635,33 @@ class GradeForecaster:
                 cursor.execute(query_hw, tuple(hw_params))
                 hw_rows = cursor.fetchall()
 
+                # Query student attendance per class
+                att_query = """
+                    SELECT class_id,
+                           COUNT(*) as total_sessions,
+                           SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_sessions
+                    FROM attendance
+                    WHERE student_id = %s
+                """
+                att_params = [student_id]
+                if class_id:
+                    att_query += " AND class_id = %s"
+                    att_params.append(class_id)
+                att_query += " GROUP BY class_id"
+                cursor.execute(att_query, tuple(att_params))
+                att_rows = cursor.fetchall()
+                attendance_map = {}
+                for a in att_rows:
+                    cid = a['class_id']
+                    tot = int(a['total_sessions'])
+                    pres = int(a['present_sessions'] or 0)
+                    rate = round(float(pres / tot * 100.0), 1) if tot > 0 else 100.0
+                    attendance_map[cid] = {
+                        'rate': rate,
+                        'present': pres,
+                        'total': tot
+                    }
+
             # Group assessments by class
             subject_data = {}
 
@@ -643,6 +672,8 @@ class GradeForecaster:
                         'subject': m['subject'],
                         'teacher_name': m.get('teacher_name', ''),
                         'teacher_id': m.get('teacher_id'),
+                        'enable_attendance_weight': bool(m.get('enable_attendance_weight')),
+                        'attendance_weight_pct': float(m.get('attendance_weight_pct') or 10.0),
                         'exam_timeline': [],
                         'hw_timeline': []
                     }
@@ -669,6 +700,8 @@ class GradeForecaster:
                         'subject': h['subject'],
                         'teacher_name': h.get('teacher_name', ''),
                         'teacher_id': h.get('teacher_id'),
+                        'enable_attendance_weight': bool(h.get('enable_attendance_weight')),
+                        'attendance_weight_pct': float(h.get('attendance_weight_pct') or 10.0),
                         'exam_timeline': [],
                         'hw_timeline': []
                     }
@@ -710,6 +743,42 @@ class GradeForecaster:
                 trend_class = calc['trend_class']
                 scores = calc['all_scores']
 
+                # Class-level attendance prediction impact
+                enable_att = sinfo.get('enable_attendance_weight', False)
+                att_weight_pct = sinfo.get('attendance_weight_pct', 10.0)
+                att_info = attendance_map.get(cid)
+
+                att_rate = att_info['rate'] if att_info else None
+                att_sessions_total = att_info['total'] if att_info else 0
+                att_sessions_present = att_info['present'] if att_info else 0
+                att_impact_delta = 0.0
+                att_impact_status = "Attendance Factor Off"
+
+                if enable_att and att_rate is not None and att_sessions_total > 0:
+                    w_factor = float(att_weight_pct) / 10.0
+
+                    if att_rate >= 90.0:
+                        # Stability / engagement boost
+                        att_impact_delta = min(3.0, round((att_rate - 85.0) * 0.15 * w_factor, 1))
+                        att_impact_status = f"+{att_impact_delta:g}% Attendance Boost ({att_rate}%)"
+                    elif att_rate >= 75.0:
+                        # Standard expected attendance
+                        att_impact_delta = 0.0
+                        att_impact_status = f"Steady Attendance ({att_rate}%)"
+                    elif att_rate >= 50.0:
+                        # Missing 25%-50% of sessions: curriculum drag
+                        att_impact_delta = round(-(75.0 - att_rate) * 0.35 * w_factor, 1)
+                        att_impact_status = f"{att_impact_delta:g}% Absenteeism Drag ({att_rate}%)"
+                    else:
+                        # Severe absenteeism (<50%)
+                        att_impact_delta = max(-15.0, round(-(75.0 - att_rate) * 0.45 * w_factor, 1))
+                        att_impact_status = f"{att_impact_delta:g}% Critical Attendance Drag ({att_rate}%)"
+
+                    # Adjust predicted next exam marks
+                    predicted_pct = round(max(0.0, min(100.0, predicted_pct + att_impact_delta)), 1)
+                elif enable_att and (att_rate is None or att_sessions_total == 0):
+                    att_impact_status = f"Enabled ({att_weight_pct:g}%) - No Sessions Logged"
+
                 predicted_grade = self._get_letter_grade(predicted_pct, settings=user_forecast_settings)
                 current_grade = self._get_letter_grade(curr_avg, settings=user_forecast_settings)
 
@@ -724,6 +793,13 @@ class GradeForecaster:
                     'subject': sinfo['subject'],
                     'teacher_name': sinfo.get('teacher_name', ''),
                     'teacher_id': sinfo.get('teacher_id'),
+                    'enable_attendance_weight': enable_att,
+                    'attendance_weight_pct': att_weight_pct,
+                    'attendance_rate': att_rate,
+                    'attendance_sessions_total': att_sessions_total,
+                    'attendance_sessions_present': att_sessions_present,
+                    'attendance_impact_delta': att_impact_delta,
+                    'attendance_impact_status': att_impact_status,
                     'historical_scores': scores,
                     'assessment_count': calc['assessment_count'],
                     'current_avg_pct': curr_avg,

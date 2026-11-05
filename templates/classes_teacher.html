@@ -48,6 +48,17 @@
                 <p class="text-muted" style="font-size: 0.875rem;"><strong>Join Code:</strong> 
                     <span style="background: var(--bg-main); padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-family: monospace; font-weight: 700; color: var(--primary);">{{ class.join_code }}</span>
                 </p>
+                <p class="text-muted" style="font-size: 0.875rem; margin-top: 0.25rem;"><strong>Exam Forecast Policy:</strong> 
+                    {% if class.enable_attendance_weight %}
+                    <span style="background: #e0f2fe; color: #0284c7; padding: 0.15rem 0.55rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
+                        <span>⚡ Attendance Weighted ({{ class.attendance_weight_pct|round(0)|int }}%)</span>
+                    </span>
+                    {% else %}
+                    <span style="background: #f1f5f9; color: #64748b; padding: 0.15rem 0.55rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600;">
+                        <span>Assessment Scores Only</span>
+                    </span>
+                    {% endif %}
+                </p>
             </div>
         </div>
 
@@ -57,7 +68,8 @@
                 <a href="{{ url_for('performance.add_marks') }}?class_id={{ class.id }}" class="btn btn-primary" style="background: var(--warning); font-size: 0.8rem;">Record Marks</a>
             </div>
             
-            <div class="grid gap-2" style="grid-template-columns: 1fr 2fr;">
+            <div class="grid gap-2" style="grid-template-columns: 1fr 1fr 1.5fr;">
+                <button type="button" class="btn btn-outline" style="font-size: 0.8rem; padding: 0.4rem 0.5rem;" onclick="openEditModal({{ class.id }}, '{{ class.subject|replace("'", "\\'") }}', '{{ class.schedule|replace("'", "\\'") }}', {{ class.fee }}, {{ 1 if class.enable_attendance_weight else 0 }}, {{ class.attendance_weight_pct or 10 }})">Settings</button>
                 <form action="{{ url_for('classes.delete_class', class_id=class.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('Are you sure you want to delete this class?');">
                     <button type="submit" class="btn btn-primary" style="background: var(--danger); width: 100%; font-size: 0.8rem;">Delete</button>
                 </form>
@@ -103,11 +115,23 @@
             btn.innerText = originalText;
         });
     }
+
+    function openEditModal(classId, subject, schedule, fee, enableAtt, attWeight) {
+        document.getElementById('editSubject').value = subject;
+        document.getElementById('editSchedule').value = schedule;
+        document.getElementById('editFee').value = fee;
+        const checkbox = document.getElementById('editEnableAtt');
+        checkbox.checked = Boolean(enableAtt);
+        document.getElementById('editAttWeight').value = attWeight || 10;
+        document.getElementById('editAttWeightGroup').style.display = checkbox.checked ? 'block' : 'none';
+        document.getElementById('editClassForm').action = '/classes/edit/' + classId;
+        document.getElementById('editClassModal').style.display = 'block';
+    }
 </script>
 
-<!-- Modal -->
+<!-- Create Class Modal -->
 <div id="createClassModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; backdrop-filter: blur(4px);">
-    <div class="card" style="max-width:450px; margin: 15vh auto; position:relative;">
+    <div class="card" style="max-width:480px; margin: 10vh auto; position:relative;">
         <span style="position:absolute; right:1.5rem; top:1rem; cursor:pointer; font-size:1.5rem; color:var(--secondary);" onclick="document.getElementById('createClassModal').style.display='none'">&times;</span>
         <h2 class="mb-4">Create New Class</h2>
         <form action="{{ url_for('classes.create_class') }}" method="POST">
@@ -123,7 +147,64 @@
                 <label>Monthly Fee (LKR)</label>
                 <input type="number" step="0.01" name="fee" placeholder="3500.00" required>
             </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Launch Class</button>
+
+            <!-- Attendance Weighting for AI Predictions -->
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+                <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.35rem;">
+                    <input type="checkbox" name="enable_attendance_weight" value="1" onchange="document.getElementById('attWeightGroup').style.display = this.checked ? 'block' : 'none'" style="accent-color: var(--primary);">
+                    <span>Factor Attendance into Predicted Exam Marks</span>
+                </label>
+                <p class="text-muted" style="font-size: 0.775rem; margin-bottom: 0.5rem; line-height: 1.35;">
+                    When enabled, student attendance rate in this subject directly influences their predicted next exam marks.
+                </p>
+                <div id="attWeightGroup" style="display: none; padding-top: 0.4rem; border-top: 1px dashed var(--border);">
+                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.25rem; color: var(--text-main);">Attendance Impact Weight (%)</label>
+                    <input type="number" name="attendance_weight_pct" value="10" min="1" max="50" step="1" style="width: 100%; padding: 0.45rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+                    <small class="text-muted" style="font-size: 0.725rem; display: block; margin-top: 0.25rem;">Recommended: 10% - 20% for lecture-intensive classes.</small>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Launch Class</button>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Class Modal -->
+<div id="editClassModal" class="modal-backdrop" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; backdrop-filter: blur(4px);">
+    <div class="card" style="max-width:480px; margin: 10vh auto; position:relative;">
+        <span style="position:absolute; right:1.5rem; top:1rem; cursor:pointer; font-size:1.5rem; color:var(--secondary);" onclick="document.getElementById('editClassModal').style.display='none'">&times;</span>
+        <h2 class="mb-4">Class Settings & AI Prediction Policy</h2>
+        <form id="editClassForm" method="POST">
+            <div class="form-group">
+                <label>Subject Name</label>
+                <input type="text" name="subject" id="editSubject" required>
+            </div>
+            <div class="form-group">
+                <label>Schedule</label>
+                <input type="text" name="schedule" id="editSchedule" required>
+            </div>
+            <div class="form-group">
+                <label>Monthly Fee (LKR)</label>
+                <input type="number" step="0.01" name="fee" id="editFee" required>
+            </div>
+
+            <!-- Attendance Weighting for AI Predictions -->
+            <div style="background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+                <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.35rem;">
+                    <input type="checkbox" name="enable_attendance_weight" id="editEnableAtt" value="1" onchange="document.getElementById('editAttWeightGroup').style.display = this.checked ? 'block' : 'none'" style="accent-color: var(--primary);">
+                    <span>Factor Attendance into Predicted Exam Marks</span>
+                </label>
+                <p class="text-muted" style="font-size: 0.775rem; margin-bottom: 0.5rem; line-height: 1.35;">
+                    When enabled, student attendance rate in this subject directly influences their predicted next exam marks.
+                </p>
+                <div id="editAttWeightGroup" style="display: none; padding-top: 0.4rem; border-top: 1px dashed var(--border);">
+                    <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.25rem; color: var(--text-main);">Attendance Impact Weight (%)</label>
+                    <input type="number" name="attendance_weight_pct" id="editAttWeight" value="10" min="1" max="50" step="1" style="width: 100%; padding: 0.45rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+                    <small class="text-muted" style="font-size: 0.725rem; display: block; margin-top: 0.25rem;">Recommended: 10% - 20% for lecture-intensive classes.</small>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;">Save Changes</button>
         </form>
     </div>
 </div>

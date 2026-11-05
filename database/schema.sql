@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS classes (
     schedule VARCHAR(100) NOT NULL,
     fee DECIMAL(10,2) NOT NULL,
     join_code VARCHAR(20) UNIQUE NOT NULL,
+    enable_attendance_weight TINYINT(1) NOT NULL DEFAULT 0,
+    attendance_weight_pct DECIMAL(5,2) NOT NULL DEFAULT 10.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
 );

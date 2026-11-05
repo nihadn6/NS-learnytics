@@ -267,6 +267,17 @@
                             <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 1px;">
                                 Range: <strong>{{ f.pred_range_low }}% – {{ f.pred_range_high }}%</strong> (±{{ f.confidence_margin }}%)
                             </div>
+                            {% if f.enable_attendance_weight %}
+                            <div style="font-size: 0.675rem; margin-top: 2px;">
+                                {% if f.attendance_impact_delta > 0 %}
+                                <span style="color: var(--success); font-weight: 700;">⚡ {{ f.attendance_impact_status }}</span>
+                                {% elif f.attendance_impact_delta < 0 %}
+                                <span style="color: var(--danger); font-weight: 700;">⚠️ {{ f.attendance_impact_status }}</span>
+                                {% else %}
+                                <span style="color: var(--text-muted); font-weight: 600;">⚡ {{ f.attendance_impact_status }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </td>
 
                         <!-- Reliability / Confidence Column -->
@@ -361,6 +372,17 @@
                                     <span style="font-size: 0.675rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">
                                         Range: <strong>{{ f.pred_range_low }}% – {{ f.pred_range_high }}%</strong> (±{{ f.confidence_margin }}%)
                                     </span>
+                                    {% if f.enable_attendance_weight %}
+                                    <div style="font-size: 0.675rem; margin-top: 3px;">
+                                        {% if f.attendance_impact_delta > 0 %}
+                                        <span style="color: var(--success); font-weight: 700;">⚡ {{ f.attendance_impact_status }}</span>
+                                        {% elif f.attendance_impact_delta < 0 %}
+                                        <span style="color: var(--danger); font-weight: 700;">⚠️ {{ f.attendance_impact_status }}</span>
+                                        {% else %}
+                                        <span style="color: var(--text-muted); font-weight: 600;">⚡ {{ f.attendance_impact_status }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
 
