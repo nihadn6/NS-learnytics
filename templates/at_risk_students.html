@@ -128,31 +128,77 @@
             <a href="{{ url_for('ai_analytics.at_risk_dashboard') }}" class="btn btn-outline" style="font-size: 0.775rem; padding: 0.45rem 0.75rem;">Reset</a>
             {% endif %}
         </div>
-
-        <!-- Risk Level Segmented Pills -->
-        <div style="display: flex; gap: 0.35rem; background: var(--bg-main); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            <button type="button" onclick="filterLevel('ALL')" id="tabALL" class="btn btn-primary" style="padding: 0.3rem 0.65rem; font-size: 0.775rem;">All ({{ total_students }})</button>
-            <button type="button" onclick="filterLevel('HIGH')" id="tabHIGH" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.775rem; border: none;">High ({{ high_count }})</button>
-            <button type="button" onclick="filterLevel('MEDIUM')" id="tabMEDIUM" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.775rem; border: none;">Moderate ({{ medium_count }})</button>
-            <button type="button" onclick="filterLevel('LOW')" id="tabLOW" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.775rem; border: none;">Low ({{ low_count }})</button>
-        </div>
     </form>
 </div>
 
-<!-- Student Risk Table -->
-<div class="card" style="border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow: hidden;">
-    <div class="table-container">
-        <table id="riskTable" style="margin-bottom: 0;">
+<!-- View Controls & Quick Filters Toolbar (matching Mark Predictor) -->
+<div class="flex justify-between align-center mb-4" style="flex-wrap: wrap; gap: 0.75rem;">
+    <!-- Filter Tabs -->
+    <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" id="tabALL" onclick="filterLevel('ALL')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+            All Assessments ({{ total_students }})
+        </button>
+        <button type="button" class="btn btn-outline" id="tabHIGH" onclick="filterLevel('HIGH')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+            🔴 High Risk ({{ high_count }})
+        </button>
+        <button type="button" class="btn btn-outline" id="tabMEDIUM" onclick="filterLevel('MEDIUM')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+            🟡 Moderate Risk ({{ medium_count }})
+        </button>
+        <button type="button" class="btn btn-outline" id="tabLOW" onclick="filterLevel('LOW')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
+            🟢 Low Risk ({{ low_count }})
+        </button>
+    </div>
+
+    <!-- Right Controls: View Switcher (Table / Card) & Export CSV -->
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" onclick="exportRiskRadarCSV()" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.775rem; padding: 0.4rem 0.85rem; border-radius: 0.4rem; color: var(--text-main); box-shadow: var(--shadow-sm);">
+            <svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>Export CSV</span>
+        </button>
+
+        <div style="display: inline-flex; background: var(--bg-main); border: 1px solid var(--border); border-radius: 0.45rem; padding: 2px;">
+            <button type="button" id="btnViewTable" onclick="toggleRiskView('table')" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 0.35rem; border: none; cursor: pointer; background: var(--primary); color: white; transition: all 0.15s ease;">
+                <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Table View</span>
+            </button>
+            <button type="button" id="btnViewCards" onclick="toggleRiskView('cards')" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 0.35rem; border: none; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.15s ease;">
+                <svg style="width: 13px; height: 13px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                <span>Card View</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 1. TABULAR FORMAT VIEW (Primary View) -->
+<div id="riskRadarTableView" class="card" style="padding: 0; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;">
+    <div class="table-container" style="overflow-x: auto;">
+        <table id="riskRadarDataTable" style="width: 100%; margin-bottom: 0; border-collapse: collapse;">
             <thead>
-                <tr style="background: var(--bg-main); font-size: 0.775rem; text-transform: uppercase; letter-spacing: 0.04em;">
-                    <th>Student</th>
-                    <th>Class / Subject</th>
-                    <th>Risk Status</th>
-                    <th>Risk Score</th>
-                    <th>Key Risk Factors</th>
-                    <th>Attendance</th>
-                    <th>Exam Avg</th>
-                    <th style="text-align: right;">Action</th>
+                <tr style="background: var(--bg-main); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border);">
+                    <th style="padding: 0.75rem 1rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(0, 'string')">
+                        Student <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(1, 'string')">
+                        Class / Subject <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(2, 'risk_level')">
+                        Risk Status <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(3, 'number')">
+                        Risk Score <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left;">
+                        Key Risk Factors
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(5, 'number')">
+                        Attendance <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 0.85rem; text-align: left; cursor: pointer; user-select: none;" onclick="sortRiskTable(6, 'number')">
+                        Exam Avg <span class="sort-icon" style="font-size: 0.65rem; opacity: 0.6;">⇅</span>
+                    </th>
+                    <th style="padding: 0.75rem 1rem; text-align: right;">
+                        Action
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -162,14 +208,26 @@
                     data-name="{{ (s.name or '')|lower }}" 
                     data-email="{{ (s.email or '')|lower }}" 
                     data-class="{{ (s.class_name or '')|lower }}"
-                    data-factors="{{ (s.risk_factors|join(' ')|lower) if s.risk_factors else '' }}">
-                    <td style="font-weight: 600;">
-                        {{ s.name }}
-                        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">{{ s.email }}</div>
+                    data-factors="{{ (s.risk_factors|join(' ')|lower) if s.risk_factors else '' }}"
+                    style="border-bottom: 1px solid var(--border); transition: background 0.12s ease;">
+                    
+                    <!-- Student Column -->
+                    <td style="padding: 0.75rem 1rem; white-space: nowrap;">
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: {% if s.risk_level == 'HIGH' %}rgba(239, 68, 68, 0.12); color: var(--danger);{% elif s.risk_level == 'MEDIUM' %}rgba(245, 158, 11, 0.15); color: #d97706;{% else %}rgba(34, 197, 94, 0.12); color: var(--success);{% endif %}; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                {{ (s.name or 'S')[:1]|upper }}
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-main);">{{ s.name }}</div>
+                                <div style="font-size: 0.725rem; color: var(--text-muted);">{{ s.email }}</div>
+                            </div>
+                        </div>
                     </td>
-                    <td>
+
+                    <!-- Class / Subject Column -->
+                    <td style="padding: 0.75rem 0.85rem;">
                         {% if s.class_name %}
-                            <span class="badge" style="background: #e2e8f0; color: #1e293b; font-weight: 600; font-size: 0.75rem; padding: 0.25rem 0.55rem; border-radius: 4px;">
+                            <span class="badge" style="background: rgba(99, 102, 241, 0.1); color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.2); font-weight: 700; font-size: 0.775rem; padding: 0.25rem 0.55rem; border-radius: 4px;">
                                 {{ s.class_name }}
                             </span>
                             {% if s.teacher_name and not selected_teacher_id %}
@@ -179,7 +237,9 @@
                             <span class="text-muted" style="font-size: 0.75rem;">General</span>
                         {% endif %}
                     </td>
-                    <td>
+
+                    <!-- Risk Status Column -->
+                    <td style="padding: 0.75rem 0.85rem; white-space: nowrap;" data-sort-val="{{ s.risk_level }}">
                         {% if s.risk_level == 'HIGH' %}
                             <span class="badge badge-danger" style="font-size: 0.725rem; font-weight: 700; padding: 0.25rem 0.55rem;">HIGH</span>
                         {% elif s.risk_level == 'MEDIUM' %}
@@ -188,19 +248,23 @@
                             <span class="badge badge-success" style="font-size: 0.725rem; font-weight: 700; padding: 0.25rem 0.55rem;">LOW</span>
                         {% endif %}
                     </td>
-                    <td style="min-width: 120px;">
+
+                    <!-- Risk Score Column -->
+                    <td style="padding: 0.75rem 0.85rem; min-width: 120px;" data-sort-val="{{ s.risk_pct }}">
                         <div style="display: flex; align-items: center; gap: 0.45rem;">
                             <div style="flex: 1; background: var(--border); height: 6px; border-radius: 3px; overflow: hidden;">
-                                <div style="width: {{ s.risk_pct }}%; height: 100%; background: {% if s.risk_pct >= 55 %}var(--danger){% elif s.risk_pct >= 25 %}var(--warning){% else %}var(--success){% endif %};"></div>
+                                <div style="width: {{ s.risk_pct }}%; height: 100%; background: {% if s.risk_pct >= (risk_settings.high_risk_threshold or 55) %}var(--danger){% elif s.risk_pct >= (risk_settings.medium_risk_threshold or 25) %}var(--warning){% else %}var(--success){% endif %};"></div>
                             </div>
                             <span style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); min-width: 32px; text-align: right;">{{ s.risk_pct }}%</span>
                         </div>
                     </td>
-                    <td>
+
+                    <!-- Key Risk Factors Column -->
+                    <td style="padding: 0.75rem 0.85rem;">
                         <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
                             {% if s.risk_factors %}
                                 {% for factor in s.risk_factors %}
-                                    <span style="display: inline-block; padding: 0.15rem 0.45rem; font-size: 0.725rem; border-radius: 4px; background: {% if s.risk_level == 'HIGH' %}#fee2e2; color: #991b1b{% elif s.risk_level == 'MEDIUM' %}#fef3c7; color: #92400e{% else %}#f1f5f9; color: #475569{% endif %};">
+                                    <span style="display: inline-block; padding: 0.15rem 0.45rem; font-size: 0.725rem; border-radius: 4px; background: {% if s.risk_level == 'HIGH' %}#fee2e2; color: #991b1b{% elif s.risk_level == 'MEDIUM' %}#fef3c7; color: #92400e{% else %}#f1f5f9; color: #475569{% endif %}; font-weight: 500;">
                                         {{ factor }}
                                     </span>
                                 {% endfor %}
@@ -209,28 +273,40 @@
                             {% endif %}
                         </div>
                     </td>
-                    <td style="font-weight: 600; font-size: 0.825rem; color: {% if s.attendance_pct >= 75 %}var(--success){% elif s.attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
-                        {{ s.attendance_pct }}%
+
+                    <!-- Attendance Column -->
+                    <td style="padding: 0.75rem 0.85rem; white-space: nowrap;" data-sort-val="{{ s.attendance_pct }}">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: {% if s.attendance_pct >= (risk_settings.min_attendance_threshold or 75) %}var(--success){% elif s.attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                            {{ s.attendance_pct }}%
+                        </span>
                         <div style="font-size: 0.7rem; font-weight: 400; color: var(--text-muted);">30d: {{ s.recent_attendance_pct }}%</div>
                     </td>
-                    <td style="font-weight: 600; font-size: 0.825rem; color: {% if s.avg_mark_pct >= 60 %}var(--success){% elif s.avg_mark_pct >= 45 %}var(--warning){% else %}var(--danger){% endif %};">
-                        {{ s.avg_mark_pct }}%
+
+                    <!-- Exam Avg Column -->
+                    <td style="padding: 0.75rem 0.85rem; white-space: nowrap;" data-sort-val="{{ s.avg_mark_pct }}">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: {% if s.avg_mark_pct >= (risk_settings.min_marks_threshold or 50) %}var(--success){% elif s.avg_mark_pct >= 40 %}var(--warning){% else %}var(--danger){% endif %};">
+                            {{ s.avg_mark_pct }}%
+                        </span>
                         {% if s.mark_trend != 0 %}
                             <div style="font-size: 0.7rem; font-weight: 500; color: {% if s.mark_trend > 0 %}var(--success){% else %}var(--danger){% endif %};">
-                                {% if s.mark_trend > 0 %}&uarr;{% else %}&darr;{% endif %} {{ s.mark_trend|abs }}%
+                                {% if s.mark_trend > 0 %}↗ +{{ s.mark_trend }}%{% else %}↘ {{ s.mark_trend }}%{% endif %}
                             </div>
                         {% endif %}
                     </td>
-                    <td style="text-align: right; white-space: nowrap;">
+
+                    <!-- Action Column -->
+                    <td style="padding: 0.75rem 1rem; text-align: right; white-space: nowrap;">
                         <button type="button" 
                                 class="btn btn-outline" 
                                 onclick="openStudentRecordsModal({{ s.student_id }}, {{ s.class_id or 'null' }}, '{{ s.name|replace("'", "\\'") }}', '{{ (s.class_name or '')|replace("'", "\\'") }}', {{ s.teacher_id or selected_teacher_id or 'null' }})" 
-                                style="padding: 0.25rem 0.55rem; font-size: 0.75rem; border-color: var(--primary); color: var(--primary); font-weight: 600;" 
+                                style="padding: 0.25rem 0.55rem; font-size: 0.725rem; border-color: var(--primary); color: var(--primary); font-weight: 600; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.25rem;" 
                                 title="View attendance, marks, and fee payment history">
-                            <svg style="width: 12px; height: 12px; vertical-align: -1px; margin-right: 2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <svg style="width: 12px; height: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             History
                         </button>
-                        <a href="{{ url_for('messages.inbox', user_id=s.student_id) }}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; text-decoration: none; margin-left: 0.2rem;" title="Chat with {{ s.name }}">Message</a>
+                        <a href="{{ url_for('messages.inbox', user_id=s.student_id) }}" class="btn btn-outline" style="padding: 0.25rem 0.55rem; font-size: 0.725rem; text-decoration: none; margin-left: 0.2rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.25rem;" title="Chat with {{ s.name }}">
+                            💬 Message
+                        </a>
                     </td>
                 </tr>
                 {% else %}
@@ -244,6 +320,129 @@
             </tbody>
         </table>
     </div>
+</div>
+
+<!-- 2. CARD FORMAT VIEW (Toggleable) -->
+<div id="riskRadarCardView" style="display: none; margin-bottom: 1.5rem;">
+    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+        {% for s in student_risks %}
+        <div class="card risk-card" 
+             style="border-top: 4px solid {% if s.risk_level == 'HIGH' %}var(--danger){% elif s.risk_level == 'MEDIUM' %}var(--warning){% else %}var(--success){% endif %}; padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;"
+             data-risk="{{ s.risk_level }}" 
+             data-name="{{ (s.name or '')|lower }}" 
+             data-email="{{ (s.email or '')|lower }}" 
+             data-class="{{ (s.class_name or '')|lower }}"
+             data-factors="{{ (s.risk_factors|join(' ')|lower) if s.risk_factors else '' }}">
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.65rem;">
+                    <div style="display: flex; align-items: center; gap: 0.55rem;">
+                        <div style="width: 34px; height: 34px; border-radius: 50%; background: {% if s.risk_level == 'HIGH' %}rgba(239, 68, 68, 0.12); color: var(--danger);{% elif s.risk_level == 'MEDIUM' %}rgba(245, 158, 11, 0.15); color: #d97706;{% else %}rgba(34, 197, 94, 0.12); color: var(--success);{% endif %}; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            {{ (s.name or 'S')[:1]|upper }}
+                        </div>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">{{ s.name }}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ s.email }}</div>
+                        </div>
+                    </div>
+                    {% if s.risk_level == 'HIGH' %}
+                        <span class="badge badge-danger" style="font-size: 0.7rem; font-weight: 700;">HIGH</span>
+                    {% elif s.risk_level == 'MEDIUM' %}
+                        <span class="badge badge-warning" style="font-size: 0.7rem; font-weight: 700;">MODERATE</span>
+                    {% else %}
+                        <span class="badge badge-success" style="font-size: 0.7rem; font-weight: 700;">LOW</span>
+                    {% endif %}
+                </div>
+
+                {% if s.class_name %}
+                <div style="margin-bottom: 0.65rem;">
+                    <span class="badge" style="background: rgba(99, 102, 241, 0.1); color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.2); font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                        {{ s.class_name }}
+                    </span>
+                    {% if s.teacher_name and not selected_teacher_id %}
+                        <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 0.35rem;">by {{ s.teacher_name }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Risk Score Bar -->
+                <div style="margin-bottom: 0.75rem; background: var(--bg-main); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; margin-bottom: 0.35rem;">
+                        <span class="text-muted" style="font-weight: 600;">Composite Risk Score</span>
+                        <strong style="font-size: 0.85rem; color: {% if s.risk_pct >= (risk_settings.high_risk_threshold or 55) %}var(--danger){% elif s.risk_pct >= (risk_settings.medium_risk_threshold or 25) %}var(--warning){% else %}var(--success){% endif %};">
+                            {{ s.risk_pct }}%
+                        </strong>
+                    </div>
+                    <div style="background: var(--border); height: 6px; border-radius: 3px; overflow: hidden;">
+                        <div style="width: {{ s.risk_pct }}%; height: 100%; background: {% if s.risk_pct >= (risk_settings.high_risk_threshold or 55) %}var(--danger){% elif s.risk_pct >= (risk_settings.medium_risk_threshold or 25) %}var(--warning){% else %}var(--success){% endif %};"></div>
+                    </div>
+                </div>
+
+                <!-- Dual KPI boxes -->
+                <div class="grid gap-2 mb-3" style="grid-template-columns: 1fr 1fr;">
+                    <div style="background: white; padding: 0.5rem 0.65rem; border-radius: 6px; border: 1px solid var(--border);">
+                        <span class="text-muted" style="font-size: 0.7rem; display: block;">Attendance</span>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: {% if s.attendance_pct >= (risk_settings.min_attendance_threshold or 75) %}var(--success){% elif s.attendance_pct >= 60 %}var(--warning){% else %}var(--danger){% endif %};">
+                            {{ s.attendance_pct }}%
+                        </div>
+                        <span style="font-size: 0.675rem; color: var(--text-muted);">30d: {{ s.recent_attendance_pct }}%</span>
+                    </div>
+
+                    <div style="background: white; padding: 0.5rem 0.65rem; border-radius: 6px; border: 1px solid var(--border);">
+                        <span class="text-muted" style="font-size: 0.7rem; display: block;">Exam Average</span>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: {% if s.avg_mark_pct >= (risk_settings.min_marks_threshold or 50) %}var(--success){% elif s.avg_mark_pct >= 40 %}var(--warning){% else %}var(--danger){% endif %};">
+                            {{ s.avg_mark_pct }}%
+                        </div>
+                        {% if s.mark_trend != 0 %}
+                            <span style="font-size: 0.675rem; font-weight: 600; color: {% if s.mark_trend > 0 %}var(--success){% else %}var(--danger){% endif %};">
+                                {% if s.mark_trend > 0 %}↗ +{{ s.mark_trend }}%{% else %}↘ {{ s.mark_trend }}%{% endif %}
+                            </span>
+                        {% else %}
+                            <span style="font-size: 0.675rem; color: var(--text-muted);">Stable</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Factors Tags -->
+                {% if s.risk_factors %}
+                <div style="margin-bottom: 0.85rem;">
+                    <span style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Key Factors:</span>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                        {% for factor in s.risk_factors %}
+                        <span style="padding: 0.15rem 0.4rem; font-size: 0.7rem; border-radius: 4px; background: {% if s.risk_level == 'HIGH' %}#fee2e2; color: #991b1b{% elif s.risk_level == 'MEDIUM' %}#fef3c7; color: #92400e{% else %}#f1f5f9; color: #475569{% endif %}; font-weight: 500;">
+                            {{ factor }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Card Actions -->
+            <div style="border-top: 1px solid var(--border); padding-top: 0.65rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <button type="button" 
+                        class="btn btn-outline" 
+                        onclick="openStudentRecordsModal({{ s.student_id }}, {{ s.class_id or 'null' }}, '{{ s.name|replace("'", "\\'") }}', '{{ (s.class_name or '')|replace("'", "\\'") }}', {{ s.teacher_id or selected_teacher_id or 'null' }})" 
+                        style="padding: 0.3rem 0.65rem; font-size: 0.75rem; border-color: var(--primary); color: var(--primary); font-weight: 600; flex: 1;">
+                    History Records
+                </button>
+                <a href="{{ url_for('messages.inbox', user_id=s.student_id) }}" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.75rem; text-decoration: none; flex: 1; text-align: center;">
+                    Message
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Dynamic Empty State for Cards -->
+<div id="noLiveRiskCardsNotice" class="card text-center" style="display: none; padding: 3.5rem 1.5rem; margin-bottom: 1.5rem;">
+    <svg style="width: 42px; height: 42px; margin: 0 auto 0.75rem; opacity: 0.4; color: var(--primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="11" cy="11" r="8" stroke-width="2"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">No Matching Students Found</h3>
+    <p class="text-muted" style="font-size: 0.85rem; max-width: 420px; margin: 0 auto;">No students match the current risk category and search criteria.</p>
 </div>
 
 <!-- Student History Records Modal -->
@@ -556,9 +755,158 @@
 
 <script>
 let currentRiskLevel = 'ALL';
+let currentRiskViewMode = localStorage.getItem('riskRadarViewMode') || 'table';
+let currentSortColumn = -1;
+let currentSortAsc = true;
 let activeModalStudentId = null;
 let activeModalClassId = null;
 let activeModalClassName = '';
+
+function toggleRiskView(mode) {
+    currentRiskViewMode = mode;
+    localStorage.setItem('riskRadarViewMode', mode);
+
+    const tableView = document.getElementById('riskRadarTableView');
+    const cardView = document.getElementById('riskRadarCardView');
+    const btnTable = document.getElementById('btnViewTable');
+    const btnCards = document.getElementById('btnViewCards');
+
+    if (mode === 'cards') {
+        if (tableView) tableView.style.display = 'none';
+        if (cardView) cardView.style.display = 'block';
+
+        if (btnCards) {
+            btnCards.style.background = 'var(--primary)';
+            btnCards.style.color = 'white';
+        }
+        if (btnTable) {
+            btnTable.style.background = 'transparent';
+            btnTable.style.color = 'var(--text-muted)';
+        }
+    } else {
+        if (tableView) tableView.style.display = 'block';
+        if (cardView) cardView.style.display = 'none';
+
+        if (btnTable) {
+            btnTable.style.background = 'var(--primary)';
+            btnTable.style.color = 'white';
+        }
+        if (btnCards) {
+            btnCards.style.background = 'transparent';
+            btnCards.style.color = 'var(--text-muted)';
+        }
+    }
+}
+
+function sortRiskTable(columnIndex, type) {
+    const table = document.getElementById('riskRadarDataTable');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr.risk-row'));
+
+    if (currentSortColumn === columnIndex) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortAsc = true;
+    }
+
+    const riskRank = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
+
+    rows.sort((rowA, rowB) => {
+        const cellA = rowA.children[columnIndex];
+        const cellB = rowB.children[columnIndex];
+
+        let valA = cellA.getAttribute('data-sort-val') || cellA.innerText.trim();
+        let valB = cellB.getAttribute('data-sort-val') || cellB.innerText.trim();
+
+        if (type === 'risk_level') {
+            const rankA = riskRank[valA.toUpperCase()] || 0;
+            const rankB = riskRank[valB.toUpperCase()] || 0;
+            return currentSortAsc ? rankA - rankB : rankB - rankA;
+        } else if (type === 'number') {
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+            return currentSortAsc ? valA - valB : valB - valA;
+        } else {
+            return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+}
+
+function exportRiskRadarCSV() {
+    const rows = document.querySelectorAll('#riskRadarDataTable tbody tr.risk-row');
+    if (!rows.length) {
+        alert('No student risk records available to export.');
+        return;
+    }
+
+    const csvRows = [];
+    csvRows.push([
+        'Student Name',
+        'Student Email',
+        'Class / Subject',
+        'Teacher',
+        'Risk Level',
+        'Risk Score (%)',
+        'Key Risk Factors',
+        'Overall Attendance (%)',
+        'Recent 30d Attendance (%)',
+        'Exam Average (%)'
+    ].map(col => `"${col}"`).join(','));
+
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 7) {
+            const nameEl = cells[0].querySelector('div > div > div:first-child');
+            const emailEl = cells[0].querySelector('div > div > div:last-child');
+            const name = (nameEl ? nameEl.innerText : cells[0].innerText).trim();
+            const email = (emailEl ? emailEl.innerText : '').trim();
+
+            const subjectEl = cells[1].querySelector('.badge');
+            const teacherEl = cells[1].querySelector('div');
+            const subject = (subjectEl ? subjectEl.innerText : cells[1].innerText).trim();
+            const teacher = (teacherEl ? teacherEl.innerText : '').trim();
+
+            const riskLevel = (cells[2].getAttribute('data-sort-val') || cells[2].innerText).trim();
+            const riskPct = (cells[3].getAttribute('data-sort-val') || '').trim();
+
+            const factorSpans = cells[4].querySelectorAll('span');
+            const factors = Array.from(factorSpans).map(s => s.innerText.trim()).filter(Boolean).join('; ');
+
+            const attPct = (cells[5].getAttribute('data-sort-val') || '').trim();
+            const recAttEl = cells[5].querySelector('div');
+            const recAtt = (recAttEl ? recAttEl.innerText.replace('30d:', '').trim() : '').trim();
+
+            const examAvg = (cells[6].getAttribute('data-sort-val') || '').trim();
+
+            csvRows.push([
+                name,
+                email,
+                subject,
+                teacher,
+                riskLevel,
+                riskPct,
+                factors,
+                attPct,
+                recAtt,
+                examAvg
+            ].map(val => `"${(val || '').replace(/"/g, '""')}"`).join(','));
+        }
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvRows.join('\n'));
+    const link = document.createElement('a');
+    link.setAttribute('href', csvContent);
+    link.setAttribute('download', `NS_Risk_Radar_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 function filterLevel(level) {
     currentRiskLevel = level;
@@ -569,10 +917,8 @@ function filterLevel(level) {
         if (btn) {
             if (t === level) {
                 btn.className = 'btn btn-primary';
-                btn.style.border = '';
             } else {
                 btn.className = 'btn btn-outline';
-                btn.style.border = 'none';
             }
         }
     });
@@ -600,7 +946,8 @@ function applyLiveRiskFilters() {
         clearBtn.style.display = term ? 'block' : 'none';
     }
 
-    const rows = document.querySelectorAll('.risk-row');
+    // Filter table rows
+    const rows = document.querySelectorAll('#riskRadarDataTable tbody tr.risk-row');
     const noRecordsRow = document.getElementById('noRiskRecordsRow');
     let visibleCount = 0;
 
@@ -624,6 +971,33 @@ function applyLiveRiskFilters() {
 
     if (noRecordsRow) {
         noRecordsRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+    }
+
+    // Filter card view
+    const cards = document.querySelectorAll('#riskRadarCardView .risk-card');
+    const noCardsNotice = document.getElementById('noLiveRiskCardsNotice');
+    let visibleCardsCount = 0;
+
+    cards.forEach(card => {
+        const cardRisk = card.getAttribute('data-risk');
+        const name = card.getAttribute('data-name') || '';
+        const email = card.getAttribute('data-email') || '';
+        const className = card.getAttribute('data-class') || '';
+        const factors = card.getAttribute('data-factors') || '';
+
+        const levelMatches = (currentRiskLevel === 'ALL' || cardRisk === currentRiskLevel);
+        const searchMatches = !term || name.includes(term) || email.includes(term) || className.includes(term) || factors.includes(term);
+
+        if (levelMatches && searchMatches) {
+            card.style.display = '';
+            visibleCardsCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    if (noCardsNotice) {
+        noCardsNotice.style.display = (visibleCardsCount === 0 && cards.length > 0) ? 'block' : 'none';
     }
 }
 
@@ -1097,6 +1471,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Initialize view from saved preference (table / cards)
+    toggleRiskView(currentRiskViewMode);
 
     // Close modals on Escape
     document.addEventListener('keydown', (e) => {
