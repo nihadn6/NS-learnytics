@@ -35,7 +35,7 @@
                 {% endif %}
             </span>
         </div>
-        <button type="button" onclick="openGradeSettingsModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.825rem; font-weight: 700; padding: 0.5rem 0.95rem; border-radius: 0.5rem; box-shadow: var(--shadow-sm); cursor: pointer;">
+        <button type="button" id="btnOpenGradeSettings" onclick="openGradeSettingsModal()" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.825rem; font-weight: 700; padding: 0.5rem 0.95rem; border-radius: 0.5rem; box-shadow: var(--shadow-sm); cursor: pointer;">
             <svg style="width: 15px; height: 15px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span>Customize Scale & Weights</span>
         </button>
@@ -706,6 +706,11 @@
         }
         // Initialize view from saved preference
         toggleForecasterView(currentViewMode);
+
+        const btnOpen = document.getElementById('btnOpenGradeSettings');
+        if (btnOpen) {
+            btnOpen.addEventListener('click', openGradeSettingsModal);
+        }
     });
 
     // Tier 3: Custom Grading Scales, Component Weights & Target Benchmarks
@@ -739,99 +744,104 @@
         }
     };
 
-    const FORECAST_CLASSES = [
-        {% for c in classes %}
-        {
-            id: {{ c.id }},
-            subject: {{ c.subject|tojson }},
-            teacher_name: {{ (c.teacher_name or '')|tojson }},
-            enable_attendance: {{ 1 if c.enable_attendance_weight else 0 }},
-            attendance_weight_pct: {{ (c.attendance_weight_pct or 10.0)|float }}
-        }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    ];
-    let selectedClassId = {{ selected_class_id|tojson if selected_class_id else 'null' }};
+    const FORECAST_CLASSES = {{ classes_json|tojson if classes_json else '[]' }};
+    const INITIAL_CLASS_ID = {{ selected_class_id|tojson if selected_class_id else 'null' }};
 
     let currentGradeSettings = {{ forecast_settings|tojson if forecast_settings else '{}' }};
     let activeGradePreset = currentGradeSettings.preset_name || 'sri_lanka_national';
 
     function getActiveAttendanceWeight() {
-        const selector = document.getElementById('modalClassSelector');
-        let cid = selector ? selector.value : selectedClassId;
-        if (!cid && selectedClassId) cid = selectedClassId;
-        if (cid) {
-            const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
-            if (found && found.enable_attendance) {
-                return Math.round(found.attendance_weight_pct);
+        try {
+            const selector = document.getElementById('modalClassSelector');
+            let cid = selector ? selector.value : (typeof INITIAL_CLASS_ID !== 'undefined' ? INITIAL_CLASS_ID : null);
+            if (!cid && typeof INITIAL_CLASS_ID !== 'undefined' && INITIAL_CLASS_ID) {
+                cid = INITIAL_CLASS_ID;
             }
+            if (cid && Array.isArray(FORECAST_CLASSES)) {
+                const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
+                if (found && found.enable_attendance_weight) {
+                    return Math.round(Number(found.attendance_weight_pct) || 0);
+                }
+            }
+        } catch (e) {
+            console.error('Error getting active attendance weight:', e);
         }
         return 0;
     }
 
     function updateAttendanceDisplay() {
-        const selector = document.getElementById('modalClassSelector');
-        let cid = selector ? selector.value : selectedClassId;
-        if (!cid && selectedClassId) cid = selectedClassId;
-
-        const attW = getActiveAttendanceWeight();
-        const display = document.getElementById('attWeightDisplay');
-        const bar = document.getElementById('attWeightBar');
-        const statusText = document.getElementById('attStatusText');
-
-        let subjectName = '';
-        let hasAttendance = false;
-        if (cid) {
-            const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
-            if (found) {
-                subjectName = found.subject;
-                hasAttendance = !!found.enable_attendance;
+        try {
+            const selector = document.getElementById('modalClassSelector');
+            let cid = selector ? selector.value : (typeof INITIAL_CLASS_ID !== 'undefined' ? INITIAL_CLASS_ID : null);
+            if (!cid && typeof INITIAL_CLASS_ID !== 'undefined' && INITIAL_CLASS_ID) {
+                cid = INITIAL_CLASS_ID;
             }
-        }
 
-        if (display) display.innerText = attW + '%';
-        if (bar) {
-            bar.style.width = attW + '%';
-            bar.style.background = hasAttendance ? '#3b82f6' : 'var(--border)';
-        }
+            const attW = getActiveAttendanceWeight();
+            const display = document.getElementById('attWeightDisplay');
+            const bar = document.getElementById('attWeightBar');
+            const statusText = document.getElementById('attStatusText');
 
-        if (statusText) {
-            if (hasAttendance && attW > 0) {
-                statusText.innerText = `Active for ${subjectName || 'this subject'} (${attW}%)`;
-                statusText.style.color = 'var(--primary)';
-            } else if (cid) {
-                statusText.innerText = `Attendance weighting disabled for ${subjectName || 'this subject'}`;
-                statusText.style.color = 'var(--text-muted)';
-            } else {
-                statusText.innerText = `Select a subject above to view attendance weight`;
-                statusText.style.color = 'var(--text-muted)';
-            }
-        }
-
-        // Adjust sliders max bounds and rebalance to maintain 100% total
-        const sliderExam = document.getElementById('sliderExamWeight');
-        const sliderHw = document.getElementById('sliderHwWeight');
-        if (sliderExam && sliderHw) {
-            const maxExam = Math.max(10, 100 - attW);
-            const maxHw = Math.max(0, 100 - attW);
-            sliderExam.max = maxExam;
-            sliderHw.max = maxHw;
-
-            let curExam = parseInt(sliderExam.value, 10) || 0;
-            let curHw = parseInt(sliderHw.value, 10) || 0;
-
-            if (curExam + curHw + attW !== 100) {
-                if (curExam > maxExam) {
-                    curExam = maxExam;
-                    sliderExam.value = curExam;
-                    document.getElementById('examWeightDisplay').innerText = curExam + '%';
+            let subjectName = '';
+            let hasAttendance = false;
+            if (cid && Array.isArray(FORECAST_CLASSES)) {
+                const found = FORECAST_CLASSES.find(c => String(c.id) === String(cid));
+                if (found) {
+                    subjectName = found.subject || '';
+                    hasAttendance = !!found.enable_attendance_weight;
                 }
-                curHw = Math.max(0, 100 - attW - curExam);
-                sliderHw.value = curHw;
-                document.getElementById('hwWeightDisplay').innerText = curHw + '%';
             }
-        }
 
-        updateGradeWeightBadge();
+            if (display) display.innerText = attW + '%';
+            if (bar) {
+                bar.style.width = attW + '%';
+                bar.style.background = (hasAttendance && attW > 0) ? '#3b82f6' : 'var(--border)';
+            }
+
+            if (statusText) {
+                if (hasAttendance && attW > 0) {
+                    statusText.innerText = `Active for ${subjectName || 'this subject'} (${attW}%)`;
+                    statusText.style.color = 'var(--primary)';
+                } else if (cid) {
+                    statusText.innerText = `Attendance weighting disabled for ${subjectName || 'this subject'}`;
+                    statusText.style.color = 'var(--text-muted)';
+                } else {
+                    statusText.innerText = `Select a subject above to view attendance weight`;
+                    statusText.style.color = 'var(--text-muted)';
+                }
+            }
+
+            // Adjust sliders max bounds and auto-balance to maintain 100% total
+            const sliderExam = document.getElementById('sliderExamWeight');
+            const sliderHw = document.getElementById('sliderHwWeight');
+            if (sliderExam && sliderHw) {
+                const maxExam = Math.max(0, 100 - attW);
+                const maxHw = Math.max(0, 100 - attW);
+                sliderExam.max = maxExam;
+                sliderHw.max = maxHw;
+
+                let curExam = parseInt(sliderExam.value, 10) || 0;
+                let curHw = parseInt(sliderHw.value, 10) || 0;
+
+                if (curExam > maxExam) curExam = maxExam;
+                if (curHw > maxHw) curHw = maxHw;
+
+                if (curExam + curHw + attW !== 100) {
+                    curHw = Math.max(0, 100 - attW - curExam);
+                }
+
+                sliderExam.value = curExam;
+                sliderHw.value = curHw;
+                const examDisplay = document.getElementById('examWeightDisplay');
+                const hwDisplay = document.getElementById('hwWeightDisplay');
+                if (examDisplay) examDisplay.innerText = curExam + '%';
+                if (hwDisplay) hwDisplay.innerText = curHw + '%';
+            }
+
+            updateGradeWeightBadge();
+        } catch (e) {
+            console.error('Error updating attendance display:', e);
+        }
     }
 
     function onModalClassChange() {
@@ -841,42 +851,60 @@
 
     function openGradeSettingsModal() {
         const modal = document.getElementById('gradeSettingsModal');
-        if (!modal) return;
-
-        const selector = document.getElementById('modalClassSelector');
-        if (selector && selectedClassId) {
-            selector.value = selectedClassId;
+        if (!modal) {
+            console.error('Grade settings modal element not found');
+            return;
         }
 
-        document.getElementById('inputCutoffA').value = currentGradeSettings.cutoff_a !== undefined ? currentGradeSettings.cutoff_a : 75;
-        document.getElementById('inputCutoffB').value = currentGradeSettings.cutoff_b !== undefined ? currentGradeSettings.cutoff_b : 65;
-        document.getElementById('inputCutoffC').value = currentGradeSettings.cutoff_c !== undefined ? currentGradeSettings.cutoff_c : 50;
-        document.getElementById('inputCutoffS').value = currentGradeSettings.cutoff_s !== undefined ? currentGradeSettings.cutoff_s : 35;
-
-        const attW = getActiveAttendanceWeight();
-        let examW = Math.round((currentGradeSettings.exam_weight !== undefined ? currentGradeSettings.exam_weight : 0.90) * 100);
-        let hwW = Math.round((currentGradeSettings.hw_weight !== undefined ? currentGradeSettings.hw_weight : 0.10) * 100);
-
-        if (examW + hwW + attW !== 100) {
-            examW = Math.max(0, 100 - attW - hwW);
-        }
-
-        document.getElementById('sliderExamWeight').value = examW;
-        document.getElementById('sliderHwWeight').value = hwW;
-        document.getElementById('examWeightDisplay').innerText = examW + '%';
-        document.getElementById('hwWeightDisplay').innerText = hwW + '%';
-
-        document.getElementById('inputTargetThresh').value = currentGradeSettings.target_threshold !== undefined ? currentGradeSettings.target_threshold : 50;
-
-        activeGradePreset = currentGradeSettings.preset_name || 'sri_lanka_national';
-        highlightGradePresetButton(activeGradePreset);
-
-        updateAttendanceDisplay();
-
-        const msg = document.getElementById('gradeSettingsMsg');
-        if (msg) msg.style.display = 'none';
-
+        // 1. Immediately display modal so the click ALWAYS works without fail
         modal.style.display = 'flex';
+
+        try {
+            const selector = document.getElementById('modalClassSelector');
+            if (selector && typeof INITIAL_CLASS_ID !== 'undefined' && INITIAL_CLASS_ID) {
+                selector.value = INITIAL_CLASS_ID;
+            }
+
+            const inputA = document.getElementById('inputCutoffA');
+            const inputB = document.getElementById('inputCutoffB');
+            const inputC = document.getElementById('inputCutoffC');
+            const inputS = document.getElementById('inputCutoffS');
+            if (inputA) inputA.value = currentGradeSettings.cutoff_a !== undefined ? currentGradeSettings.cutoff_a : 75;
+            if (inputB) inputB.value = currentGradeSettings.cutoff_b !== undefined ? currentGradeSettings.cutoff_b : 65;
+            if (inputC) inputC.value = currentGradeSettings.cutoff_c !== undefined ? currentGradeSettings.cutoff_c : 50;
+            if (inputS) inputS.value = currentGradeSettings.cutoff_s !== undefined ? currentGradeSettings.cutoff_s : 35;
+
+            const attW = getActiveAttendanceWeight();
+            let examW = Math.round((currentGradeSettings.exam_weight !== undefined ? currentGradeSettings.exam_weight : 0.90) * 100);
+            let hwW = Math.round((currentGradeSettings.hw_weight !== undefined ? currentGradeSettings.hw_weight : 0.10) * 100);
+
+            if (examW + hwW + attW !== 100) {
+                examW = Math.max(0, 100 - attW - hwW);
+            }
+
+            const sliderExam = document.getElementById('sliderExamWeight');
+            const sliderHw = document.getElementById('sliderHwWeight');
+            const examDisplay = document.getElementById('examWeightDisplay');
+            const hwDisplay = document.getElementById('hwWeightDisplay');
+
+            if (sliderExam) sliderExam.value = examW;
+            if (sliderHw) sliderHw.value = hwW;
+            if (examDisplay) examDisplay.innerText = examW + '%';
+            if (hwDisplay) hwDisplay.innerText = hwW + '%';
+
+            const inputThresh = document.getElementById('inputTargetThresh');
+            if (inputThresh) inputThresh.value = currentGradeSettings.target_threshold !== undefined ? currentGradeSettings.target_threshold : 50;
+
+            activeGradePreset = currentGradeSettings.preset_name || 'sri_lanka_national';
+            highlightGradePresetButton(activeGradePreset);
+
+            updateAttendanceDisplay();
+
+            const msg = document.getElementById('gradeSettingsMsg');
+            if (msg) msg.style.display = 'none';
+        } catch (e) {
+            console.error('Error initializing grade settings modal:', e);
+        }
     }
 
     function closeGradeSettingsModal() {
@@ -913,10 +941,14 @@
         activeGradePreset = presetKey;
         highlightGradePresetButton(presetKey);
 
-        document.getElementById('inputCutoffA').value = cfg.cutoff_a;
-        document.getElementById('inputCutoffB').value = cfg.cutoff_b;
-        document.getElementById('inputCutoffC').value = cfg.cutoff_c;
-        document.getElementById('inputCutoffS').value = cfg.cutoff_s;
+        const inputA = document.getElementById('inputCutoffA');
+        const inputB = document.getElementById('inputCutoffB');
+        const inputC = document.getElementById('inputCutoffC');
+        const inputS = document.getElementById('inputCutoffS');
+        if (inputA) inputA.value = cfg.cutoff_a;
+        if (inputB) inputB.value = cfg.cutoff_b;
+        if (inputC) inputC.value = cfg.cutoff_c;
+        if (inputS) inputS.value = cfg.cutoff_s;
 
         const attW = getActiveAttendanceWeight();
         let examW = Math.max(0, cfg.exam_weight - attW);
@@ -925,12 +957,18 @@
             hwW = Math.max(0, 100 - attW - examW);
         }
 
-        document.getElementById('sliderExamWeight').value = examW;
-        document.getElementById('sliderHwWeight').value = hwW;
-        document.getElementById('examWeightDisplay').innerText = examW + '%';
-        document.getElementById('hwWeightDisplay').innerText = hwW + '%';
+        const sliderExam = document.getElementById('sliderExamWeight');
+        const sliderHw = document.getElementById('sliderHwWeight');
+        const examDisplay = document.getElementById('examWeightDisplay');
+        const hwDisplay = document.getElementById('hwWeightDisplay');
 
-        document.getElementById('inputTargetThresh').value = cfg.target_threshold;
+        if (sliderExam) sliderExam.value = examW;
+        if (sliderHw) sliderHw.value = hwW;
+        if (examDisplay) examDisplay.innerText = examW + '%';
+        if (hwDisplay) hwDisplay.innerText = hwW + '%';
+
+        const inputThresh = document.getElementById('inputTargetThresh');
+        if (inputThresh) inputThresh.value = cfg.target_threshold;
 
         updateGradeWeightBadge();
     }
@@ -942,38 +980,56 @@
 
     function onExamWeightSliderInput() {
         const attW = getActiveAttendanceWeight();
-        let examW = parseInt(document.getElementById('sliderExamWeight').value, 10);
-        const maxExam = 100 - attW;
+        const sliderExam = document.getElementById('sliderExamWeight');
+        const sliderHw = document.getElementById('sliderHwWeight');
+        if (!sliderExam || !sliderHw) return;
+
+        let examW = parseInt(sliderExam.value, 10) || 0;
+        const maxExam = Math.max(0, 100 - attW);
         if (examW > maxExam) examW = maxExam;
-        document.getElementById('sliderExamWeight').value = examW;
+        sliderExam.value = examW;
 
         const hwW = Math.max(0, 100 - attW - examW);
-        document.getElementById('sliderHwWeight').value = hwW;
-        document.getElementById('examWeightDisplay').innerText = examW + '%';
-        document.getElementById('hwWeightDisplay').innerText = hwW + '%';
+        sliderHw.value = hwW;
+
+        const examDisplay = document.getElementById('examWeightDisplay');
+        const hwDisplay = document.getElementById('hwWeightDisplay');
+        if (examDisplay) examDisplay.innerText = examW + '%';
+        if (hwDisplay) hwDisplay.innerText = hwW + '%';
+
         updateGradeWeightBadge();
         markGradeAsCustom();
     }
 
     function onHwWeightSliderInput() {
         const attW = getActiveAttendanceWeight();
-        let hwW = parseInt(document.getElementById('sliderHwWeight').value, 10);
-        const maxHw = 100 - attW;
+        const sliderExam = document.getElementById('sliderExamWeight');
+        const sliderHw = document.getElementById('sliderHwWeight');
+        if (!sliderExam || !sliderHw) return;
+
+        let hwW = parseInt(sliderHw.value, 10) || 0;
+        const maxHw = Math.max(0, 100 - attW);
         if (hwW > maxHw) hwW = maxHw;
-        document.getElementById('sliderHwWeight').value = hwW;
+        sliderHw.value = hwW;
 
         const examW = Math.max(0, 100 - attW - hwW);
-        document.getElementById('sliderExamWeight').value = examW;
-        document.getElementById('examWeightDisplay').innerText = examW + '%';
-        document.getElementById('hwWeightDisplay').innerText = hwW + '%';
+        sliderExam.value = examW;
+
+        const examDisplay = document.getElementById('examWeightDisplay');
+        const hwDisplay = document.getElementById('hwWeightDisplay');
+        if (examDisplay) examDisplay.innerText = examW + '%';
+        if (hwDisplay) hwDisplay.innerText = hwW + '%';
+
         updateGradeWeightBadge();
         markGradeAsCustom();
     }
 
     function updateGradeWeightBadge() {
         const attW = getActiveAttendanceWeight();
-        const examW = parseInt(document.getElementById('sliderExamWeight').value, 10) || 0;
-        const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10) || 0;
+        const sliderExam = document.getElementById('sliderExamWeight');
+        const sliderHw = document.getElementById('sliderHwWeight');
+        const examW = sliderExam ? (parseInt(sliderExam.value, 10) || 0) : 0;
+        const hwW = sliderHw ? (parseInt(sliderHw.value, 10) || 0) : 0;
         const total = examW + hwW + attW;
         const badge = document.getElementById('gradeWeightsBadge');
         if (!badge) return;
@@ -1015,8 +1071,8 @@
         }
 
         const attW = getActiveAttendanceWeight();
-        const examW = parseInt(document.getElementById('sliderExamWeight').value, 10);
-        const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10);
+        const examW = parseInt(document.getElementById('sliderExamWeight').value, 10) || 0;
+        const hwW = parseInt(document.getElementById('sliderHwWeight').value, 10) || 0;
         const targetThresh = parseFloat(document.getElementById('inputTargetThresh').value);
 
         if (examW + hwW + attW !== 100) {
@@ -1048,31 +1104,6 @@
                     target_threshold: targetThresh
                 })
             });
-            const data = await res.json();
-            if (data.success) {
-                if (msg) {
-                    msg.style.display = 'block';
-                    msg.style.background = 'rgba(34, 197, 94, 0.1)';
-                    msg.style.color = 'var(--success)';
-                    msg.innerText = data.message || 'Preferences saved! Recalculating forecasts...';
-                }
-                setTimeout(() => {
-                    window.location.reload();
-                }, 800);
-            } else {
-                throw new Error(data.message || 'Failed to save settings');
-            }
-        } catch (err) {
-            if (msg) {
-                msg.style.display = 'block';
-                msg.style.background = 'rgba(239, 68, 68, 0.1)';
-                msg.style.color = 'var(--danger)';
-                msg.innerText = err.message || 'Network error while saving.';
-            }
-            btn.disabled = false;
-            btn.innerText = 'Save & Recalculate Forecaster';
-        }
-    }
             const data = await res.json();
             if (data.success) {
                 if (msg) {
@@ -1270,7 +1301,7 @@
                         <span style="font-weight: 600; color: var(--text-main);">Supervised Tests & Exams Weight</span>
                         <span id="examWeightDisplay" style="font-weight: 700; color: var(--primary);">90%</span>
                     </div>
-                    <input type="range" id="sliderExamWeight" min="10" max="100" step="5" value="90" oninput="onExamWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                    <input type="range" id="sliderExamWeight" min="0" max="100" step="5" value="90" oninput="onExamWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
                 </div>
 
                 <!-- Slider 2: Homework Weight -->
@@ -1279,7 +1310,7 @@
                         <span style="font-weight: 600; color: var(--text-main);">LMS Homework & Assignments Weight</span>
                         <span id="hwWeightDisplay" style="font-weight: 700; color: var(--primary);">10%</span>
                     </div>
-                    <input type="range" id="sliderHwWeight" min="0" max="50" step="5" value="10" oninput="onHwWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
+                    <input type="range" id="sliderHwWeight" min="0" max="100" step="5" value="10" oninput="onHwWeightSliderInput()" style="width: 100%; accent-color: var(--primary); cursor: pointer;">
                 </div>
 
                 <!-- Component 3: Class Attendance Weight (Non-changeable / Locked Item) -->

@@ -110,7 +110,6 @@ def grade_forecasting_dashboard():
     classes = []
     teachers = []
     forecast_data = []
-    selected_class_info = None
     try:
         with conn.cursor() as cursor:
             if role == 'teacher':
@@ -194,12 +193,18 @@ def grade_forecasting_dashboard():
                 ) if target_student_id else None
                 forecast_data = [f_single] if f_single else []
 
-            # Format classes for clean JSON / numerical consumption
+            # Format classes and prepare clean JSON list for frontend
+            classes_json = []
             for c in classes:
                 c['enable_attendance_weight'] = int(c.get('enable_attendance_weight') or 0)
                 c['attendance_weight_pct'] = float(c.get('attendance_weight_pct') if c.get('attendance_weight_pct') is not None else 10.0)
-                if class_id and str(c.get('id')) == str(class_id):
-                    selected_class_info = c
+                classes_json.append({
+                    'id': c['id'],
+                    'subject': c.get('subject') or '',
+                    'teacher_name': c.get('teacher_name') or '',
+                    'enable_attendance_weight': c['enable_attendance_weight'],
+                    'attendance_weight_pct': c['attendance_weight_pct']
+                })
 
             # Optional server-side search filter
             if search_query:
@@ -224,10 +229,10 @@ def grade_forecasting_dashboard():
     return render_template('grade_forecasting.html',
                            forecast_data=forecast_data,
                            classes=classes,
+                           classes_json=classes_json,
                            teachers=teachers,
                            selected_teacher_id=teacher_id,
                            selected_class_id=class_id,
-                           selected_class_info=selected_class_info,
                            search_query=search_query,
                            accuracy_metrics=accuracy_metrics,
                            forecast_settings=user_forecast_settings,
@@ -332,7 +337,6 @@ def save_grade_forecast_preferences():
         if total_w <= 0:
             return jsonify({'success': False, 'message': 'Sum of weights must be greater than zero.'}), 400
 
-        # Validate that total weights equal 1.0 (allowing small float tolerance)
         if abs(total_w - 1.0) > 0.03 and abs((exam_weight + hw_weight) - 1.0) > 0.03:
             return jsonify({'success': False, 'message': f'Assessment weights must sum up to 100%. Current total: {round(total_w * 100)}%'}), 400
 
