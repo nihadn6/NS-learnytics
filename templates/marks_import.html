@@ -52,7 +52,7 @@
             </select>
         </div>
 
-        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div class="grid" style="grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
             <div class="form-group mb-0">
                 <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Assessment Title</label>
                 <input type="text" id="templateTestNameInput" value="Term Assessment 01" oninput="syncField(this.value, 'uploadTestNameInput')" placeholder="e.g. Mid-Term Exam" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
@@ -60,6 +60,10 @@
             <div class="form-group mb-0">
                 <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Max Marks</label>
                 <input type="number" id="templateMaxMarksInput" value="100" min="1" step="0.5" oninput="syncField(this.value, 'uploadMaxMarksInput')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
+            </div>
+            <div class="form-group mb-0">
+                <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 0.35rem; color: var(--text-main);">Weight (%)</label>
+                <input type="number" id="templateWeightInput" value="100" min="1" max="100" step="1" oninput="syncField(this.value, 'uploadWeightInput')" style="width: 100%; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
             </div>
         </div>
 
@@ -125,10 +129,14 @@
                         <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Assessment Title</label>
                         <input type="text" name="test_name" id="uploadTestNameInput" value="Term Assessment 01" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                     </div>
-                    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+                    <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem;">
                         <div>
                             <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Max Marks</label>
                             <input type="number" name="max_marks" id="uploadMaxMarksInput" value="100" min="1" step="0.5" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Weight (%)</label>
+                            <input type="number" name="weight_pct" id="uploadWeightInput" value="100" min="1" max="100" step="1" style="width: 100%; padding: 0.4rem 0.65rem; font-size: 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-main);">
                         </div>
                         <div>
                             <label style="font-size: 0.75rem; font-weight: 600; display: block; margin-bottom: 0.2rem; color: var(--text-muted);">Exam Date</label>
@@ -208,6 +216,12 @@
                         <td class="text-muted" style="font-size: 0.8rem;">Assessment total scale. Defaults to form value if omitted.</td>
                     </tr>
                     <tr>
+                        <td><strong style="color: var(--text-main);">weight_pct</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
+                        <td><code>weight_pct</code>, <code>weight</code>, <code>exam_weight</code>, <code>weight (%)</code></td>
+                        <td>Number (1 - 100, default: <code>100</code>)</td>
+                        <td class="text-muted" style="font-size: 0.8rem;">Percentage contribution of this exam towards final grades and next-exam AI forecasts.</td>
+                    </tr>
+                    <tr>
                         <td><strong style="color: var(--text-main);">date_recorded</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">(Optional)</span></td>
                         <td><code>date_recorded</code>, <code>date</code>, <code>exam_date</code></td>
                         <td><code>YYYY-MM-DD</code></td>
@@ -270,6 +284,7 @@
         const classId = document.getElementById('templateClassSelect').value;
         const testName = document.getElementById('templateTestNameInput').value;
         const maxMarks = document.getElementById('templateMaxMarksInput').value;
+        const weightPct = document.getElementById('templateWeightInput') ? document.getElementById('templateWeightInput').value : '100';
         const examDate = document.getElementById('templateDateInput').value;
 
         if (!classId) {
@@ -278,7 +293,7 @@
             return;
         }
 
-        const url = `/marks/template/${classId}?format=${format}&test_name=${encodeURIComponent(testName)}&max_marks=${encodeURIComponent(maxMarks)}&date=${encodeURIComponent(examDate)}`;
+        const url = `/marks/template/${classId}?format=${format}&test_name=${encodeURIComponent(testName)}&max_marks=${encodeURIComponent(maxMarks)}&weight_pct=${encodeURIComponent(weightPct)}&date=${encodeURIComponent(examDate)}`;
         window.location.href = url;
     }
 

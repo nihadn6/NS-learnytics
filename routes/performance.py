@@ -32,6 +32,12 @@ def add_marks():
             test_name = data.get('test_name')
             date_recorded = data.get('date_recorded')
             max_marks = float(data.get('max_marks', 100))
+            try:
+                weight_pct = float(data.get('weight_pct', 100.0) or 100.0)
+                if weight_pct <= 0:
+                    weight_pct = 100.0
+            except (ValueError, TypeError):
+                weight_pct = 100.0
             
             # permissions: teacher must own class
             if session['role'] == 'teacher':
@@ -45,10 +51,10 @@ def add_marks():
                         student_id = key.split('_')[1]
                         # use ON DUPLICATE KEY UPDATE to allow correcting marks easily
                         cursor.execute("""
-                            INSERT INTO marks (class_id, student_id, test_name, marks_obtained, max_marks, date_recorded) 
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                            ON DUPLICATE KEY UPDATE marks_obtained = VALUES(marks_obtained), max_marks = VALUES(max_marks), date_recorded = VALUES(date_recorded)
-                        """, (class_id, student_id, test_name, float(value), max_marks, date_recorded))
+                            INSERT INTO marks (class_id, student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded) 
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            ON DUPLICATE KEY UPDATE marks_obtained = VALUES(marks_obtained), max_marks = VALUES(max_marks), weight_pct = VALUES(weight_pct), date_recorded = VALUES(date_recorded)
+                        """, (class_id, student_id, test_name, float(value), max_marks, weight_pct, date_recorded))
                         
                         # Notify Parents
                         try:
@@ -110,7 +116,7 @@ def performance_report():
                 classes = cursor.fetchall()
                 # Fetch distinct exams per class grouped strictly by class_id and test_name
                 cursor.execute("""
-                    SELECT class_id, test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded 
+                    SELECT class_id, test_name, MAX(max_marks) as max_marks, MAX(weight_pct) as weight_pct, MIN(date_recorded) as date_recorded 
                     FROM marks 
                     GROUP BY class_id, test_name
                     ORDER BY MIN(date_recorded) ASC, test_name ASC
@@ -120,7 +126,7 @@ def performance_report():
                 cursor.execute("SELECT id, subject, teacher_id FROM classes WHERE teacher_id = %s ORDER BY subject", (session['user_id'],))
                 classes = cursor.fetchall()
                 cursor.execute("""
-                    SELECT m.class_id, m.test_name, MAX(m.max_marks) as max_marks, MIN(m.date_recorded) as date_recorded
+                    SELECT m.class_id, m.test_name, MAX(m.max_marks) as max_marks, MAX(m.weight_pct) as weight_pct, MIN(m.date_recorded) as date_recorded
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
                     WHERE c.teacher_id = %s
@@ -138,7 +144,8 @@ def performance_report():
                 tests_by_class[cid].append({
                     'test_name': r['test_name'],
                     'date_recorded': str(r['date_recorded']) if r.get('date_recorded') else '',
-                    'max_marks': float(r['max_marks']) if r.get('max_marks') else 100.0
+                    'max_marks': float(r['max_marks']) if r.get('max_marks') else 100.0,
+                    'weight_pct': float(r['weight_pct']) if r.get('weight_pct') is not None else 100.0
                 })
 
             if not class_id:
@@ -172,7 +179,7 @@ def performance_report():
 
             # Fetch strictly distinct assessments conducted for this specific class
             cursor.execute("""
-                SELECT test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded
+                SELECT test_name, MAX(max_marks) as max_marks, MAX(weight_pct) as weight_pct, MIN(date_recorded) as date_recorded
                 FROM marks 
                 WHERE class_id = %s 
                 GROUP BY test_name
@@ -200,13 +207,13 @@ def performance_report():
             # Fetch marks for this class (filtered by exam if requested)
             if selected_test:
                 cursor.execute("""
-                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    SELECT student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded
                     FROM marks 
                     WHERE class_id = %s AND test_name = %s
                 """, (class_id, selected_test))
             else:
                 cursor.execute("""
-                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    SELECT student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded
                     FROM marks 
                     WHERE class_id = %s
                 """, (class_id,))
@@ -221,11 +228,13 @@ def performance_report():
                     marks_map[sid] = {}
                 obt = float(m['marks_obtained'])
                 mx = float(m['max_marks']) if m.get('max_marks') else 100.0
+                wt = float(m['weight_pct']) if m.get('weight_pct') is not None else 100.0
                 pct = (obt / mx * 100.0) if mx > 0 else 0.0
                 marks_map[sid][tname] = {
                     'display': f"{obt:g} / {mx:g}",
                     'obtained': obt,
                     'max_marks': mx,
+                    'weight_pct': wt,
                     'pct': round(pct, 1)
                 }
 
@@ -305,7 +314,7 @@ def export_performance_report():
 
             # Fetch strictly unique assessments conducted for this specific class
             cursor.execute("""
-                SELECT test_name, MAX(max_marks) as max_marks, MIN(date_recorded) as date_recorded
+                SELECT test_name, MAX(max_marks) as max_marks, MAX(weight_pct) as weight_pct, MIN(date_recorded) as date_recorded
                 FROM marks 
                 WHERE class_id = %s 
                 GROUP BY test_name
@@ -332,13 +341,13 @@ def export_performance_report():
             # Fetch marks for this class
             if selected_test:
                 cursor.execute("""
-                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    SELECT student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded
                     FROM marks 
                     WHERE class_id = %s AND test_name = %s
                 """, (class_id, selected_test))
             else:
                 cursor.execute("""
-                    SELECT student_id, test_name, marks_obtained, max_marks, date_recorded
+                    SELECT student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded
                     FROM marks 
                     WHERE class_id = %s
                 """, (class_id,))
@@ -352,11 +361,13 @@ def export_performance_report():
                     marks_map[sid] = {}
                 obt = float(m['marks_obtained'])
                 mx = float(m['max_marks']) if m.get('max_marks') else 100.0
+                wt = float(m['weight_pct']) if m.get('weight_pct') is not None else 100.0
                 pct = (obt / mx * 100.0) if mx > 0 else 0.0
                 marks_map[sid][tname] = {
                     'display': f"{obt:g} / {mx:g}",
                     'obtained': obt,
                     'max_marks': mx,
+                    'weight_pct': wt,
                     'pct': round(pct, 1)
                 }
 
@@ -695,6 +706,12 @@ def download_marks_template(class_id):
         max_marks = float(request.args.get('max_marks') or 100.0)
     except (ValueError, TypeError):
         max_marks = 100.0
+    try:
+        weight_pct = float(request.args.get('weight_pct') or 100.0)
+        if weight_pct <= 0:
+            weight_pct = 100.0
+    except (ValueError, TypeError):
+        weight_pct = 100.0
     exam_date = request.args.get('date') or datetime.date.today().isoformat()
 
     conn = get_db_connection()
@@ -727,9 +744,9 @@ def download_marks_template(class_id):
                 output = io.StringIO()
                 output.write('\ufeff')  # UTF-8 BOM
                 writer = csv.writer(output)
-                writer.writerow(['student_id', 'student_name', 'email', 'test_name', 'max_marks', 'date_recorded', 'marks_obtained', 'remarks'])
+                writer.writerow(['student_id', 'student_name', 'email', 'test_name', 'max_marks', 'weight_pct', 'date_recorded', 'marks_obtained', 'remarks'])
                 for s in students:
-                    writer.writerow([s['id'], s['name'], s['email'] or '', test_name, f"{max_marks:.2f}", exam_date, '', ''])
+                    writer.writerow([s['id'], s['name'], s['email'] or '', test_name, f"{max_marks:.2f}", f"{weight_pct:.1f}", exam_date, '', ''])
 
                 resp = Response(output.getvalue(), mimetype='text/csv')
                 resp.headers['Content-Disposition'] = f'attachment; filename=marks_template_{subject_slug}_{test_slug}.csv'
@@ -753,7 +770,7 @@ def download_marks_template(class_id):
                 bottom=Side(style='thin', color='E2E8F0')
             )
 
-            headers = ['Student ID', 'Student Name', 'Email', 'Assessment Title', 'Max Marks', 'Exam Date', 'Marks Obtained', 'Remarks']
+            headers = ['Student ID', 'Student Name', 'Email', 'Assessment Title', 'Max Marks', 'Exam Weight (%)', 'Exam Date', 'Marks Obtained', 'Remarks']
             ws.append(headers)
 
             for col_idx in range(1, len(headers) + 1):
@@ -763,7 +780,7 @@ def download_marks_template(class_id):
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
             for s in students:
-                ws.append([s['id'], s['name'], s['email'] or '', test_name, max_marks, exam_date, '', ''])
+                ws.append([s['id'], s['name'], s['email'] or '', test_name, max_marks, weight_pct, exam_date, '', ''])
 
             # Apply cell styling
             for row in ws.iter_rows(min_row=2, max_row=len(students) + 1, min_col=1, max_col=len(headers)):
@@ -772,9 +789,9 @@ def download_marks_template(class_id):
                     cell.font = Font(name="Arial", size=10)
                     if cell.column == 1:
                         cell.alignment = Alignment(horizontal="center")
-                    elif cell.column in (5, 6):
+                    elif cell.column in (5, 6, 7):
                         cell.alignment = Alignment(horizontal="center")
-                    elif cell.column == 7:
+                    elif cell.column == 8:
                         cell.alignment = Alignment(horizontal="right")
                         cell.number_format = '0.00'
 
@@ -810,6 +827,12 @@ def import_marks_post():
         default_max_marks = float(request.form.get('max_marks') or 100.0)
     except (ValueError, TypeError):
         default_max_marks = 100.0
+    try:
+        default_weight_pct = float(request.form.get('weight_pct') or 100.0)
+        if default_weight_pct <= 0:
+            default_weight_pct = 100.0
+    except (ValueError, TypeError):
+        default_weight_pct = 100.0
     default_date = (request.form.get('date_recorded') or '').strip()
     send_notifications = bool(request.form.get('send_notifications'))
     update_existing = bool(request.form.get('update_existing', True))
@@ -899,6 +922,7 @@ def import_marks_post():
             marks_idx = None
             test_idx = None
             max_idx = None
+            weight_idx = None
             date_idx = None
 
             for idx, h in enumerate(header_row):
@@ -911,6 +935,8 @@ def import_marks_post():
                     test_idx = idx
                 elif clean_h in ('max marks', 'max', 'total marks'):
                     max_idx = idx
+                elif clean_h in ('exam weight (%)', 'exam weight', 'weight pct', 'weight (%)', 'weight', 'weighting', 'weight percentage'):
+                    weight_idx = idx
                 elif clean_h in ('date recorded', 'date', 'exam date', 'assessment date'):
                     date_idx = idx
 
@@ -973,6 +999,16 @@ def import_marks_post():
                         except (ValueError, TypeError):
                             pass
 
+                    # Extract weight percentage
+                    row_weight = default_weight_pct
+                    if weight_idx is not None and len(row) > weight_idx and row[weight_idx] is not None:
+                        try:
+                            val_w = float(str(row[weight_idx]).replace('%', '').replace(',', '').strip())
+                            if val_w > 0:
+                                row_weight = val_w
+                        except (ValueError, TypeError):
+                            pass
+
                     # Extract date
                     row_date = default_date
                     if date_idx is not None and len(row) > date_idx and row[date_idx]:
@@ -999,17 +1035,17 @@ def import_marks_post():
                         if update_existing:
                             cursor.execute("""
                                 UPDATE marks
-                                SET marks_obtained = %s, max_marks = %s, date_recorded = %s
+                                SET marks_obtained = %s, max_marks = %s, weight_pct = %s, date_recorded = %s
                                 WHERE id = %s
-                            """, (marks_obtained, row_max, row_date, existing['id']))
+                            """, (marks_obtained, row_max, row_weight, row_date, existing['id']))
                             updated_count += 1
                         else:
                             continue
                     else:
                         cursor.execute("""
-                            INSERT INTO marks (class_id, student_id, test_name, marks_obtained, max_marks, date_recorded)
-                            VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (class_id, student_id, row_test, marks_obtained, row_max, row_date))
+                            INSERT INTO marks (class_id, student_id, test_name, marks_obtained, max_marks, weight_pct, date_recorded)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (class_id, student_id, row_test, marks_obtained, row_max, row_weight, row_date))
                         inserted_count += 1
 
                     scores.append(marks_obtained)

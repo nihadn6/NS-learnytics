@@ -330,7 +330,7 @@ class GradeForecaster:
         try:
             with conn.cursor() as cursor:
                 query = """
-                    SELECT m.student_id, m.class_id, m.marks_obtained, m.max_marks, m.date_recorded
+                    SELECT m.student_id, m.class_id, m.marks_obtained, m.max_marks, m.weight_pct, m.date_recorded
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
                     WHERE m.max_marks > 0
@@ -355,19 +355,20 @@ class GradeForecaster:
                 if key not in grouped:
                     grouped[key] = []
                 pct = float(r['marks_obtained']) / float(r['max_marks']) * 100.0
-                grouped[key].append(pct)
+                wt = float(r['weight_pct']) if r.get('weight_pct') is not None and float(r['weight_pct']) > 0 else 100.0
+                grouped[key].append({'pct': pct, 'weight_pct': wt})
 
             errors = []
             within_10 = 0
             within_5 = 0
 
-            for (sid, cid), scores in grouped.items():
-                if len(scores) >= 3:
-                    train_scores = scores[:-1]
-                    actual = scores[-1]
+            for (sid, cid), score_items in grouped.items():
+                if len(score_items) >= 3:
+                    train_items = score_items[:-1]
+                    actual = score_items[-1]['pct']
                     c_avg = class_averages.get(cid, 65.0)
 
-                    mock_timeline = [{'pct': s, 'date_obj': datetime.date.min} for s in train_scores]
+                    mock_timeline = [{'pct': it['pct'], 'weight_pct': it['weight_pct'], 'date_obj': datetime.date.min} for it in train_items]
                     calc = self._calculate_damped_prediction(mock_timeline, [], c_avg)
                     if calc:
                         pred = calc['predicted_pct']
@@ -427,6 +428,7 @@ class GradeForecaster:
         5. Conservative auxiliary integration of homework effort according to custom weights.
         """
         exam_scores = [e['pct'] for e in exam_timeline]
+        exam_weights = [float(e.get('weight_pct', 100.0) or 100.0) for e in exam_timeline]
         hw_scores = [h['pct'] for h in hw_timeline]
 
         n_exams = len(exam_scores)
@@ -450,8 +452,12 @@ class GradeForecaster:
                 'assessment_count': n_hw
             }
 
-        # Primary analysis is strictly on chronological exam assessments
-        curr_avg = round(float(sum(exam_scores) / n_exams), 1)
+        # Weighted final grade average calculation across exams based on teacher assigned weights
+        sum_weights = sum(exam_weights)
+        if sum_weights > 0:
+            curr_avg = round(float(sum(s * w for s, w in zip(exam_scores, exam_weights)) / sum_weights), 1)
+        else:
+            curr_avg = round(float(sum(exam_scores) / n_exams), 1)
 
         # 1. Single Exam: Bayesian shrinkage toward class mean
         if n_exams == 1:
@@ -461,19 +467,24 @@ class GradeForecaster:
             trend_status = 'Stable Performance'
             trend_class = 'text-primary'
 
-        # 2. Two Exams: Damped slope with recency weighting
+        # 2. Two Exams: Damped slope with recency + exam weight calibration
         elif n_exams == 2:
             s0, s1 = exam_scores[0], exam_scores[1]
+            w0, w1 = exam_weights[0], exam_weights[1]
+            tot_w = (w0 + w1) if (w0 + w1) > 0 else 200.0
+
+            # Scale recency weights (0.40 & 0.60) by the teacher's exam weight ratio
+            eff_w0 = 0.40 * (w0 / tot_w * 2.0)
+            eff_w1 = 0.60 * (w1 / tot_w * 2.0)
+            rec_avg = ((eff_w0 * s0) + (eff_w1 * s1)) / (eff_w0 + eff_w1)
+
             raw_diff = s1 - s0
-            # Recency-weighted average (60% test2, 40% test1)
-            rec_avg = (0.60 * s1) + (0.40 * s0)
-            # Damp the slope by 50% to prevent overreacting to 2-point variance
-            damped_slope = raw_diff * 0.50
-            # Clamp slope change to maximum +/- 8 points
+            # Higher weight on exam 2 gives its trajectory pull greater impact
+            weight_factor = min(1.5, max(0.5, (w1 / (tot_w / 2.0))))
+            damped_slope = raw_diff * 0.50 * weight_factor
             damped_slope = max(-8.0, min(8.0, damped_slope))
 
             raw_pred = rec_avg + damped_slope
-            # Bayesian blend with class mean (80% personal, 20% class mean)
             pred = (0.80 * raw_pred) + (0.20 * class_avg)
             slope = round(damped_slope, 2)
 
@@ -487,26 +498,32 @@ class GradeForecaster:
                 trend_status = 'Stable Performance'
                 trend_class = 'text-primary'
 
-        # 3. Three or More Exams (N >= 3): Recency-Weighted Damped Linear Regression
+        # 3. Three or More Exams (N >= 3): Recency-Weighted & Exam-Weighted Damped Linear Regression
         else:
-            weights = np.array([1.0 + (0.35 * i) for i in range(n_exams)])
-            weights /= weights.sum()
+            rec_weights = np.array([1.0 + (0.35 * i) for i in range(n_exams)])
+            exam_w_arr = np.array(exam_weights, dtype=float)
+            mean_w = np.mean(exam_w_arr) if np.mean(exam_w_arr) > 0 else 1.0
+            norm_exam_weights = np.clip(exam_w_arr / mean_w, 0.25, 2.5)
+
+            # Combined weight factor: both recency and exam weighting determine the slope and baseline
+            combined_weights = rec_weights * norm_exam_weights
+            combined_weights /= combined_weights.sum()
+
             x = np.arange(n_exams)
             y = np.array(exam_scores)
 
-            x_bar = np.sum(weights * x)
-            y_bar = np.sum(weights * y)
+            x_bar = np.sum(combined_weights * x)
+            y_bar = np.sum(combined_weights * y)
 
-            denom = np.sum(weights * (x - x_bar) ** 2)
+            denom = np.sum(combined_weights * (x - x_bar) ** 2)
             if denom > 1e-6:
-                raw_slope = float(np.sum(weights * (x - x_bar) * (y - y_bar)) / denom)
+                raw_slope = float(np.sum(combined_weights * (x - x_bar) * (y - y_bar)) / denom)
             else:
                 raw_slope = 0.0
 
             # Slope damping scales with sample size (prevents runaway lines)
             damping = min(0.70, 0.30 + (0.05 * n_exams))
             damped_slope = raw_slope * damping
-            # Prevent excessive single-step leaps: cap slope shift at +/- 10 points
             damped_slope = max(-10.0, min(10.0, damped_slope))
 
             base_pred = y_bar + damped_slope
@@ -576,7 +593,7 @@ class GradeForecaster:
                 # Fetch Assessment Marks (chronologically sorted)
                 query_marks = """
                     SELECT m.class_id, c.subject, c.teacher_id, u.name as teacher_name, 
-                           m.test_name, m.marks_obtained, m.max_marks, m.date_recorded
+                           m.test_name, m.marks_obtained, m.max_marks, m.weight_pct, m.date_recorded
                     FROM marks m
                     JOIN classes c ON m.class_id = c.id
                     LEFT JOIN users u ON c.teacher_id = u.id
@@ -633,12 +650,14 @@ class GradeForecaster:
                 max_pts = float(m['max_marks']) if m['max_marks'] else 100.0
                 pts = float(m['marks_obtained']) if m['marks_obtained'] else 0.0
                 pct = (pts / max_pts * 100.0) if max_pts > 0 else 0.0
+                wt = float(m['weight_pct']) if m.get('weight_pct') is not None and float(m['weight_pct']) > 0 else 100.0
                 date_val = self._parse_date(m.get('date_recorded'))
 
                 subject_data[cid]['exam_timeline'].append({
                     'name': m['test_name'],
                     'type': 'Exam',
                     'pct': pct,
+                    'weight_pct': wt,
                     'date': date_val.strftime('%Y-%m-%d') if date_val != datetime.date.min else '',
                     'date_obj': date_val
                 })

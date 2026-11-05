@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS marks (
     test_name VARCHAR(100) NOT NULL,
     marks_obtained DECIMAL(5,2) NOT NULL,
     max_marks DECIMAL(5,2) NOT NULL DEFAULT 100,
+    weight_pct DECIMAL(5,2) NOT NULL DEFAULT 100.00,
     date_recorded DATE NOT NULL,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
