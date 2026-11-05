@@ -11,7 +11,7 @@
         <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
             AI Final Grade & Exam Performance Forecaster
         </h1>
-        <p class="text-muted" style="margin-bottom: 0;">Predictive statistical regression model estimating upcoming exam scores, confidence intervals, and actionable grade target roadmaps based on historical exam trajectories.</p>
+        <p class="text-muted" style="margin-bottom: 0;">Predictive statistical regression model estimating upcoming exam scores and confidence intervals based on historical exam trajectories.</p>
     </div>
     <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
         {% if accuracy_metrics and accuracy_metrics.evaluated %}
@@ -193,9 +193,6 @@
                     <th style="padding: 0.75rem 0.85rem; text-align: center;">
                         Reliability
                     </th>
-                    <th style="padding: 0.75rem 1rem; text-align: left;">
-                        Next Exam Target (🎯)
-                    </th>
                     <th style="padding: 0.75rem 1rem; text-align: right;">
                         Action
                     </th>
@@ -277,18 +274,6 @@
                             <span class="badge {{ f.confidence_badge }}" style="font-size: 0.675rem; text-transform: uppercase; font-weight: 700; padding: 0.2rem 0.5rem;">
                                 {{ f.confidence_label }}
                             </span>
-                        </td>
-
-                        <!-- Target Pathway Column -->
-                        <td style="padding: 0.75rem 1rem;">
-                            {% if f.target_pathway %}
-                            <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(59, 130, 246, 0.06); border: 1px dashed rgba(59, 130, 246, 0.3); border-radius: 4px; padding: 0.3rem 0.55rem; font-size: 0.75rem;">
-                                <span>🎯</span>
-                                <span style="font-weight: 700; color: var(--text-main);">{{ f.target_pathway.pathway_message|safe }}</span>
-                            </div>
-                            {% else %}
-                            <span class="text-muted" style="font-size: 0.75rem;">—</span>
-                            {% endif %}
                         </td>
 
                         <!-- Action Column -->
@@ -378,17 +363,6 @@
                                     </span>
                                 </div>
                             </div>
-
-                            <!-- Actionable Grade Target Pathway -->
-                            {% if f.target_pathway %}
-                            <div style="background: rgba(59, 130, 246, 0.05); border: 1px dashed rgba(59, 130, 246, 0.35); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.775rem; display: flex; align-items: center; gap: 0.5rem;">
-                                <span style="font-size: 1rem; line-height: 1;">🎯</span>
-                                <div style="flex: 1;">
-                                    <span style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.03em; display: block;">Next Exam Target</span>
-                                    <span style="color: var(--text-main); font-weight: 700;">{{ f.target_pathway.pathway_message|safe }}</span>
-                                </div>
-                            </div>
-                            {% endif %}
 
                             <div style="font-size: 0.775rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
                                 <span>Evaluated across <strong>{{ f.assessment_count }}</strong> exam(s).</span>
@@ -655,15 +629,14 @@
             'Trajectory',
             'Predicted Score (%)',
             'Predicted Final Grade',
-            'Confidence Level',
-            'Target Pathway'
+            'Confidence Level'
         ].map(col => `"${col}"`).join(','));
 
         rows.forEach(row => {
             if (row.style.display === 'none') return; // only export visible filtered rows
 
             const cells = row.querySelectorAll('td');
-            if (cells.length >= 7) {
+            if (cells.length >= 6) {
                 const name = (cells[0].querySelector('div > div:first-child') ? cells[0].querySelector('div > div:first-child').innerText : '').trim();
                 const email = (cells[0].querySelector('div > div:last-child') ? cells[0].querySelector('div > div:last-child').innerText : '').trim();
                 const subject = (cells[1].querySelector('.badge') ? cells[1].querySelector('.badge').innerText : '').trim();
@@ -674,7 +647,6 @@
                 const predPct = (cells[4].getAttribute('data-sort-val') || '').trim();
                 const predGrade = (cells[4].querySelector('.badge') ? cells[4].querySelector('.badge').innerText.replace('Est.', '') : '').trim();
                 const reliability = (cells[5].querySelector('.badge') ? cells[5].querySelector('.badge').innerText : '').trim();
-                const targetPathway = (cells[6].querySelector('span:last-child') ? cells[6].querySelector('span:last-child').innerText : '').trim();
 
                 csvRows.push([
                     name,
@@ -686,8 +658,7 @@
                     trajectory,
                     predPct,
                     predGrade,
-                    reliability,
-                    targetPathway
+                    reliability
                 ].map(val => `"${(val || '').replace(/"/g, '""')}"`).join(','));
             }
         });
