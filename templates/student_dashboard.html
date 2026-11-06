@@ -265,11 +265,11 @@
             {% endif %}
         </div>
 
-        <!-- AI Grade & Score Forecast -->
+        <!-- Grade Forecaster Card -->
         <div class="card" style="border-top: 4px solid #8b5cf6;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
                 <div>
-                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #6d28d9; margin: 0;">AI Grade Forecast</h3>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: #6d28d9; margin: 0;">Grade Forecaster</h3>
                     <span style="font-size: 0.75rem; color: var(--text-muted);">Predictive Regression Analysis</span>
                 </div>
                 <a href="{{ url_for('ai_analytics.grade_forecasting_dashboard') }}" style="font-size: 0.75rem; color: #7c3aed;">Full Forecast &rarr;</a>
@@ -298,7 +298,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0;">Complete assessments to unlock AI grade forecasting.</p>
+                <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0;">Complete assessments to unlock grade forecasting.</p>
             {% endif %}
         </div>
 
