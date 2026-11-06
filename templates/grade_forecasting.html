@@ -912,6 +912,19 @@
         if (modal) modal.style.display = 'none';
     }
 
+    const GRADE_PRESET_DESCRIPTIONS = {
+        'sri_lanka_national': '<strong>National G.C.E.:</strong> Grade Cutoffs (A &ge; 75%, B &ge; 65%, C &ge; 50%, S &ge; 35%) &bull; Baseline Weights: 90% Exam, 10% Homework',
+        'cambridge_edexcel': '<strong>Cambridge / Edexcel:</strong> Grade Cutoffs (A &ge; 80%, B &ge; 70%, C &ge; 60%, Pass &ge; 40%) &bull; Baseline Weights: 85% Exam, 15% Homework',
+        'higher_ed_gpa': '<strong>Higher Ed / Univ:</strong> Grade Cutoffs (A &ge; 85%, B &ge; 70%, C &ge; 55%, Pass &ge; 45%) &bull; Baseline Weights: 75% Exam, 25% Homework',
+        'custom': '<strong>Custom:</strong> Grade boundary cutoffs or assessment component weights configured manually.'
+    };
+
+    function updateGradePresetDescription(presetKey) {
+        const descEl = document.getElementById('gradePresetDescription');
+        if (!descEl) return;
+        descEl.innerHTML = GRADE_PRESET_DESCRIPTIONS[presetKey] || GRADE_PRESET_DESCRIPTIONS['custom'];
+    }
+
     function highlightGradePresetButton(presetKey) {
         const mapping = {
             'sri_lanka_national': 'presetBtnNational',
@@ -932,6 +945,7 @@
                 }
             }
         });
+        updateGradePresetDescription(presetKey);
     }
 
     function selectGradePreset(presetKey) {
@@ -1188,33 +1202,19 @@
                     Standard Grading Scale Presets
                 </label>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.65rem;">
-                    <button type="button" class="preset-btn" id="presetBtnNational" onclick="selectGradePreset('sri_lanka_national')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
-                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
-                            🇱🇰 National G.C.E.
-                        </div>
-                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
-                            A: 75+, B: 65+, C: 50+, S: 35+<br>90% Exam, 10% HW
-                        </div>
+                    <button type="button" class="preset-btn" id="presetBtnNational" onclick="selectGradePreset('sri_lanka_national')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: center; cursor: pointer; transition: all 0.15s ease; font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                        🇱🇰 National G.C.E.
                     </button>
 
-                    <button type="button" class="preset-btn" id="presetBtnCambridge" onclick="selectGradePreset('cambridge_edexcel')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
-                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
-                            🇬🇧 Cambridge / Edexcel
-                        </div>
-                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
-                            A: 80+, B: 70+, C: 60+, Pass: 40+<br>85% Exam, 15% HW
-                        </div>
+                    <button type="button" class="preset-btn" id="presetBtnCambridge" onclick="selectGradePreset('cambridge_edexcel')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: center; cursor: pointer; transition: all 0.15s ease; font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                        🇬🇧 Cambridge / Edexcel
                     </button>
 
-                    <button type="button" class="preset-btn" id="presetBtnHigherEd" onclick="selectGradePreset('higher_ed_gpa')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: left; cursor: pointer; transition: all 0.15s ease;">
-                        <div style="font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem;">
-                            🎓 Higher Ed / Univ
-                        </div>
-                        <div style="font-size: 0.725rem; color: var(--text-muted); margin-top: 0.2rem;">
-                            A: 85+, B: 70+, C: 55+, Pass: 45+<br>75% Exam, 25% HW
-                        </div>
+                    <button type="button" class="preset-btn" id="presetBtnHigherEd" onclick="selectGradePreset('higher_ed_gpa')" style="padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-main); text-align: center; cursor: pointer; transition: all 0.15s ease; font-weight: 700; font-size: 0.825rem; color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                        🎓 Higher Ed / Univ
                     </button>
                 </div>
+                <div id="gradePresetDescription" style="margin-top: 0.65rem; font-size: 0.775rem; color: var(--text-muted); background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.85rem; line-height: 1.45;"></div>
             </div>
 
             <!-- Section 1: Letter Grade Cutoffs -->
