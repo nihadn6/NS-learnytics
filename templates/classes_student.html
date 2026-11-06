@@ -17,7 +17,7 @@
 {% if pending_list %}
 <div class="card mb-6" style="border-left: 4px solid var(--warning); background: #fffdf5;">
     <div class="flex justify-between align-center mb-3">
-        <h3 class="mb-0" style="color: #92400e; font-size: 1.1rem;">⏳ Class Join Requests Awaiting Approval ({{ pending_list|length }})</h3>
+        <h3 class="mb-0" style="color: #92400e; font-size: 1.1rem;">Class Join Requests Awaiting Approval ({{ pending_list|length }})</h3>
         <span style="font-size: 0.75rem; background: #fef3c7; color: #92400e; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600;">Pending Review</span>
     </div>
     <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">
@@ -72,7 +72,7 @@
                 <p class="text-muted" style="font-size: 0.875rem;"><strong>Monthly Fee:</strong> LKR {{ "{:,.2f}".format(class.fee) }}</p>
                 {% if class.enable_attendance_weight %}
                 <p class="text-muted" style="font-size: 0.8rem; margin-top: 0.2rem;">
-                    <span style="background: #e0f2fe; color: #0284c7; padding: 0.15rem 0.5rem; border-radius: 1rem; font-weight: 700; font-size: 0.725rem;">⚡ Attendance-Weighted Predictions ({{ class.attendance_weight_pct|round(0)|int }}%)</span>
+                    <span style="background: #e0f2fe; color: #0284c7; padding: 0.15rem 0.5rem; border-radius: 1rem; font-weight: 700; font-size: 0.725rem;">Attendance-Weighted Predictions ({{ class.attendance_weight_pct|round(0)|int }}%)</span>
                 </p>
                 {% endif %}
             </div>

@@ -139,13 +139,13 @@
             All Predictions
         </button>
         <button type="button" class="btn btn-outline" id="tierTabA" onclick="filterForecasterTier('A')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
-            🌟 Distinction (Grade A)
+            Distinction (Grade A)
         </button>
         <button type="button" class="btn btn-outline" id="tierTabPASS" onclick="filterForecasterTier('PASS')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
-            ✅ Passing (B, C, S)
+            Passing (B, C, S)
         </button>
         <button type="button" class="btn btn-outline" id="tierTabSUPPORT" onclick="filterForecasterTier('SUPPORT')" style="font-size: 0.775rem; padding: 0.35rem 0.85rem; border-radius: 9999px;">
-            ⚠️ Needs Support (Grade F)
+            Needs Support (Grade F)
         </button>
     </div>
 
@@ -270,11 +270,11 @@
                             {% if f.enable_attendance_weight %}
                             <div style="font-size: 0.675rem; margin-top: 2px;">
                                 {% if f.attendance_impact_delta > 0 %}
-                                <span style="color: var(--success); font-weight: 700;">⚡ {{ f.attendance_impact_status }}</span>
+                                <span style="color: var(--success); font-weight: 700;">{{ f.attendance_impact_status }}</span>
                                 {% elif f.attendance_impact_delta < 0 %}
-                                <span style="color: var(--danger); font-weight: 700;">⚠️ {{ f.attendance_impact_status }}</span>
+                                <span style="color: var(--danger); font-weight: 700;">{{ f.attendance_impact_status }}</span>
                                 {% else %}
-                                <span style="color: var(--text-muted); font-weight: 600;">⚡ {{ f.attendance_impact_status }}</span>
+                                <span style="color: var(--text-muted); font-weight: 600;">{{ f.attendance_impact_status }}</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -375,11 +375,11 @@
                                     {% if f.enable_attendance_weight %}
                                     <div style="font-size: 0.675rem; margin-top: 3px;">
                                         {% if f.attendance_impact_delta > 0 %}
-                                        <span style="color: var(--success); font-weight: 700;">⚡ {{ f.attendance_impact_status }}</span>
+                                        <span style="color: var(--success); font-weight: 700;">{{ f.attendance_impact_status }}</span>
                                         {% elif f.attendance_impact_delta < 0 %}
-                                        <span style="color: var(--danger); font-weight: 700;">⚠️ {{ f.attendance_impact_status }}</span>
+                                        <span style="color: var(--danger); font-weight: 700;">{{ f.attendance_impact_status }}</span>
                                         {% else %}
-                                        <span style="color: var(--text-muted); font-weight: 600;">⚡ {{ f.attendance_impact_status }}</span>
+                                        <span style="color: var(--text-muted); font-weight: 600;">{{ f.attendance_impact_status }}</span>
                                         {% endif %}
                                     </div>
                                     {% endif %}
