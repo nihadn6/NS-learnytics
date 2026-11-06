@@ -25,11 +25,63 @@ def get_student_allowed_contact_ids(student_id, cursor):
     rows = cursor.fetchall()
     return {r['id'] for r in rows}
 
+def get_teacher_allowed_contact_ids(teacher_id, cursor):
+    """
+    Returns the set of user IDs a teacher is permitted to chat with:
+    1. Associated students: students actively enrolled in this teacher's classes.
+    2. Associated teachers: colleagues who share common students (co-instructors) or teach the same subject.
+    3. Associated parents: parents of students enrolled in this teacher's classes.
+    4. System administrators: 'superadmin' and 'moderator'.
+    """
+    cursor.execute("""
+        -- 1. Associated students
+        SELECT DISTINCT e.student_id AS id
+        FROM enrollments e
+        JOIN classes c ON e.class_id = c.id
+        WHERE c.teacher_id = %s
+        UNION
+        -- 2. Associated teachers (shared students)
+        SELECT DISTINCT c_other.teacher_id AS id
+        FROM classes c_other
+        JOIN enrollments e_other ON e_other.class_id = c_other.id
+        WHERE c_other.teacher_id != %s
+        AND e_other.student_id IN (
+            SELECT e_self.student_id
+            FROM enrollments e_self
+            JOIN classes c_self ON e_self.class_id = c_self.id
+            WHERE c_self.teacher_id = %s
+        )
+        UNION
+        -- 3. Associated teachers (same subject)
+        SELECT DISTINCT c_other.teacher_id AS id
+        FROM classes c_other
+        WHERE c_other.teacher_id != %s
+        AND c_other.subject IN (
+            SELECT c_self.subject
+            FROM classes c_self
+            WHERE c_self.teacher_id = %s
+        )
+        UNION
+        -- 4. Associated parents
+        SELECT DISTINCT psl.parent_id AS id
+        FROM parent_student_links psl
+        JOIN enrollments e ON psl.student_id = e.student_id
+        JOIN classes c ON e.class_id = c.id
+        WHERE c.teacher_id = %s AND psl.status = 'approved'
+        UNION
+        -- 5. Administrators
+        SELECT id FROM users WHERE role IN ('superadmin', 'moderator')
+    """, (teacher_id, teacher_id, teacher_id, teacher_id, teacher_id, teacher_id))
+    rows = cursor.fetchall()
+    return {r['id'] for r in rows}
+
 def can_chat_between(user_1_id, user_1_role, user_2_id, cursor):
     """
     Strict authorization gate:
     - If user 1 is a student, user 2 MUST be one of their teachers or an administrator.
     - If user 2 is a student, user 1 MUST be one of their teachers or an administrator.
+    - If user 1 is a teacher, user 2 MUST be an associated student, associated teacher, associated parent, or administrator.
+    - If user 2 is a teacher, user 1 MUST be an associated student, associated teacher, associated parent, or administrator.
     - Users cannot message themselves.
     """
     if not user_1_id or not user_2_id or user_1_id == user_2_id:
@@ -51,6 +103,18 @@ def can_chat_between(user_1_id, user_1_role, user_2_id, cursor):
     # When user 2 is a student: sender MUST be an admin or a teacher of an enrolled class
     if user_2_role == 'student':
         allowed_ids = get_student_allowed_contact_ids(user_2_id, cursor)
+        if user_1_id not in allowed_ids:
+            return False
+
+    # When user 1 is a teacher: recipient MUST be an associated student, associated teacher, associated parent, or admin
+    if user_1_role == 'teacher':
+        allowed_ids = get_teacher_allowed_contact_ids(user_1_id, cursor)
+        if user_2_id not in allowed_ids:
+            return False
+
+    # When user 2 is a teacher: sender MUST be an associated student, associated teacher, associated parent, or admin
+    if user_2_role == 'teacher':
+        allowed_ids = get_teacher_allowed_contact_ids(user_2_id, cursor)
         if user_1_id not in allowed_ids:
             return False
 
@@ -119,12 +183,14 @@ def get_contacts():
                 
             elif role == 'teacher':
                 cursor.execute("""
+                    -- Associated students (enrolled in this teacher's classes)
                     SELECT DISTINCT u.id, u.name, u.email, 'student' as role
                     FROM users u
                     JOIN enrollments e ON e.student_id = u.id
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s
                     UNION
+                    -- Associated parents (parents of enrolled students)
                     SELECT DISTINCT u.id, u.name, u.email, 'parent' as role
                     FROM users u
                     JOIN parent_student_links psl ON psl.parent_id = u.id
@@ -132,10 +198,34 @@ def get_contacts():
                     JOIN classes c ON e.class_id = c.id
                     WHERE c.teacher_id = %s AND psl.status = 'approved'
                     UNION
-                    SELECT id, name, email, role FROM users WHERE role IN ('superadmin', 'moderator')
+                    -- Associated teachers (colleagues sharing enrolled students)
+                    SELECT DISTINCT u.id, u.name, u.email, 'teacher' as role
+                    FROM users u
+                    JOIN classes c_other ON c_other.teacher_id = u.id
+                    JOIN enrollments e_other ON e_other.class_id = c_other.id
+                    WHERE u.role = 'teacher' AND u.id != %s
+                    AND e_other.student_id IN (
+                        SELECT e_self.student_id
+                        FROM enrollments e_self
+                        JOIN classes c_self ON e_self.class_id = c_self.id
+                        WHERE c_self.teacher_id = %s
+                    )
                     UNION
-                    SELECT id, name, email, role FROM users WHERE role = 'teacher' AND id != %s
-                """, (user_id, user_id, user_id))
+                    -- Associated teachers (colleagues teaching the same subject)
+                    SELECT DISTINCT u.id, u.name, u.email, 'teacher' as role
+                    FROM users u
+                    JOIN classes c_other ON c_other.teacher_id = u.id
+                    WHERE u.role = 'teacher' AND u.id != %s
+                    AND c_other.subject IN (
+                        SELECT c_self.subject
+                        FROM classes c_self
+                        WHERE c_self.teacher_id = %s
+                    )
+                    UNION
+                    -- Administrators
+                    SELECT id, name, email, role FROM users WHERE role IN ('superadmin', 'moderator')
+                    ORDER BY role, name
+                """, (user_id, user_id, user_id, user_id, user_id, user_id))
                 contacts = cursor.fetchall()
 
             elif role in ['superadmin', 'moderator']:
@@ -159,15 +249,18 @@ def get_contacts():
             existing_ids = {c['id'] for c in contacts}
             for pc in past_contacts:
                 if pc['id'] not in existing_ids:
-                    # Enforce student permission: only add if permitted
-                    if role == 'student' and not can_chat_between(user_id, role, pc['id'], cursor):
+                    # Enforce strict permission for student and teacher
+                    if role in ('student', 'teacher') and not can_chat_between(user_id, role, pc['id'], cursor):
                         continue
                     contacts.append(pc)
                     existing_ids.add(pc['id'])
 
-            # Final filter for student: ensure no unauthorized contact is returned
+            # Final filter: ensure no unauthorized contact is returned
             if role == 'student':
                 allowed_ids = get_student_allowed_contact_ids(user_id, cursor)
+                contacts = [c for c in contacts if c['id'] in allowed_ids]
+            elif role == 'teacher':
+                allowed_ids = get_teacher_allowed_contact_ids(user_id, cursor)
                 contacts = [c for c in contacts if c['id'] in allowed_ids]
 
             # For each contact, fetch the unread message count and latest message timestamp
@@ -221,12 +314,39 @@ def search_contacts():
                     FROM users u
                     WHERE u.id != %s AND (u.name LIKE %s OR u.email LIKE %s OR u.role LIKE %s)
                     AND (
-                        u.role IN ('teacher', 'superadmin')
-                        OR u.id IN (SELECT e.student_id FROM enrollments e JOIN classes c ON e.class_id = c.id WHERE c.teacher_id = %s)
-                        OR u.id IN (SELECT psl.parent_id FROM parent_student_links psl JOIN enrollments e ON psl.student_id = e.student_id JOIN classes c ON e.class_id = c.id WHERE c.teacher_id = %s AND psl.status = 'approved')
+                        u.role IN ('superadmin', 'moderator')
+                        OR u.id IN (
+                            SELECT e.student_id FROM enrollments e
+                            JOIN classes c ON e.class_id = c.id
+                            WHERE c.teacher_id = %s
+                        )
+                        OR u.id IN (
+                            SELECT psl.parent_id FROM parent_student_links psl
+                            JOIN enrollments e ON psl.student_id = e.student_id
+                            JOIN classes c ON e.class_id = c.id
+                            WHERE c.teacher_id = %s AND psl.status = 'approved'
+                        )
+                        OR u.id IN (
+                            SELECT c_other.teacher_id FROM classes c_other
+                            JOIN enrollments e_other ON e_other.class_id = c_other.id
+                            WHERE c_other.teacher_id != %s
+                            AND e_other.student_id IN (
+                                SELECT e_self.student_id FROM enrollments e_self
+                                JOIN classes c_self ON e_self.class_id = c_self.id
+                                WHERE c_self.teacher_id = %s
+                            )
+                        )
+                        OR u.id IN (
+                            SELECT c_other.teacher_id FROM classes c_other
+                            WHERE c_other.teacher_id != %s
+                            AND c_other.subject IN (
+                                SELECT c_self.subject FROM classes c_self
+                                WHERE c_self.teacher_id = %s
+                            )
+                        )
                     )
                     ORDER BY u.name LIMIT 20
-                """, (user_id, search_pattern, search_pattern, search_pattern, user_id, user_id))
+                """, (user_id, search_pattern, search_pattern, search_pattern, user_id, user_id, user_id, user_id, user_id, user_id))
             elif role == 'student':
                 cursor.execute("""
                     SELECT DISTINCT u.id, u.name, u.email, u.role
@@ -266,7 +386,7 @@ def get_history(other_id):
         with conn.cursor() as cursor:
             # Enforce chat permissions
             if not can_chat_between(user_id, role, other_id, cursor):
-                return jsonify({'error': 'Unauthorized. Students can only chat with their teachers and administrators.'}), 403
+                return jsonify({'error': 'Unauthorized. You are only permitted to chat with associated academic contacts and administrators.'}), 403
 
             # Mark messages as read
             cursor.execute("""
@@ -313,7 +433,7 @@ def send_message():
         with conn.cursor() as cursor:
             # Enforce strict chat permission
             if not can_chat_between(user_id, role, receiver_id, cursor):
-                return jsonify({'error': 'Unauthorized. Students can only chat with their teachers and administrators.'}), 403
+                return jsonify({'error': 'Unauthorized. You are only permitted to chat with associated academic contacts and administrators.'}), 403
             
             cursor.execute("""
                 INSERT INTO messages (sender_id, receiver_id, content)

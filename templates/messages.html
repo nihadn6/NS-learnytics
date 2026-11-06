@@ -296,7 +296,7 @@
 {% block content %}
 <div class="mb-4">
     <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">Messages</h1>
-    <p class="text-muted" style="margin-bottom: 0;">{% if session.role == 'student' %}Communicate directly with your class teachers and school administrators.{% else %}Communicate securely within your academic network.{% endif %}</p>
+    <p class="text-muted" style="margin-bottom: 0;">{% if session.role == 'student' %}Communicate directly with your class teachers and school administrators.{% elif session.role == 'teacher' %}Communicate directly with your enrolled students, associated faculty colleagues, and administrators.{% else %}Communicate securely within your academic network.{% endif %}</p>
 </div>
 
 <div class="chat-container">
@@ -319,7 +319,7 @@
                     <circle cx="11" cy="11" r="8" stroke-width="2"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke-linecap="round"></line>
                 </svg>
-                <input type="text" id="contactSearchInput" placeholder="{% if session.role == 'student' %}Search your teachers and admins...{% else %}Search people by name, role...{% endif %}" autocomplete="off">
+                <input type="text" id="contactSearchInput" placeholder="{% if session.role == 'student' %}Search your teachers and admins...{% elif session.role == 'teacher' %}Search your students, colleagues, and admins...{% else %}Search people by name, role...{% endif %}" autocomplete="off">
                 <button type="button" id="clearSearchBtn" class="clear-search-btn" style="display: none;" title="Clear search" aria-label="Clear search">&times;</button>
             </div>
         </div>
