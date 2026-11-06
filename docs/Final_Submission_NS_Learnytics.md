@@ -123,8 +123,17 @@ Finally, we express our heartfelt appreciation to our families, peers, and fello
 - **Figure 8.5e:** UML Activity Diagram: Guardian Link Request Submission, Administrative Verification & Reports
 - **Figure 8.5f:** UML Activity Diagram: Role-Isolated Academic Messaging, Relational Guarding & Channel Isolation
 - **Figure 8.6:** Database Entity-Relationship (ER) Architecture (19 Core Tables)
-- **Figure 8.7:** Interface Wireframe of Student Academic Portal & QR Gate Pass
-- **Figure 8.8:** Interface Wireframe of Teacher Grade Forecaster & Preset Scale Selector
+- **Figure 8.7a:** Interface Wireframe: Student Academic Portal Dashboard Viewport
+- **Figure 8.7b:** Interface Wireframe: Student Dynamic Optical QR Identity Pass (Mobile)
+- **Figure 8.7c:** Interface Wireframe: Student Course Join Modal & Pending Status View
+- **Figure 8.8a:** Interface Wireframe: Teacher Executive Class Management Dashboard
+- **Figure 8.8b:** Interface Wireframe: Teacher Grade Forecaster & Preset Scale Customizer
+- **Figure 8.8c:** Interface Wireframe: Teacher Student Roster & Join-Request Approval Queue
+- **Figure 8.8d:** Interface Wireframe: Continuous Assessment Mark Ledger & CSV Bulk Upload
+- **Figure 8.9:** Interface Wireframe: Front-Desk Clerk Optical QR Gate Scanner & Cashier
+- **Figure 8.10:** Interface Wireframe: Parent Multi-Ward Monitor & Official Report Card
+- **Figure 8.11:** Interface Wireframe: Super Administrator Institutional Governance & Health
+- **Figure 8.12:** Interface Wireframe: Role-Isolated Child-Safe Academic Messaging Hub
 
 ### List of Tables
 - **Table 6.1:** Functional Requirements Specification Traceability Matrix
@@ -937,20 +946,87 @@ erDiagram
 
 ### 8.4 Interface Design, Wireframes & UI Mockups
 
-#### 8.4.1 Student Academic Portal & Digital QR ID Card
-The Student Academic Portal organizes essential academic metrics into high-contrast summary tiles (attendance rate, term examination average, active enrolled class tally, fee clearance badge). The primary pane presents enrolled courses with real-time predictive grade trajectory estimates. The right sidebar embeds the dynamic optical QR Gate Pass, enabling instant gate access during in-person sessions.
+To provide a comprehensive blueprint of user interaction, visual hierarchies, and responsive viewports, high-resolution wireframe mockups were constructed covering all five organizational system roles and cross-cutting functional subsystems:
 
-*Figure 8.7: Interface Wireframe & UI Mockup of the Student Academic Portal and Optical QR Gate Pass*  
-*(Embedded High-Resolution Image: [`docs/diagrams/fig8_7_student_wireframe.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_7_student_wireframe.png))*
+#### 8.4.1 Student Role Interface Wireframes
 
-#### 8.4.2 Teacher Grade Forecaster & Scale Customizer Dashboard
-The Teacher Grade Forecaster dashboard organizes predictive analytics across the class roster, highlighting estimated final scores, reliability confidence intervals, and attendance impact status badges. The upper section features the Standard Grading Scale Presets selector, displaying simplified, non-cluttered buttons (`National G.C.E.`, `Cambridge / Edexcel`, `Higher Ed GPA`) with an active contextual info banner below.
+##### 1. Student Academic Portal Dashboard (Figure 8.7a)
+The Student Academic Portal organizes essential learning indicators into high-contrast summary cards (attendance velocity, term examination average, active enrolled courses, and fee clearance badges). The primary viewport presents enrolled courses with real-time predictive grade trajectory estimates, accompanied by an upcoming assignment and announcement feed.
 
-*Figure 8.8: Interface Wireframe of the Teacher Grade Forecaster Dashboard with Preset Scale Customizer*  
-*(Embedded High-Resolution Image: [`docs/diagrams/fig8_8_teacher_wireframe.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_8_teacher_wireframe.png))*
+*Figure 8.7a: Interface Wireframe: Student Academic Portal Dashboard Viewport with High-Contrast KPI Cards and Course Trajectories*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_7_1_student_dashboard.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_7_1_student_dashboard.png))*
 
+##### 2. Mobile Dynamic Optical QR Identity Pass (Figure 8.7b)
+The mobile viewport of the Dynamic Optical QR Identity Pass renders a cryptographically salted student QR matrix, student profile photo, registration number, validity timestamp, and active admission clearance status for instant gate camera scanning.
 
+*Figure 8.7b: Interface Wireframe: Mobile Viewport Digital Optical QR Identity Pass & Real-Time Gate Clearance Indicator*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_7_2_student_qr_pass.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_7_2_student_qr_pass.png))*
 
+##### 3. Student Course Join Modal & Pending Status View (Figure 8.7c)
+The Student Course Join Modal allows students to input an 8-character unique join key. Asynchronous validation previews course title, instructor, fee, and schedule, allowing one-click submission into the pending enrollment buffer.
+
+*Figure 8.7c: Interface Wireframe: Student Course Join Modal & Pending Enrollment Status Verification View*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_7_3_student_join_modal.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_7_3_student_join_modal.png))*
+
+---
+
+#### 8.4.2 Teacher Role Interface Wireframes
+
+##### 1. Teacher Executive Class Management Dashboard (Figure 8.8a)
+The Teacher Executive Dashboard organizes scheduled batches into visual cards displaying weekly timetable hours, enrolled student tallies, pending applicant alerts, join codes, and quick navigation toolbars.
+
+*Figure 8.8a: Interface Wireframe: Teacher Executive Class Management Dashboard, Weekly Timetable Matrix, and Batch Overview*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_8_1_teacher_dashboard.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_8_1_teacher_dashboard.png))*
+
+##### 2. Teacher Grade Forecaster & Preset Scale Customizer (Figure 8.8b)
+The Teacher Grade Forecaster Dashboard features the refined Standard Grading Scale Presets selector (`National G.C.E.`, `Cambridge / Edexcel`, `Higher Ed GPA`) with simplified buttons and active contextual info banners, alongside OLS linear trajectory forecasts and attendance impact badges for each student in the roster.
+
+*Figure 8.8b: Interface Wireframe: Teacher Grade Forecaster Dashboard with Preset Scale Selector and OLS Trajectory Table*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_8_2_teacher_forecaster.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_8_2_teacher_forecaster.png))*
+
+##### 3. Student Roster Management & Join Approval Queue (Figure 8.8c)
+The Student Roster Management & Approval Queue allows instructors to review pending join-code applicants with one-click **Approve** and **Decline** action controls, while monitoring enrolled student attendance rates and tuition fee clearance.
+
+*Figure 8.8c: Interface Wireframe: Student Roster Management & Join-Code Applicant Review Approval Queue*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_8_3_teacher_roster_approval.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_8_3_teacher_roster_approval.png))*
+
+##### 4. Continuous Assessment Mark Ledger & CSV Bulk Upload (Figure 8.8d)
+The Continuous Assessment Mark Ledger & CSV Bulk Upload Console allows instructors to drag-and-drop CSV spreadsheets or enter scores directly into inline validated score fields, configuring component weights before triggering batch recalculation.
+
+*Figure 8.8d: Interface Wireframe: Continuous Assessment Mark Ledger, Drag-and-Drop CSV Uploader, and Weighting Controls*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_8_4_teacher_marks_entry.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_8_4_teacher_marks_entry.png))*
+
+---
+
+#### 8.4.3 Front-Desk Clerk / Moderator Interface Wireframe (Figure 8.9)
+The Front-Desk Admission Kiosk & Cashier Console integrates a real-time optical camera QR scanner with instant admission feedback (green alert & audio chime) alongside a high-throughput tuition cashier with composite duplicate transaction protection.
+
+*Figure 8.9: Interface Wireframe: Front-Desk Optical QR Gate Scanner Kiosk and Duplicate-Guarded Tuition Cashier Console*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_9_clerk_kiosk_console.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_9_clerk_kiosk_console.png))*
+
+---
+
+#### 8.4.4 Parent / Guardian Interface Wireframe (Figure 8.10)
+The Parent Multi-Ward Oversight Portal and Official Progress Report Card allows guardians to toggle between linked wards to inspect live gate check-in timestamps, continuous assessment marks, and download official printable PDF report cards.
+
+*Figure 8.10: Interface Wireframe: Parent Multi-Ward Real-Time Attendance Monitoring and Official Downloadable Report Card*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_10_parent_monitor_report.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_10_parent_monitor_report.png))*
+
+---
+
+#### 8.4.5 Super Administrator Interface Wireframe (Figure 8.11)
+The Super Administrator Institutional Governance & Health Dashboard aggregates macro institutional KPIs, revenue cashflow graphs, user lifecycle provisioning tables, and parent-student link audit verification queues.
+
+*Figure 8.11: Interface Wireframe: Super Administrator Institutional Governance, System Health Metrics, and User Roster Management*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_11_admin_governance.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_11_admin_governance.png))*
+
+---
+
+#### 8.4.6 Cross-Role Secure Messaging Hub (Figure 8.12)
+The Role-Isolated Secure Messaging Hub enforces child-safe relational communication: contact lists are strictly restricted to verified teacher-student and parent-teacher links, displaying boundary verification badges and active conversation streams.
+
+*Figure 8.12: Interface Wireframe: Role-Isolated Academic Messaging Hub with Relational Boundary Filtering and Active Stream View*  
+*(Embedded High-Resolution Image: [`docs/diagrams/fig8_12_secure_messaging.png`](file:///c:/Users/USER/Desktop/UOM/Research/BAD%20research%20with%20saveen/NS%20learnytics/docs/diagrams/fig8_12_secure_messaging.png))*
 
 ---
 
